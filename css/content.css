@@ -1,0 +1,41 @@
+/* ── Verified citation (green) ─────────────────────────────────────────── */
+.quran-verified {
+  background-color: rgba(0, 180, 0, 0.18);
+  border-bottom: 2px solid rgba(0, 160, 0, 0.7);
+  border-radius: 2px;
+  cursor: help;
+  position: relative;
+}
+
+/* ── Unverified citation (red) — high-confidence only ───────────────────── */
+.quran-unverified {
+  background-color: rgba(220, 0, 0, 0.14);
+  border-bottom: 2px solid rgba(200, 0, 0, 0.6);
+  border-radius: 2px;
+  cursor: help;
+  position: relative;
+}
+
+/* ── Tooltip via data-tooltip attribute ─────────────────────────────────── */
+.quran-verified[data-tooltip]:hover::after,
+.quran-unverified[data-tooltip]:hover::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  background: #1a1a1a;
+  color: #f0f0f0;
+  padding: 5px 10px;
+  border-radius: 4px;
+  font-size: 13px;
+  font-family: Arial, sans-serif;
+  line-height: 1.6;
+  white-space: pre-line;
+  direction: rtl;
+  text-align: right;
+  z-index: 2147483647;
+  min-width: 120px;
+  max-width: 320px;
+  pointer-events: none;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}

@@ -1,0 +1,37 @@
+{
+  "manifest_version": 3,
+  "name": "Quran Citation Verifier",
+  "version": "1.0.0",
+  "description": "Detects and verifies Quran citations on web pages",
+  "icons": {
+    "48": "icons/quran_PNG52.png",
+    "128": "icons/quran_PNG52.png"
+  },
+  "background": {
+    "service_worker": "js/background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["js/content.js"],
+      "css": ["css/content.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_popup": "html/popup.html",
+    "default_icon": "icons/quran_PNG52.png"
+  },
+  "permissions": ["storage", "activeTab", "scripting"],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "resources/quran-uthmani_desc-v2.json",
+        "resources/me_quran.ttf",
+        "resources/QuranAyas/*.png",
+        "resources/QuranAyas2/*.png"
+      ],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}

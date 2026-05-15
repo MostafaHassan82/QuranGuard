@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+  <meta charset="UTF-8">
+  <title>Quran Citation Verifier</title>
+  <link rel="stylesheet" href="../css/popup.css">
+</head>
+<body>
+  <div id="controls">
+    <button id="btn-scan">فحص الصفحة</button>
+    <button id="btn-clear">مسح التمييز</button>
+  </div>
+
+  <div id="status"></div>
+
+  <div id="stats" hidden>
+    <div class="stat-row">
+      <span class="stat-label">تطابق أخضر</span>
+      <span id="s-yellow" class="stat-value green">0</span>
+    </div>
+    <div class="stat-row">
+      <span class="stat-label">تطابق أحمر</span>
+      <span id="s-red" class="stat-value red">0</span>
+    </div>
+    <div class="stat-row">
+      <span class="stat-label">مراجع مؤكدة</span>
+      <span id="s-yellowRef" class="stat-value">0</span>
+    </div>
+    <div class="stat-row">
+      <span class="stat-label">مراجع جزئية</span>
+      <span id="s-partialRef" class="stat-value">0</span>
+    </div>
+    <div class="stat-row">
+      <span class="stat-label">مراجع مرئية</span>
+      <span id="s-refsSeen" class="stat-value">0</span>
+    </div>
+    <div class="stat-row">
+      <span class="stat-label">مرشحات مراجع</span>
+      <span id="s-refCand" class="stat-value">0</span>
+    </div>
+    <div class="stat-row">
+      <span class="stat-label">مراجع صحيحة</span>
+      <span id="s-refVerif" class="stat-value">0</span>
+    </div>
+    <div class="stat-row">
+      <span class="stat-label">مراجع مرفوضة</span>
+      <span id="s-refRej" class="stat-value">0</span>
+    </div>
+  </div>
+
+  <script src="../js/popup.js"></script>
+</body>
+</html>
