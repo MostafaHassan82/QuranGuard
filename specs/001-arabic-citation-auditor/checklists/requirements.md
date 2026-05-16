@@ -32,7 +32,9 @@
 ## Notes
 
 - Items marked incomplete require spec updates before `/speckit-clarify` or `/speckit-plan`
-- Validation pass 1: all checks pass on initial draft.
-- The spec uses the cowork-derived integrity mission, color taxonomy, and V1 scope as the source of truth. If the constitution amends those, this spec must be re-validated.
+- Validation pass 1 (initial draft): all checks pass.
+- Validation pass 2 (after folding `fresh_start/00-V1-PRD.md` material — added Users & Personas, FR-016/017/018, SC-009..SC-013, two-surface findings panel, Open Questions): all checks still pass. The deepenings strengthen testability and measurability without introducing implementation details.
+- The spec uses the cowork-derived integrity mission, color taxonomy, and V1 scope as the source of truth, augmented by `fresh_start/00-V1-PRD.md` for numeric quality bars and verifier discipline rules. If the constitution amends the principles, this spec must be re-validated.
 - "Cited as X, actually Y" is treated as user-facing copy, not implementation detail — it is the verbatim wording the project owner has specified for the headline orange finding.
 - "Local Quran data file" appears in FR-013 and SC-006/SC-007 because the network-isolation requirement is a *user-observable* behavior (no internet needed at scan time), not an implementation choice.
+- "Open Questions" section at the spec's end carries the five unresolved V1 PRD questions forward to `/speckit-clarify`. None block writing the plan; Q5 blocks the polish phase of SC-013.
