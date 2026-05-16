@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<!--
+  Synthetic fixture for testing orange (ref-mismatch) detection.
+  All citations are handcrafted with known ground truth:
+  - 1 green: correct text + correct ref
+  - 5 orange: real Quran text cited at wrong ref
+  - 1 red: non-Quran text (famous hadith) cited with a ref
+  Source: constructed, not a real web page.
+-->
+<html dir="rtl" lang="ar">
+<head>
+  <meta charset="UTF-8">
+  <title>اختبار اقتباسات قرآنية</title>
+</head>
+<body>
+<article class="article-content">
+
+<h1>اختبار التحقق من الاقتباسات القرآنية</h1>
+
+<p>
+  <!-- GREEN: correct ref الفاتحة:6 -->
+  من أعظم ما أُمِرنا بدعائه قوله تعالى:
+  {اهدنا الصراط المستقيم}
+  (الفاتحة:6)،
+  وهذا الدعاء جوهر سورة الفاتحة.
+</p>
+
+<p>
+  <!-- ORANGE: text is الذاريات:56, wrongly cited as البقرة:56 -->
+  <!-- البقرة:56 is: ثم بعثناكم من بعد موتكم لعلكم تشكرون -->
+  وقد بيَّن الله غاية خلق الثقلين في قوله تعالى:
+  {وما خلقت الجن والإنس إلا ليعبدون}
+  (البقرة:56)،
+  وهذا أصل التوحيد.
+</p>
+
+<p>
+  <!-- ORANGE: text is الشرح:5, wrongly cited as البقرة:5 -->
+  <!-- البقرة:5 is: أولئك على هدى من ربهم وأولئك هم المفلحون -->
+  ومن بشائر القرآن قوله تعالى:
+  {فإن مع العسر يسرا}
+  (البقرة:5)،
+  وعد ربانيٌّ لكل مبتلى.
+</p>
+
+<p>
+  <!-- ORANGE: text is الشرح:6, wrongly cited as البقرة:6 -->
+  <!-- البقرة:6 is: إن الذين كفروا سواء عليهم... -->
+  وفي السياق ذاته قوله عز وجل:
+  {إن مع العسر يسرا}
+  (البقرة:6)،
+  تأكيد للبشرى السابقة.
+</p>
+
+<p>
+  <!-- ORANGE: text is الفاتحة:2, wrongly cited as الفاتحة:3 -->
+  <!-- الفاتحة:3 is: الرحمن الرحيم -->
+  مفتتح أم الكتاب قوله تعالى:
+  {الحمد لله رب العالمين}
+  (الفاتحة:3)،
+  ثناءٌ على الله سبحانه.
+</p>
+
+<p>
+  <!-- ORANGE: text is الإخلاص:1, wrongly cited as البقرة:1 -->
+  <!-- البقرة:1 is: الم -->
+  وأجمع ما جاء في وصف التوحيد قوله تعالى:
+  {قل هو الله أحد}
+  (البقرة:1)،
+  وهو مقدمة سورة الإخلاص.
+</p>
+
+<p>
+  <!-- RED: not in Quran — this is a hadith, not a Quran verse -->
+  <!-- مريم:15 is: وسلام عليه يوم ولد ويوم يموت ويوم يبعث حيا -->
+  وفي الحث على العلم قال تعالى:
+  {طلب العلم فريضة على كل مسلم}
+  (مريم:15)،
+  دليل على وجوب التعلم.
+</p>
+
+</article>
+</body>
+</html>

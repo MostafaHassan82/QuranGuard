@@ -98,7 +98,8 @@ def main():
             context = load_extension(pw)
             time.sleep(2.0)
             try:
-                observed = run_fixture(context, html, source_label=args.name)
+                observed = run_fixture(context, html, source_label=args.name,
+                                       fixture_path=fx_path)
                 observed['source_url'] = args.url
                 observed['fixture_name'] = args.name
                 write_observed(observed, fx_path)

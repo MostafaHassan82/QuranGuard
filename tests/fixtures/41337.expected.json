@@ -1,0 +1,4 @@
+{
+  "_skip": true,
+  "_comment": "Stale MV2 expected. Run --write-observed, review observed.json, then --update-expected."
+}

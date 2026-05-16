@@ -1,0 +1,58 @@
+{
+  "source_label": "orange_synthetic",
+  "_comment": "Synthetic fixture — known ground truth. Strategy: leadInBraced (high confidence) for all 7 citations.",
+  "stats": {
+    "greenMatches": 1,
+    "lightBlueMatches": 0,
+    "yellowMatches": 0,
+    "orangeMatches": 5,
+    "redMatches": 1,
+    "totalFindings": 7,
+    "refsSeen": 7,
+    "refCandidates": 0
+  },
+  "matches": [
+    {
+      "text": "اهدنا الصراط المستقيم",
+      "color": "green",
+      "matchedRef": "الفاتحة:6",
+      "claimedRef": "(الفاتحة:6)"
+    },
+    {
+      "text": "وما خلقت الجن والإنس إلا ليعبدون",
+      "color": "orange",
+      "matchedRef": "الذاريات:56",
+      "claimedRef": "(البقرة:56)"
+    },
+    {
+      "text": "فإن مع العسر يسرا",
+      "color": "orange",
+      "matchedRef": "الشرح:5",
+      "claimedRef": "(البقرة:5)"
+    },
+    {
+      "text": "إن مع العسر يسرا",
+      "color": "orange",
+      "matchedRef": "الشرح:6",
+      "claimedRef": "(البقرة:6)"
+    },
+    {
+      "text": "الحمد لله رب العالمين",
+      "color": "orange",
+      "matchedRef": "الفاتحة:2",
+      "claimedRef": "(الفاتحة:3)"
+    },
+    {
+      "text": "قل هو الله أحد",
+      "color": "orange",
+      "matchedRef": "الإخلاص:1",
+      "claimedRef": "(البقرة:1)"
+    },
+    {
+      "text": "طلب العلم فريضة على كل مسلم",
+      "color": "red",
+      "matchedRef": null,
+      "claimedRef": "(مريم:15)"
+    }
+  ]
+}

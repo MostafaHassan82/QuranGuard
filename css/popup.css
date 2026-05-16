@@ -101,3 +101,21 @@ button:disabled {
 .stat-value.red {
   color: #b00020;
 }
+
+/* ── Orange row: headline finding (reference mismatch) ──────────────────── */
+.stat-row.stat-orange {
+  background: rgba(255, 140, 0, 0.10);
+  margin: 4px -4px;
+  padding: 6px 6px;
+  border-radius: 4px;
+  border-bottom: none;
+}
+
+.stat-row.stat-orange .stat-label {
+  color: #b25500;
+  font-weight: 600;
+}
+
+.stat-row.stat-orange .stat-value {
+  color: #b25500;
+}

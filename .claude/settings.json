@@ -1,0 +1,27 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python tests/add_fixture.py \"https://www.islamweb.net/ar/article/174389/%D9%84%D9%81%D8%B8-%D8%A7%D9%84%D8%A2%D9%8A%D8%A9-%D9%81%D9%8A-%D8%A7%D9%84%D9%82%D8%B1%D8%A2%D9%86\" --name 174389 --rendered --scan)",
+      "Bash(Remove-Item -Recurse -Force \"c:\\\\Users\\\\mosta\\\\PycharmProjects\\\\QuranAuditPlugin\\\\tests\\\\browser_profile\" -ErrorAction SilentlyContinue)",
+      "Bash(Remove-Item -Force \"c:\\\\Users\\\\mosta\\\\PycharmProjects\\\\QuranAuditPlugin\\\\tests\\\\fixtures\\\\174389.observed.json\" -ErrorAction SilentlyContinue)",
+      "Bash(python -c \"from playwright.sync_api import sync_playwright; pw = sync_playwright\\(\\).start\\(\\); print\\(pw.chromium.name\\); pw.stop\\(\\)\")",
+      "Bash(python -c \"import playwright; print\\(playwright.__version__\\)\")",
+      "Bash(python -m playwright show-version)",
+      "Bash(python tests/diagnose.py)",
+      "Bash(python -c \"import json; d=json.load\\(open\\('c:/Users/mosta/PycharmProjects/QuranAuditPlugin/tests/fixtures/174389.observed.json', encoding='utf-8'\\)\\); print\\('Stats:', d['stats']\\); print\\('Matches:', len\\(d['matches']\\)\\); [print\\(' -', m['type'], '|', m['ref'][:50], '|', m['text'][:60]\\) for m in d['matches']]\")",
+      "Bash(python tests/add_fixture.py \"https://www.m-ismail.net/41337/\" --name 41337 --rendered --scan)",
+      "PowerShell($bytes = [System.IO.File]::ReadAllBytes\\(\"c:\\\\Users\\\\mosta\\\\PycharmProjects\\\\QuranAuditPlugin\\\\js\\\\content.js\"\\); \"First 4 bytes: $\\($bytes[0..3]\\)\"; \"File size: $\\($bytes.Length\\)\")",
+      "PowerShell(Get-Content \"c:\\\\Users\\\\mosta\\\\PycharmProjects\\\\QuranAuditPlugin\\\\js\\\\content.js\" -Encoding UTF8 | Select-String -Pattern \"async function scanPage\" -SimpleMatch; $lines = Get-Content \"c:\\\\Users\\\\mosta\\\\PycharmProjects\\\\QuranAuditPlugin\\\\js\\\\content.js\" -Encoding UTF8; for \\($i=0; $i -lt $lines.Count; $i++\\) { if \\($lines[$i] -match \"async function scanPage\"\\) { $lines[$i..\\([Math]::Min\\($i+40, $lines.Count-1\\)\\)] -join \"`n\"; break } })",
+      "PowerShell($lines = Get-Content \"c:\\\\Users\\\\mosta\\\\PycharmProjects\\\\QuranAuditPlugin\\\\js\\\\content.js\" -Encoding UTF8; $total = $lines.Count; Write-Host \"Total lines: $total\"; $lines | Select-String \"__quranBridgeScan\" | ForEach-Object { \"$\\($_.LineNumber\\): $\\($_.Line\\)\" })",
+      "PowerShell($html = Get-Content \"c:\\\\Users\\\\mosta\\\\PycharmProjects\\\\QuranAuditPlugin\\\\tests\\\\fixtures\\\\174389.html\" -Encoding UTF8 -Raw; $pos = $html.IndexOf\\(\"قال\"\\); if \\($pos -ge 0\\) { $html.Substring\\($pos, [Math]::Min\\(200, $html.Length - $pos\\)\\) } else { \"No Arabic 'قال' found\" })",
+      "PowerShell($html = Get-Content \"c:\\\\Users\\\\mosta\\\\PycharmProjects\\\\QuranAuditPlugin\\\\tests\\\\fixtures\\\\41337.html\" -Encoding UTF8 -Raw; $pos = $html.IndexOf\\(\"أحل\"\\); if \\($pos -ge 0\\) { $html.Substring\\([Math]::Max\\(0,$pos-200\\), 400\\) } else { \"not found\" })",
+      "PowerShell($lines = Get-Content \"c:\\\\Users\\\\mosta\\\\PycharmProjects\\\\QuranAuditPlugin\\\\js\\\\content.js\" -Encoding UTF8; $lines | Select-String \"highlightedSpans\" | ForEach-Object { \"$\\($_.LineNumber\\): $\\($_.Line.Trim\\(\\)\\)\" })",
+      "PowerShell(foreach \\($name in @\\(\"120981\", \"174389\", \"202459\", \"228475\", \"41337\"\\)\\) { $data = Get-Content \"c:\\\\Users\\\\mosta\\\\PycharmProjects\\\\QuranAuditPlugin\\\\tests\\\\fixtures\\\\$name.observed.json\" -Encoding UTF8 | ConvertFrom-Json; Write-Host \"[$name] matches=$\\($data.matches.Count\\) yellow=$\\($data.stats.yellowMatches\\) red=$\\($data.stats.redMatches\\) refsSeen=$\\($data.stats.refsSeen\\)\" })",
+      "PowerShell(foreach \\($name in @\\(\"120981\", \"174389\", \"202459\", \"228475\", \"41337\"\\)\\) { $src = \"c:\\\\Users\\\\mosta\\\\PycharmProjects\\\\QuranAuditPlugin\\\\tests\\\\fixtures\\\\$name.observed.json\"; $dst = \"c:\\\\Users\\\\mosta\\\\PycharmProjects\\\\QuranAuditPlugin\\\\tests\\\\fixtures\\\\$name.expected.json\"; Copy-Item $src $dst; Write-Host \"Created $name.expected.json\" })",
+      "PowerShell($html = Get-Content \"c:\\\\Users\\\\mosta\\\\PycharmProjects\\\\QuranAuditPlugin\\\\tests\\\\fixtures\\\\174389.html\" -Encoding UTF8 -Raw; $pos = $html.IndexOf\\(\"وجعلنا الليل\"\\); if \\($pos -ge 0\\) { $html.Substring\\([Math]::Max\\(0,$pos-300\\), 600\\) } else { \"not found\" })",
+      "PowerShell($lines = Get-Content \"c:\\\\Users\\\\mosta\\\\PycharmProjects\\\\QuranAuditPlugin\\\\js\\\\content.js\" -Encoding UTF8; $lines | Select-String \"buildVirtualText|BRACE_RE|REF_RE|LEAD_IN\" | ForEach-Object { \"$\\($_.LineNumber\\): $\\($_.Line.Trim\\(\\)\\)\" })",
+      "PowerShell($lines = Get-Content \"c:\\\\Users\\\\mosta\\\\PycharmProjects\\\\QuranAuditPlugin\\\\js\\\\content.js\" -Encoding UTF8; $lines | Select-String \"BOUNDARY\" | ForEach-Object { \"$\\($_.LineNumber\\): $\\($_.Line.Trim\\(\\)\\)\" })",
+      "PowerShell($html = Get-Content \"c:\\\\Users\\\\mosta\\\\PycharmProjects\\\\QuranAuditPlugin\\\\tests\\\\fixtures\\\\174389.html\" -Encoding UTF8 -Raw; $matches = [regex]::Matches\\($html, 'الآية.{0,80}\\(\\\\\\([؀-ۿ]+:\\\\d+\\\\\\)\\)'\\); foreach \\($m in $matches\\) { $m.Value.Substring\\(0, [Math]::Min\\(120, $m.Value.Length\\)\\) + \"`n---\" })"
+    ]
+  }
+}

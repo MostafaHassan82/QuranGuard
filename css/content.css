@@ -1,31 +1,63 @@
-/* ── Verified citation (green) ─────────────────────────────────────────── */
-.quran-verified {
-  background-color: rgba(0, 180, 0, 0.18);
-  border-bottom: 2px solid rgba(0, 160, 0, 0.7);
+/* =============================================================================
+   Quran Audit Extension — Five-color highlight system (V1)
+   =============================================================================
+   green     — verified exact (text + ref agree, tashkeel/spelling tolerated)
+   lightBlue — verified exact, no ref on page
+   yellow    — word-level deviation
+   orange    — REF MISMATCH (text is real Quran but at a different ref)
+   red       — citation signal but text not found in Quran
+*/
+
+.quran-green,
+.quran-lightblue,
+.quran-yellow,
+.quran-orange,
+.quran-red {
   border-radius: 2px;
   cursor: help;
   position: relative;
 }
 
-/* ── Unverified citation (red) — high-confidence only ───────────────────── */
-.quran-unverified {
+.quran-green {
+  background-color: rgba(0, 180, 0, 0.18);
+  border-bottom: 2px solid rgba(0, 160, 0, 0.7);
+}
+
+.quran-lightblue {
+  background-color: rgba(70, 170, 220, 0.18);
+  border-bottom: 2px solid rgba(50, 140, 200, 0.7);
+}
+
+.quran-yellow {
+  background-color: rgba(240, 200, 50, 0.25);
+  border-bottom: 2px solid rgba(210, 170, 30, 0.75);
+}
+
+.quran-orange {
+  background-color: rgba(255, 140, 0, 0.25);
+  border-bottom: 2px solid rgba(230, 110, 0, 0.85);
+  /* Subtle visual emphasis — orange is the headline finding */
+  box-shadow: 0 0 0 1px rgba(255, 130, 0, 0.35);
+}
+
+.quran-red {
   background-color: rgba(220, 0, 0, 0.14);
   border-bottom: 2px solid rgba(200, 0, 0, 0.6);
-  border-radius: 2px;
-  cursor: help;
-  position: relative;
 }
 
 /* ── Tooltip via data-tooltip attribute ─────────────────────────────────── */
-.quran-verified[data-tooltip]:hover::after,
-.quran-unverified[data-tooltip]:hover::after {
+.quran-green[data-tooltip]:hover::after,
+.quran-lightblue[data-tooltip]:hover::after,
+.quran-yellow[data-tooltip]:hover::after,
+.quran-orange[data-tooltip]:hover::after,
+.quran-red[data-tooltip]:hover::after {
   content: attr(data-tooltip);
   position: absolute;
   top: calc(100% + 4px);
   right: 0;
   background: #1a1a1a;
   color: #f0f0f0;
-  padding: 5px 10px;
+  padding: 6px 10px;
   border-radius: 4px;
   font-size: 13px;
   font-family: Arial, sans-serif;
@@ -34,8 +66,8 @@
   direction: rtl;
   text-align: right;
   z-index: 2147483647;
-  min-width: 120px;
-  max-width: 320px;
+  min-width: 140px;
+  max-width: 360px;
   pointer-events: none;
   box-shadow: 0 2px 8px rgba(0,0,0,0.3);
 }

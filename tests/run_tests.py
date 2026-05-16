@@ -13,11 +13,14 @@ Usage:
 """
 
 import argparse
+import io
 import json
-import os
 import sys
 import time
 from pathlib import Path
+
+# Force UTF-8 stdout on Windows (avoids UnicodeEncodeError for Arabic text)
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
 
 # ── Playwright import guard ───────────────────────────────────────────────────
 try:
@@ -31,10 +34,14 @@ TESTS_DIR = Path(__file__).parent
 PROJECT_DIR = TESTS_DIR.parent
 FIXTURES_DIR = TESTS_DIR / 'fixtures'
 
+# Fixture serving URL — a stable http:// URL that Playwright routes to our HTML.
+# <all_urls> in the manifest matches this, so the extension injects content.js.
+FIXTURE_URL = 'http://quran-ext-fixture.local/page.html'
+
 # ── Extension loader ──────────────────────────────────────────────────────────
 
 def load_extension(playwright: Playwright):
-    """Launch Chromium with the extension loaded. Returns (browser, context)."""
+    """Launch Chromium with the extension loaded. Returns a persistent context."""
     ext_path = str(PROJECT_DIR.resolve())
     context = playwright.chromium.launch_persistent_context(
         user_data_dir=str(TESTS_DIR / 'browser_profile'),
@@ -49,113 +56,98 @@ def load_extension(playwright: Playwright):
     )
     return context
 
-# ── JS helpers injected into the page ────────────────────────────────────────
-
-WAIT_FOR_SCAN_JS = """
-async () => {
-    // Poll until scan is no longer running (up to 30s)
-    const start = Date.now();
-    while (Date.now() - start < 30000) {
-        if (window.__quranStats && !window.__scanRunning) {
-            await new Promise(r => setTimeout(r, 200));
-            return true;
-        }
-        await new Promise(r => setTimeout(r, 300));
-    }
-    return false;
-}
-"""
-
-TRIGGER_SCAN_JS = """
-async () => {
-    if (typeof window.__quranScan !== 'function') {
-        return { error: '__quranScan not available — content script may not be injected' };
-    }
-    window.__scanRunning = true;
-    try {
-        const stats = await window.__quranScan();
-        window.__scanRunning = false;
-        return { ok: true, stats };
-    } catch(e) {
-        window.__scanRunning = false;
-        return { error: e.message };
-    }
-}
-"""
-
-COLLECT_RESULTS_JS = """
-() => {
-    const stats = window.__quranStats ? window.__quranStats() : null;
-    const matches = window.__quranMatches ? window.__quranMatches() : [];
-    return { stats, matches };
-}
-"""
 
 # ── Single fixture runner ─────────────────────────────────────────────────────
 
-def run_fixture(context, html_source: str, source_label: str = '') -> dict:
+def run_fixture(context, html_source: str, source_label: str = '',
+               fixture_path: Path = None) -> dict:
     """
-    Run the extension against html_source (a full HTML string).
+    Run the extension against html_source.
+    Uses Playwright route.fulfill() to serve the HTML at FIXTURE_URL — a stable
+    http:// URL that matches <all_urls> so the content script is injected.
     Returns a ScanResult dict.
     """
+    if fixture_path and fixture_path.exists():
+        html_source = fixture_path.read_text(encoding='utf-8', errors='replace')
+
     page = context.new_page()
     try:
-        # Load the HTML
-        page.set_content(html_source, wait_until='domcontentloaded')
-        # Give content script time to inject
-        time.sleep(1.0)
+        body_bytes = html_source.encode('utf-8')
+        # Abort all HTTP(S) requests by default — prevents external blocking scripts
+        # from stalling DOMContentLoaded (islamweb pages have many external <script>s).
+        # Playwright uses last-registered route first, so fixture URL is registered
+        # AFTER the catch-all so it takes precedence.
+        page.route('**/*', lambda route: route.abort())
+        # Serve fixture HTML at the stable local URL (overrides the catch-all above)
+        page.route(FIXTURE_URL, lambda route: route.fulfill(
+            status=200,
+            headers={'Content-Type': 'text/html; charset=utf-8'},
+            body=body_bytes,
+        ))
 
-        # Trigger scan
-        result = page.evaluate("""
+        # 'commit' returns as soon as the first response byte arrives.
+        # External requests are aborted so DOMContentLoaded fires quickly.
+        # content.js bridge guard (readyState check) + retry loop handles timing.
+        page.goto(FIXTURE_URL, wait_until='commit', timeout=15000)
+
+        # Trigger scan via DOM event bridge.
+        # content.js (isolated world) listens for '__quranBridgeScan' and
+        # dispatches '__quranBridgeDone' with stats+matches when done.
+        # Retry until the content script is ready (small startup delay).
+        raw = page.evaluate("""
             async () => {
-                if (typeof window.__quranScan !== 'function') {
-                    // Wait up to 5s for the content script
-                    const start = Date.now();
-                    while (Date.now() - start < 5000) {
-                        await new Promise(r => setTimeout(r, 300));
-                        if (typeof window.__quranScan === 'function') break;
+                return new Promise((resolve) => {
+                    const overallTimeout = setTimeout(
+                        () => resolve({ error: 'content script not ready after 35s' }), 35000);
+                    let done = false;
+
+                    function attempt() {
+                        if (done) return;
+                        const handler = (e) => {
+                            if (done) return;
+                            done = true;
+                            clearTimeout(overallTimeout);
+                            resolve({ ok: true, ...e.detail });
+                        };
+                        document.addEventListener('__quranBridgeDone', handler, { once: true });
+                        document.dispatchEvent(new Event('__quranBridgeScan'));
+                        // If content script not ready, it won't respond; retry in 1s
+                        setTimeout(() => {
+                            if (!done) {
+                                document.removeEventListener('__quranBridgeDone', handler);
+                                attempt();
+                            }
+                        }, 1000);
                     }
-                }
-                if (typeof window.__quranScan !== 'function') {
-                    return { error: 'content script not available' };
-                }
-                try {
-                    await window.__quranScan();
-                    return { ok: true };
-                } catch(e) {
-                    return { error: e.message };
-                }
+                    attempt();
+                });
             }
         """)
 
-        if result.get('error'):
-            print(f"  WARN scan error: {result['error']}")
+        if raw.get('error'):
+            print(f"  WARN scan error: {raw['error']}")
 
-        # Give a moment for DOM updates to settle
-        time.sleep(0.5)
-
-        # Collect results
-        raw = page.evaluate(COLLECT_RESULTS_JS)
         stats = raw.get('stats') or {}
         matches = raw.get('matches') or []
 
         return {
             'source_label': source_label,
             'stats': {
+                'greenMatches':     int(stats.get('greenMatches',     0)),
+                'lightBlueMatches': int(stats.get('lightBlueMatches', 0)),
                 'yellowMatches':    int(stats.get('yellowMatches',    0)),
+                'orangeMatches':    int(stats.get('orangeMatches',    0)),
                 'redMatches':       int(stats.get('redMatches',       0)),
-                'yellowReferences': int(stats.get('yellowReferences', 0)),
-                'partialReferences':int(stats.get('partialReferences',0)),
+                'totalFindings':    int(stats.get('totalFindings',    0)),
                 'refsSeen':         int(stats.get('refsSeen',         0)),
                 'refCandidates':    int(stats.get('refCandidates',    0)),
-                'refVerified':      int(stats.get('refVerified',      0)),
-                'refRejected':      int(stats.get('refRejected',      0)),
             },
             'matches': [
                 {
-                    'text': m.get('text', ''),
-                    'ref':  m.get('ref', ''),
-                    'type': m.get('type', ''),
+                    'text':       m.get('text', ''),
+                    'color':      m.get('color', ''),
+                    'matchedRef': m.get('matchedRef', ''),
+                    'claimedRef': m.get('claimedRef', ''),
                 }
                 for m in matches
             ],
@@ -169,23 +161,23 @@ def compare_results(observed: dict, expected: dict) -> dict:
     """Compare observed vs expected. Returns {passed, diffs}."""
     diffs = []
 
-    # Stats comparison
+    # Stats comparison — V1 five-color vocabulary
     obs_stats = observed.get('stats', {})
     exp_stats = expected.get('stats', {})
-    for key in ['yellowMatches','redMatches','yellowReferences','partialReferences',
-                'refsSeen','refCandidates','refVerified','refRejected']:
+    for key in ['greenMatches', 'lightBlueMatches', 'yellowMatches', 'orangeMatches',
+                'redMatches', 'totalFindings', 'refsSeen', 'refCandidates']:
         ov = obs_stats.get(key, 0)
         ev = exp_stats.get(key, 0)
         if ov != ev:
             diffs.append(f"  stat {key}: expected {ev}, got {ov}")
 
-    # Matches comparison (order-independent, by text+type key)
-    obs_keys = {(m['text'], m['type']) for m in observed.get('matches', [])}
-    exp_keys = {(m['text'], m['type']) for m in expected.get('matches', [])}
+    # Matches comparison (order-independent, by text+color key)
+    obs_keys = {(m['text'], m['color']) for m in observed.get('matches', [])}
+    exp_keys = {(m['text'], m['color']) for m in expected.get('matches', [])}
     for key in exp_keys - obs_keys:
-        diffs.append(f"  MISSING match: {key[1]} | {key[0][:60]}")
+        diffs.append(f"  MISSING match [{key[1]}]: {key[0][:60]}")
     for key in obs_keys - exp_keys:
-        diffs.append(f"  EXTRA match: {key[1]} | {key[0][:60]}")
+        diffs.append(f"  EXTRA match [{key[1]}]: {key[0][:60]}")
 
     return {'passed': len(diffs) == 0, 'diffs': diffs}
 
@@ -221,11 +213,11 @@ def run_all_fixtures(context, args) -> tuple[int, int]:
         return 0, 0
 
     passed = 0
-    total = len(fixtures)
+    skipped = 0
+    total = 0  # counts only fixtures with non-skip expected files
     for fx in fixtures:
         print(f"\n[{fx.stem}]")
-        html = fx.read_text(encoding='utf-8', errors='replace')
-        observed = run_fixture(context, html, source_label=fx.stem)
+        observed = run_fixture(context, '', source_label=fx.stem, fixture_path=fx)
 
         if args.write_observed:
             write_observed(observed, fx)
@@ -235,9 +227,19 @@ def run_all_fixtures(context, args) -> tuple[int, int]:
             print(f"  REVIEW (no expected file yet)")
             if not args.write_observed:
                 write_observed(observed, fx)
+            skipped += 1
             continue
 
         expected = json.loads(exp_file.read_text(encoding='utf-8'))
+
+        if expected.get('_skip'):
+            print(f"  SKIP (expected marked _skip — run --write-observed to populate)")
+            if not args.write_observed:
+                write_observed(observed, fx)
+            skipped += 1
+            continue
+
+        total += 1
 
         if args.update_expected:
             update_expected(fx)
@@ -254,7 +256,7 @@ def run_all_fixtures(context, args) -> tuple[int, int]:
             for d in cmp['diffs']:
                 print(d)
 
-    return passed, total
+    return passed, total, skipped
 
 
 def run_text_snippet(context, text: str, as_json: bool):
@@ -299,9 +301,10 @@ def main():
                 run_text_snippet(context, args.text, args.json)
 
             elif args.all:
-                passed, total = run_all_fixtures(context, args)
-                print(f"\n{'─'*40}")
-                print(f"Results: {passed}/{total} passed")
+                passed, total, skipped = run_all_fixtures(context, args)
+                print(f"\n{'-'*40}")
+                skip_note = f"  ({skipped} skipped/review)" if skipped else ""
+                print(f"Results: {passed}/{total} passed{skip_note}")
                 if passed < total:
                     sys.exit(1)
 
@@ -310,8 +313,7 @@ def main():
                 if not fx.exists():
                     print(f"File not found: {fx}")
                     sys.exit(1)
-                html = fx.read_text(encoding='utf-8', errors='replace')
-                observed = run_fixture(context, html, source_label=fx.stem)
+                observed = run_fixture(context, '', source_label=fx.stem, fixture_path=fx)
 
                 if args.write_observed:
                     write_observed(observed, fx)

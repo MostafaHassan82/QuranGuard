@@ -2,7 +2,7 @@
 <html dir="rtl" lang="ar">
 <head>
   <meta charset="UTF-8">
-  <title>Quran Citation Verifier</title>
+  <title>تدقيق آيات القرآن</title>
   <link rel="stylesheet" href="../css/popup.css">
 </head>
 <body>
@@ -15,36 +15,33 @@
 
   <div id="stats" hidden>
     <div class="stat-row">
-      <span class="stat-label">تطابق أخضر</span>
-      <span id="s-yellow" class="stat-value green">0</span>
+      <span class="stat-label">إجمالي النتائج</span>
+      <span id="s-total" class="stat-value">0</span>
     </div>
-    <div class="stat-row">
-      <span class="stat-label">تطابق أحمر</span>
-      <span id="s-red" class="stat-value red">0</span>
+
+    <div class="stat-row stat-orange">
+      <span class="stat-label">⚠ مرجع خاطئ</span>
+      <span id="s-orange" class="stat-value">0</span>
     </div>
+
     <div class="stat-row">
-      <span class="stat-label">مراجع مؤكدة</span>
-      <span id="s-yellowRef" class="stat-value">0</span>
+      <span class="stat-label">✓ تطابق تام</span>
+      <span id="s-green" class="stat-value">0</span>
     </div>
+
     <div class="stat-row">
-      <span class="stat-label">مراجع جزئية</span>
-      <span id="s-partialRef" class="stat-value">0</span>
+      <span class="stat-label">✓ تطابق بدون مرجع</span>
+      <span id="s-lightblue" class="stat-value">0</span>
     </div>
+
     <div class="stat-row">
-      <span class="stat-label">مراجع مرئية</span>
-      <span id="s-refsSeen" class="stat-value">0</span>
+      <span class="stat-label">~ اختلاف لفظي</span>
+      <span id="s-yellow" class="stat-value">0</span>
     </div>
+
     <div class="stat-row">
-      <span class="stat-label">مرشحات مراجع</span>
-      <span id="s-refCand" class="stat-value">0</span>
-    </div>
-    <div class="stat-row">
-      <span class="stat-label">مراجع صحيحة</span>
-      <span id="s-refVerif" class="stat-value">0</span>
-    </div>
-    <div class="stat-row">
-      <span class="stat-label">مراجع مرفوضة</span>
-      <span id="s-refRej" class="stat-value">0</span>
+      <span class="stat-label">✗ لم يُتحقَّق</span>
+      <span id="s-red" class="stat-value">0</span>
     </div>
   </div>
 
