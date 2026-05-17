@@ -51,70 +51,70 @@ Repo is a flat Chromium MV3 extension at the repo root. See [plan.md](./plan.md)
 
 ### Messaging envelope
 
-- [ ] T005 Create `js/shared/messaging.js` with the typed envelope `{type, requestId, payload}`, helper `sendRequest(type, payload)` and `registerHandler(type, fn)` honoring the `return true` async discipline (contracts/messaging.md)
-- [ ] T006 [P] Extend `js/background.js` to use `js/shared/messaging.js` and route the 13 message types listed in `contracts/messaging.md` (SCAN_START, SCAN_PROGRESS, SCAN_CAP_HIT, SCAN_COMPLETE, MUTATION_RESCAN, CORRECT_IN_PLACE, DISMISS_FINDING, RESTORE_DISMISSED, PERSIST_WRITE/READ, CLEAR_PERSISTED, PREFS_READ/WRITE, PREFS_CHANGED, DATA_UNAVAILABLE, RETRY_DATA_LOAD, DATA_AVAILABLE); handlers are stubs that return `{ok: true}` for now
+- [x] T005 Create `js/shared/messaging.js` with the typed envelope `{type, requestId, payload}`, helper `sendRequest(type, payload)` and `registerHandler(type, fn)` honoring the `return true` async discipline (contracts/messaging.md)
+- [x] T006 [P] Extend `js/background.js` to use `js/shared/messaging.js` and route the 13 message types listed in `contracts/messaging.md` (SCAN_START, SCAN_PROGRESS, SCAN_CAP_HIT, SCAN_COMPLETE, MUTATION_RESCAN, CORRECT_IN_PLACE, DISMISS_FINDING, RESTORE_DISMISSED, PERSIST_WRITE/READ, CLEAR_PERSISTED, PREFS_READ/WRITE, PREFS_CHANGED, DATA_UNAVAILABLE, RETRY_DATA_LOAD, DATA_AVAILABLE); handlers are stubs that return `{ok: true}` for now
 
 ### Preferences storage
 
-- [ ] T007 [P] Create `js/storage/prefs.js`: `prefs.v1` read/write/patch with default-fill on read and clamp-on-read for `perColor.red`, `font`, `scanTrigger`, `panelSurface` (contracts/storage.md)
-- [ ] T008 [P] Wire `PREFS_READ` / `PREFS_WRITE` handlers in `js/background.js` to `js/storage/prefs.js`; broadcast `PREFS_CHANGED` to all live content scripts on write (contracts/messaging.md)
+- [x] T007 [P] Create `js/storage/prefs.js`: `prefs.v1` read/write/patch with default-fill on read and clamp-on-read for `perColor.red`, `font`, `scanTrigger`, `panelSurface` (contracts/storage.md)
+- [x] T008 [P] Wire `PREFS_READ` / `PREFS_WRITE` handlers in `js/background.js` to `js/storage/prefs.js`; broadcast `PREFS_CHANGED` to all live content scripts on write (contracts/messaging.md)
 
 ### Persisted per-URL store (FR-024 / FR-025)
 
-- [ ] T009 [P] Create `js/storage/persisted.js`: `urlKey(rawUrl)` builder (strip `#fragment`, sort query params); `read(urlKey)` with lazy 30-day TTL prune; `write({urlKey, compositeKey, kind, at})`; `clearAll()` (contracts/storage.md)
-- [ ] T010 Wire `PERSIST_READ` / `PERSIST_WRITE` / `CLEAR_PERSISTED` handlers in `js/background.js` to `js/storage/persisted.js` (depends on T009)
+- [x] T009 [P] Create `js/storage/persisted.js`: `urlKey(rawUrl)` builder (strip `#fragment`, sort query params); `read(urlKey)` with lazy 30-day TTL prune; `write({urlKey, compositeKey, kind, at})`; `clearAll()` (contracts/storage.md)
+- [x] T010 Wire `PERSIST_READ` / `PERSIST_WRITE` / `CLEAR_PERSISTED` handlers in `js/background.js` to `js/storage/persisted.js` (depends on T009)
 
 ### Quran data load + FR-020 fail-loud
 
-- [ ] T011 Refactor `js/background.js` Quran JSON loader to validate the schema on load; on missing / unreadable / schemaFailure, set internal state to `DATA_UNAVAILABLE`, broadcast `DATA_UNAVAILABLE` to popup + content, refuse to attach content-script behavior (FR-020)
-- [ ] T012 Add `RETRY_DATA_LOAD` handler in `js/background.js` that re-attempts load; on success broadcasts `DATA_AVAILABLE` (FR-020)
+- [x] T011 Refactor `js/background.js` Quran JSON loader to validate the schema on load; on missing / unreadable / schemaFailure, set internal state to `DATA_UNAVAILABLE`, broadcast `DATA_UNAVAILABLE` to popup + content, refuse to attach content-script behavior (FR-020)
+- [x] T012 Add `RETRY_DATA_LOAD` handler in `js/background.js` that re-attempts load; on success broadcasts `DATA_AVAILABLE` (FR-020)
 
 ### Verifier scaffolding (split from current `background.js`)
 
-- [ ] T013 [P] Create `js/verifier/normalize.js`: tashkeel-stripping + spelling-drift normalization (alif variants ا/آ/ٱ, alef maqsura ↔ ya, ta marbuta ↔ ha, adjacent same-letter collapse) per FR-003; ported clean from advanced copy under Principle V discipline
-- [ ] T014 [P] Create `js/verifier/indexes.js`: build all 5 indexes (byRef, surahNameIndex, normalizedVerseIndex, wordIndex, skeletonWordIndex) from `resources/quran-uthmani_desc-v2.json` (research.md §1)
-- [ ] T015 Wire `js/background.js` to call `js/verifier/indexes.js` on service-worker activation with the loaded JSON (depends on T011 + T014); rebuild ~50–100 ms per constitution
-- [ ] T016 [P] Create `js/verifier/references.js`: parse `surah:ayah`, ranges (`فصلت:3-4`), surah-name variants (start from advanced-copy variant map; small clean port permitted per Principle V)
+- [x] T013 [P] Create `js/verifier/normalize.js`: tashkeel-stripping + spelling-drift normalization (alif variants ا/آ/ٱ, alef maqsura ↔ ya, ta marbuta ↔ ha, adjacent same-letter collapse) per FR-003; ported clean from advanced copy under Principle V discipline
+- [x] T014 [P] Create `js/verifier/indexes.js`: build all 5 indexes (byRef, surahNameIndex, normalizedVerseIndex, wordIndex, skeletonWordIndex) from `resources/quran-uthmani_desc-v2.json` (research.md §1)
+- [x] T015 Wire `js/background.js` to call `js/verifier/indexes.js` on service-worker activation with the loaded JSON (depends on T011 + T014); rebuild ~50–100 ms per constitution
+- [x] T016 [P] Create `js/verifier/references.js`: parse `surah:ayah`, ranges (`فصلت:3-4`), surah-name variants (start from advanced-copy variant map; small clean port permitted per Principle V)
 
 ### Content-script foundation (existing extensions)
 
-- [ ] T017 Refactor `js/content.js` to import the messaging envelope (T005) and emit `SCAN_START` / `SCAN_PROGRESS` / `SCAN_COMPLETE` envelopes instead of ad-hoc messages; no UX change yet
-- [ ] T018 Extend `js/content.js` virtual-text builder (TreeWalker + `\x00` boundaries + offset map) to expose `getMutatedSubtreeText(rootNode)` for incremental rescans (FR-019)
+- [x] T017 Refactor `js/content.js` to import the messaging envelope (T005) and emit `SCAN_START` / `SCAN_PROGRESS` / `SCAN_COMPLETE` envelopes instead of ad-hoc messages; no UX change yet
+- [x] T018 Extend `js/content.js` virtual-text builder (TreeWalker + `\x00` boundaries + offset map) to expose `getMutatedSubtreeText(rootNode)` for incremental rescans (FR-019)
 
 ### Window globals contract (Playwright observability)
 
-- [ ] T019 Update `js/content.js` to write `window.__quranScan`, `window.__quranStats`, `window.__quranMatches` exactly per `contracts/window-globals.md` (extend existing shape with new fields: `finalState`, `capHit`, `capLifted`, `languageDetected`, `priorFindingId`, `persistedBadge`)
+- [x] T019 Update `js/content.js` to write `window.__quranScan`, `window.__quranStats`, `window.__quranMatches` exactly per `contracts/window-globals.md` (extend existing shape with new fields: `finalState`, `capHit`, `capLifted`, `languageDetected`, `priorFindingId`, `persistedBadge`)
 
 ### Scan-trigger model + popup foundation (FR-026)
 
-- [ ] T020 Extend `html/popup.html` to add a "Scan trigger" toggle (Manual / Autoscan, default Manual) and persist the choice via `PREFS_WRITE` (FR-026)
-- [ ] T021 [P] Extend `js/popup.js` to read `prefs.scanTrigger` on open and gate the "Scan" button visibility / Autoscan-on-load behavior accordingly (FR-026)
-- [ ] T022 Wire `js/content.js` Autoscan path: on page load, if `prefs.scanTrigger === "autoscan"`, trigger `SCAN_START` automatically; on `pushState/replaceState/popstate`, treat as fresh page and re-trigger per FR-019
+- [x] T020 Extend `html/popup.html` to add a "Scan trigger" toggle (Manual / Autoscan, default Manual) and persist the choice via `PREFS_WRITE` (FR-026)
+- [x] T021 [P] Extend `js/popup.js` to read `prefs.scanTrigger` on open and gate the "Scan" button visibility / Autoscan-on-load behavior accordingly (FR-026)
+- [x] T022 Wire `js/content.js` Autoscan path: on page load, if `prefs.scanTrigger === "autoscan"`, trigger `SCAN_START` automatically; on `pushState/replaceState/popstate`, treat as fresh page and re-trigger per FR-019
 
 ### Hard cap + Continue scanning (FR-031)
 
-- [ ] T023 Add scan-cap enforcement in `js/content.js`: stop accepting candidates after 500 findings; emit `SCAN_CAP_HIT` to popup with `perCategoryCount`; expose `liftCap` flag on subsequent `SCAN_START` from popup's "Continue scanning" button
+- [x] T023 Add scan-cap enforcement in `js/content.js`: stop accepting candidates after 500 findings; emit `SCAN_CAP_HIT` to popup with `perCategoryCount`; expose `liftCap` flag on subsequent `SCAN_START` from popup's "Continue scanning" button
 
 ### Empty-state suppression (FR-027 / SC-008)
 
-- [ ] T024 In `js/content.js`'s `SCAN_COMPLETE` emit path, set `finalState` to `"empty"` when `totalCount === 0` and to `"clean"` when only verified-class findings exist; popup consumes `finalState` to render either the panel or the "No Quran citations found on this page" / "Page not in Arabic" status (FR-027, FR-029)
+- [x] T024 In `js/content.js`'s `SCAN_COMPLETE` emit path, set `finalState` to `"empty"` when `totalCount === 0` and to `"clean"` when only verified-class findings exist; popup consumes `finalState` to render either the panel or the "No Quran citations found on this page" / "Page not in Arabic" status (FR-027, FR-029)
 
 ### Language gate (FR-029)
 
-- [ ] T025 [P] Add Arabic-language detection to `js/content.js` (read `<html lang>` + small Arabic-character ratio test); run ONLY at scan trigger time, never on tab activation or page load; emit `SCAN_COMPLETE` with `finalState: "notArabic"` when detection fails (FR-029)
+- [x] T025 [P] Add Arabic-language detection to `js/content.js` (read `<html lang>` + small Arabic-character ratio test); run ONLY at scan trigger time, never on tab activation or page load; emit `SCAN_COMPLETE` with `finalState: "notArabic"` when detection fails (FR-029)
 
 ### Stateful action badge (FR-028)
 
-- [ ] T026 Create `js/badge/badge.js`: state machine consuming `SCAN_START` / `SCAN_PROGRESS` / `SCAN_COMPLETE` / `SCAN_CAP_HIT` / `DATA_UNAVAILABLE` / `DATA_AVAILABLE` events from `chrome.runtime`; renders ● / ✓ / ! glyph with severity color (orange > red > yellow); sets `chrome.action.setBadgeText`, `setBadgeBackgroundColor`, `setTitle` per FR-028
-- [ ] T027 Wire `js/background.js` to instantiate `js/badge/badge.js` on service-worker startup and broadcast badge updates per-tab (depends on T026)
+- [x] T026 Create `js/badge/badge.js`: state machine consuming `SCAN_START` / `SCAN_PROGRESS` / `SCAN_COMPLETE` / `SCAN_CAP_HIT` / `DATA_UNAVAILABLE` / `DATA_AVAILABLE` events from `chrome.runtime`; renders ● / ✓ / ! glyph with severity color (orange > red > yellow); sets `chrome.action.setBadgeText`, `setBadgeBackgroundColor`, `setTitle` per FR-028
+- [x] T027 Wire `js/background.js` to instantiate `js/badge/badge.js` on service-worker startup and broadcast badge updates per-tab (depends on T026)
 
 ### Incremental rescan via MutationObserver (FR-019)
 
-- [ ] T028 Add `MutationObserver` setup in `js/content.js` after the initial scan completes; debounce mutations by ~500 ms; on burst, call the scan pipeline with only the mutated subtree(s); retain existing Findings whose composite key is unchanged (per FR-021)
+- [x] T028 Add `MutationObserver` setup in `js/content.js` after the initial scan completes; debounce mutations by ~500 ms; on burst, call the scan pipeline with only the mutated subtree(s); retain existing Findings whose composite key is unchanged (per FR-021)
 
 ### Progressive-reveal status text (FR-023)
 
-- [ ] T029 Extend `html/popup.html` + `js/popup.js` to render "Scanning…" with a live running count of `perCategoryCount` driven by streamed `SCAN_PROGRESS` envelopes; show final summary count on `SCAN_COMPLETE`; expose "Re-scan all" and "Continue scanning" actions (FR-019, FR-023, FR-031)
+- [x] T029 Extend `html/popup.html` + `js/popup.js` to render "Scanning…" with a live running count of `perCategoryCount` driven by streamed `SCAN_PROGRESS` envelopes; show final summary count on `SCAN_COMPLETE`; expose "Re-scan all" and "Continue scanning" actions (FR-019, FR-023, FR-031)
 
 **Checkpoint**: Phase 2 complete — every user story can now begin in priority order. The extension scans, badges, persists, handles failure, suppresses empty/non-Arabic, and stops at 500 findings, but does NOT YET classify into 5 colors, does NOT YET render the panel, does NOT YET swap authentic text, and does NOT YET allow correction.
 
