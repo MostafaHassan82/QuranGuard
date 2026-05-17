@@ -45,6 +45,13 @@
   border-bottom: 2px solid rgba(200, 0, 0, 0.6);
 }
 
+/* ── Pending (hidden) spans — used during intermediate scan passes ─────── */
+/* Invisible but still occupy DOM positions, enabling convergence via text-node fragmentation. */
+.quran-pending {
+  background: transparent;
+  border: none;
+}
+
 /* ── Tooltip via data-tooltip attribute ─────────────────────────────────── */
 .quran-green[data-tooltip]:hover::after,
 .quran-lightblue[data-tooltip]:hover::after,

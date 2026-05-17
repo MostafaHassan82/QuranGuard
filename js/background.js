@@ -1,14 +1,16 @@
 'use strict';
 
 // T006/T015/T027 — Load shared modules before any other code runs.
+// Paths are relative to this file's URL (chrome-extension://<id>/js/background.js),
+// so they resolve inside the js/ directory — no 'js/' prefix needed.
 importScripts(
-  'js/shared/messaging.js',      // QuranMsg
-  'js/verifier/normalize.js',    // QuranNormalize
-  'js/verifier/indexes.js',      // QuranIndexes
-  'js/verifier/references.js',   // QuranReferences
-  'js/storage/prefs.js',         // QuranPrefs
-  'js/storage/persisted.js',     // QuranPersisted
-  'js/badge/badge.js'            // QuranBadge
+  'shared/messaging.js',      // QuranMsg
+  'verifier/normalize.js',    // QuranNormalize
+  'verifier/indexes.js',      // QuranIndexes
+  'verifier/references.js',   // QuranReferences
+  'storage/prefs.js',         // QuranPrefs
+  'storage/persisted.js',     // QuranPersisted
+  'badge/badge.js'            // QuranBadge
 );
 
 // ── Module state ─────────────────────────────────────────────────────────────
@@ -341,12 +343,21 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
   // ── New typed envelope handlers (T006) ──────────────────────────────────────
 
-  // SCAN_START: relay to the target tab's content script.
+  // SCAN_START: relay popup→background→content; only accept from non-tab senders (popup, not content).
   if (type === 'SCAN_START') {
-    const tabId = payload.tabId ?? sender.tab?.id;
+    if (sender.tab) {
+      // Came from a content script — ignore (content does not initiate SCAN_START).
+      sendResponse(QuranMsg.okResponse(requestId, {}));
+      return true;
+    }
+    const tabId = payload.tabId;
     if (!tabId) { sendResponse(QuranMsg.errResponse(requestId, 'INVALID_REQUEST', 'No tabId')); return true; }
-    if (dataState !== 'ready') { sendResponse(QuranMsg.errResponse(requestId, 'DATA_UNAVAILABLE', dataError?.detail || 'Data not ready')); return true; }
-    chrome.tabs.sendMessage(tabId, msg)
+    // Wait for index if the service worker just woke up (dataState may be 'pending').
+    ensureInitialized()
+      .then(() => {
+        QuranBadge.onScanStart(tabId);
+        return chrome.tabs.sendMessage(tabId, msg);
+      })
       .then(r => sendResponse(r))
       .catch(e => sendResponse(QuranMsg.errResponse(requestId, 'INTERNAL', e.message)));
     return true;

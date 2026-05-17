@@ -80,15 +80,21 @@ async function onScanClick(liftCap = false) {
     activeScanId = null;
     QuranMsg.sendRequest('SCAN_START', { tabId: tab.id, mode: liftCap ? 'rescanAll' : 'manual', liftCap })
       .then(resp => {
+        if (resp?.payload?.ok === false) {
+          // Background returned an error (e.g. content script not present on this page).
+          setStatus('خطأ: ' + (resp.payload.error?.message || 'تعذّر بدء الفحص'));
+          btnScan.disabled = false;
+          document.getElementById('progress').hidden = true;
+          return;
+        }
         if (resp?.payload?.result?.scanId) activeScanId = resp.payload.result.scanId;
       })
       .catch(() => {
-        // Fallback: send directly to content (legacy path)
+        // Fallback: send directly to content (legacy path, for older SW versions).
         sendToContent(tab.id, { type: 'scan' })
           .then(resp => {
-            if (resp?.stats) {
-              const s = resp.stats;
-              displayStats({ green: s.greenMatches || 0, lightBlue: s.lightBlueMatches || 0, yellow: s.yellowMatches || 0, orange: s.orangeMatches || 0, red: s.redMatches || 0 }, s.totalFindings);
+            if (resp?.perCategoryCount) {
+              displayStats(resp.perCategoryCount, resp.totalCount);
               setStatus('اكتمل الفحص');
             }
           })

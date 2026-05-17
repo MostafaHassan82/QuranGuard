@@ -36,7 +36,10 @@ const CSS_BY_COLOR = {
   orange:    'quran-orange',
   red:       'quran-red',
 };
-const ALL_HIGHLIGHT_CLASSES = Object.values(CSS_BY_COLOR);
+// Invisible placeholder class used during intermediate scan passes.
+// Pending spans still fragment the DOM (driving convergence) but are not visible.
+const PENDING_CLASS = 'quran-pending';
+const ALL_HIGHLIGHT_CLASSES = [...Object.values(CSS_BY_COLOR), PENDING_CLASS];
 const HIGHLIGHT_SELECTOR = ALL_HIGHLIGHT_CLASSES.map(c => '.' + c).join(', ');
 
 // ── Window globals (T019) — per contracts/window-globals.md ──────────────────
@@ -57,13 +60,15 @@ const LEAD_IN_PATTERNS = [
 const LEAD_IN_RE = new RegExp('(' + LEAD_IN_PATTERNS.map(escapeRe).join('|') + ')\\s*[:：]?\\s*', 'u');
 
 const AR_CHAR = '[\\u0621-\\u063A\\u0641-\\u064A\\u066E\\u066F\\u0671-\\u06D3\\u06FA-\\u06FF\\uFB50-\\uFDFF\\uFE70-\\uFEFF]';
-const AR_RUN = `${AR_CHAR}(?:[\\s]*${AR_CHAR})*`;
-const BRACE_RE = new RegExp('[{«](' + AR_RUN + '(?:[*،,\\s]+' + AR_RUN + ')*)[}»]|\\((' + AR_RUN + '(?:[*،,\\s]+' + AR_RUN + ')*)\\)', 'u');
-const STRONG_BRACE_RE = new RegExp('[{«](' + AR_RUN + '(?:[*،,\\s]+' + AR_RUN + ')*)[}»]', 'u');
+// Tashkeel (harakat + superscript alef) that follow Arabic letters in vocalized text.
+const AR_TASHKEEL = '[\\u064B-\\u065F\\u0670]';
+const AR_RUN = `${AR_CHAR}${AR_TASHKEEL}*(?:[\\s]*${AR_CHAR}${AR_TASHKEEL}*)*`;
+const BRACE_RE = new RegExp('[{«\\[](' + AR_RUN + '(?:[*،,\\s]+' + AR_RUN + ')*)[}»\\]]|\\((' + AR_RUN + '(?:[*،,\\s]+' + AR_RUN + ')*)\\)', 'u');
+const STRONG_BRACE_RE = new RegExp('[{«\\[](' + AR_RUN + '(?:[*،,\\s]+' + AR_RUN + ')*)[}»\\]]', 'u');
 const REF_RE = new RegExp(
-  '[({«﴿]\\s*(' + AR_CHAR + '+(?:\\s+' + AR_CHAR + '+)*)\\s*[:：]\\s*' +
+  '[({«﴿\\[]\\s*(' + AR_CHAR + '+(?:\\s+' + AR_CHAR + '+)*)\\s*[:：]\\s*' +
   '([\\d\\u0660-\\u0669\\u06F0-\\u06F9]+(?:\\s*[-–]\\s*[\\d\\u0660-\\u0669\\u06F0-\\u06F9]+)?(?:\\s*[،,]\\s*[\\d\\u0660-\\u0669\\u06F0-\\u06F9]+)*)' +
-  '\\s*[)}»﴾]',
+  '\\s*[)}»﴾\\]]',
   'gu'
 );
 
@@ -397,10 +402,10 @@ function wrapTextNodes(nodes, startOffset, endOffset, cssClass, dataAttrs) {
 
 // ── Highlight application ─────────────────────────────────────────────────────
 
-function applyHighlight(candidate, result) {
+function applyHighlight(candidate, result, { hidden = false } = {}) {
   const color = result.color;
   if (!color) return null;
-  const cssClass = CSS_BY_COLOR[color];
+  const cssClass = hidden ? PENDING_CLASS : CSS_BY_COLOR[color];
   if (!cssClass) return null;
   const tooltip = buildTooltip(color, result);
   const findingId = `qf-${STATE.findings.length + 1}`;
@@ -447,9 +452,15 @@ function applyHighlight(candidate, result) {
   return span;
 }
 
-function clearHighlights() {
+function clearHighlights({ normalize = true } = {}) {
   const spans = document.querySelectorAll(HIGHLIGHT_SELECTOR);
   for (const span of spans) span.replaceWith(...span.childNodes);
+  // normalize=true (default, used for explicit user clear and before pass 1):
+  //   merges the split text nodes so the next pass starts from a clean DOM.
+  // normalize=false (used between scan passes 2/3):
+  //   intentionally leaves the fragmented text nodes — the changed layout
+  //   suppresses false-positive extractions that only appear on the pristine DOM.
+  if (normalize) document.body.normalize();
   STATE.highlightedSpans = [];
   STATE.findings = [];
   STATE.capHit = false;
@@ -458,6 +469,19 @@ function clearHighlights() {
   window.__quranScan = null;
   window.__quranStats = makeEmptyStats();
   window.__quranMatches = [];
+}
+
+// Converts pending (hidden) spans to their real color classes after all passes finish.
+function materializeHighlights() {
+  const pending = document.querySelectorAll('.' + PENDING_CLASS);
+  for (const span of pending) {
+    const color = span.dataset.color;
+    const realClass = CSS_BY_COLOR[color];
+    if (realClass) {
+      span.classList.remove(PENDING_CLASS);
+      span.classList.add(realClass);
+    }
+  }
 }
 
 // ── Background messaging helpers ──────────────────────────────────────────────
@@ -475,121 +499,140 @@ function sendToBackground(msg) {
 
 // ── Scan cap constants (T023) ─────────────────────────────────────────────────
 const SCAN_CAP = 500;
+// Safety ceiling for fresh full scans. Convergence is detected dynamically
+// (stop when finding count is unchanged between passes); this cap prevents
+// runaway loops on pathological pages.
+const SCAN_SAFETY_MAX = 10;
 
 // ── Main scan orchestrator (T017, T022, T023, T024, T025) ────────────────────
 
 async function scanPage({ liftCap = false, subtreeRoot = null } = {}) {
   if (STATE.scanning) return;
   STATE.scanning = true;
+
   const scanId = crypto.randomUUID();
   STATE.scanId = scanId;
-  STATE.capHit = false;
-  STATE.capLifted = liftCap;
-  STATS = makeEmptyStats();
-
-  if (!subtreeRoot) {
-    STATE.findings = [];
-    STATE.highlightedSpans = [];
-    window.__quranScan = null;
-    window.__quranMatches = [];
-  }
-
   const startedAt = new Date().toISOString();
   const startTime = Date.now();
 
-  // Language gate (T025)
-  const lang = detectLanguage();
-  STATE.languageDetected = lang;
+  // liftCap (continue after cap) and subtreeRoot (mutation rescan) are always single-pass.
+  const isFreshFull = !liftCap && !subtreeRoot;
+  const maxPasses = isFreshFull ? SCAN_SAFETY_MAX : 1;
+  let prevCount = -1;
 
-  if (lang !== 'ar') {
-    STATE.scanning = false;
-    const payload = {
-      scanId, totalCount: 0, perCategoryCount: { green: 0, lightBlue: 0, yellow: 0, orange: 0, red: 0 },
-      durationMs: Date.now() - startTime, languageDetected: lang, finalState: 'notArabic',
-    };
-    QuranMsg.emit('SCAN_COMPLETE', payload);
-    updateWindowGlobals(scanId, startedAt, payload);
-    return;
-  }
-
-  // Emit SCAN_START (T017)
-  QuranMsg.emit('SCAN_START', { scanId, mode: liftCap ? 'rescanAll' : 'manual' });
-
-  try {
-    await sendToBackground({ type: 'ping' }).catch(() => {});
-
-    const root = subtreeRoot || document.body;
-    const walker = createTextWalker(root);
-    const textNodes = [];
-    let node;
-    while ((node = walker.nextNode())) textNodes.push(node);
-
-    if (textNodes.length === 0) {
+  // Language gate — only needs to run once.
+  if (isFreshFull) {
+    const lang = detectLanguage();
+    STATE.languageDetected = lang;
+    if (lang !== 'ar') {
+      clearHighlights();
       STATE.scanning = false;
-      emitComplete(scanId, startedAt, startTime);
+      const payload = {
+        scanId, totalCount: 0, perCategoryCount: { green: 0, lightBlue: 0, yellow: 0, orange: 0, red: 0 },
+        durationMs: Date.now() - startTime, languageDetected: lang, finalState: 'notArabic',
+      };
+      QuranMsg.emit('SCAN_COMPLETE', payload);
+      updateWindowGlobals(scanId, startedAt, payload);
       return;
     }
+  }
 
-    const { combined, map } = buildVirtualText(textNodes);
-    STATS.candidatesExtracted = 0;
-    const candidates = runExtractionStrategies(textNodes, combined, map);
-    STATS.candidatesExtracted = candidates.length;
+  for (let pass = 1; pass <= maxPasses; pass++) {
+    // Fresh full scans: highlights are hidden (quran-pending) during every pass to
+    // avoid visible flicker. materializeHighlights() reveals them after convergence.
+    const useHidden = isFreshFull;
 
-    const perCategoryCount = { green: 0, lightBlue: 0, yellow: 0, orange: 0, red: 0 };
-    let capHit = false;
+    if (isFreshFull) {
+      // Pass 1: normalize to restore a clean DOM before scanning.
+      // Passes 2+: skip normalize — the fragmentation from wrapping previous findings
+      //   changes which extraction patterns fire, filtering false positives and
+      //   revealing true positives that were occluded by other candidates.
+      clearHighlights({ normalize: pass === 1 });
+      STATE.findings = [];
+      STATE.highlightedSpans = [];
+      window.__quranScan = null;
+      window.__quranMatches = [];
+    }
 
-    for (const candidate of candidates) {
-      // Hard cap (T023)
-      if (!liftCap && STATE.findings.length >= SCAN_CAP) {
-        capHit = true;
-        STATE.capHit = true;
-        QuranMsg.emit('SCAN_CAP_HIT', { scanId, cap: SCAN_CAP, perCategoryCount });
+    STATE.capHit = false;
+    STATE.capLifted = liftCap;
+    STATS = makeEmptyStats();
+
+    try {
+      if (pass === 1) await sendToBackground({ type: 'ping' }).catch(() => {});
+
+      const root = subtreeRoot || document.body;
+      const walker = createTextWalker(root);
+      const textNodes = [];
+      let node;
+      while ((node = walker.nextNode())) textNodes.push(node);
+
+      if (textNodes.length === 0) break;
+
+      const { combined, map } = buildVirtualText(textNodes);
+      const candidates = runExtractionStrategies(textNodes, combined, map);
+      STATS.candidatesExtracted = candidates.length;
+      console.log(`[QuranExt] pass ${pass}: nodes=${textNodes.length} candidates=${candidates.length}`);
+
+      const perCategoryCount = { green: 0, lightBlue: 0, yellow: 0, orange: 0, red: 0 };
+
+      for (const candidate of candidates) {
+        if (!liftCap && STATE.findings.length >= SCAN_CAP) {
+          STATE.capHit = true;
+          break;
+        }
+
+        try {
+          let result;
+          if (candidate.ref) {
+            result = await sendToBackground({ type: 'verifyFragmentByRef', text: candidate.text, ref: candidate.ref, candidateConfidence: candidate.confidence });
+          } else {
+            result = await sendToBackground({ type: 'verifyFragment', text: candidate.text, candidateConfidence: candidate.confidence });
+          }
+          if (result && !result.error && result.color) {
+            const span = applyHighlight(candidate, result, { hidden: useHidden });
+            if (span) {
+              const finding = STATE.findings[STATE.findings.length - 1];
+              if (finding && perCategoryCount[result.color] !== undefined) perCategoryCount[result.color]++;
+              // Only emit live progress for single-pass scans (liftCap / mutation rescan).
+              if (!useHidden) {
+                QuranMsg.emit('SCAN_PROGRESS', { scanId, finding, runningCount: STATE.findings.length, perCategoryCount: { ...perCategoryCount } });
+                window.__quranMatches = STATE.findings.slice();
+              }
+            }
+          } else if (result?.color === null || result?.color === undefined) {
+            STATS.candidatesDroppedSilently++;
+          }
+        } catch (e) {
+          console.warn('[QuranExt] verification error:', candidate.text, e);
+        }
+      }
+
+      // Converged? stop early. Otherwise record count and run another pass.
+      const currentCount = STATE.findings.length;
+      if (currentCount === prevCount) {
+        console.log(`[QuranExt] stable at ${currentCount} after pass ${pass}, stopping`);
         break;
       }
+      prevCount = currentCount;
 
-      try {
-        let result;
-        if (candidate.ref) {
-          result = await sendToBackground({ type: 'verifyFragmentByRef', text: candidate.text, ref: candidate.ref, candidateConfidence: candidate.confidence });
-        } else {
-          result = await sendToBackground({ type: 'verifyFragment', text: candidate.text, candidateConfidence: candidate.confidence });
-        }
-        if (result && !result.error && result.color) {
-          const span = applyHighlight(candidate, result);
-          if (span) {
-            const finding = STATE.findings[STATE.findings.length - 1];
-            if (finding && perCategoryCount[result.color] !== undefined) perCategoryCount[result.color]++;
-            // Emit SCAN_PROGRESS per finding (T017)
-            QuranMsg.emit('SCAN_PROGRESS', {
-              scanId,
-              finding,
-              runningCount: STATE.findings.length,
-              perCategoryCount: { ...perCategoryCount },
-            });
-            window.__quranMatches = STATE.findings.slice();
-          }
-        } else if (result?.color === null || result?.color === undefined) {
-          STATS.candidatesDroppedSilently++;
-        }
-      } catch (e) {
-        console.warn('[QuranExt] verification error:', candidate.text, e);
-      }
+    } catch (e) {
+      console.error('[QuranExt] scan error (pass ' + pass + '):', e);
+      break;
     }
-
-    if (!capHit) {
-      emitComplete(scanId, startedAt, startTime);
-    } else {
-      // Still emit complete even if cap hit
-      emitComplete(scanId, startedAt, startTime);
-    }
-
-    // Log findings to background console (legacy debug aid)
-    await sendToBackground({ type: 'logFindings', findings: STATE.findings }).catch(() => {});
-
-  } catch (e) {
-    console.error('[QuranExt] scan error:', e);
-    STATE.scanning = false;
   }
+
+  // Reveal all hidden highlights at once — no flicker.
+  if (isFreshFull) materializeHighlights();
+  // Cap notification (after materialization so it fires with visible highlights).
+  if (STATE.capHit) {
+    const perCategoryCount = { green: 0, lightBlue: 0, yellow: 0, orange: 0, red: 0 };
+    for (const f of STATE.findings) { if (perCategoryCount[f.category] !== undefined) perCategoryCount[f.category]++; }
+    QuranMsg.emit('SCAN_CAP_HIT', { scanId, cap: SCAN_CAP, perCategoryCount });
+  }
+
+  emitComplete(scanId, startedAt, startTime);
+  await sendToBackground({ type: 'logFindings', findings: STATE.findings }).catch(() => {});
 }
 
 function computeFinalState() {
@@ -708,7 +751,11 @@ if (chrome?.runtime?.onMessage) {
 
     // Legacy handlers (popup.js still uses these)
     if (type === 'scan') {
-      scanPage().then(stats => sendResponse({ stats: { ...STATS }, findings: STATE.findings }));
+      scanPage().then(() => {
+        const pcc = { green: 0, lightBlue: 0, yellow: 0, orange: 0, red: 0 };
+        for (const f of STATE.findings) if (pcc[f.category] !== undefined) pcc[f.category]++;
+        sendResponse({ stats: STATS, perCategoryCount: pcc, totalCount: STATE.findings.length, findings: STATE.findings });
+      });
       return true;
     }
     if (type === 'clear') {

@@ -12,12 +12,15 @@ const QuranNormalize = (() => {
     if (!text) return '';
     let s = text;
 
-    // Strip all Arabic diacritics, marks, sigla, tatweel in one pass.
-    s = s.replace(/[ؐ-ًؚ-ٰٟۖ-ۭـࣣ-ࣿ]/g, '');
-    s = s.replace(/[ۖ-ۭ]/g, '');
-    s = s.replace(/[ٰٕٓٔ]/g, '');
-    s = s.replace(/ـ/g, '');
-    s = s.replace(/[ً-ٟ]/g, '');
+    // Strip diacritics and Quranic annotation marks using explicit Unicode ranges.
+    // IMPORTANT: do NOT widen these ranges into U+0621–U+064A (Arabic base letters).
+    // U+0610-U+061A: Arabic sign abbreviations (compressed honorifics)
+    // U+064B-U+065F: Tashkeel (harakat — fatha, kasra, damma, shadda, sukun, etc.)
+    // U+0670:        Arabic letter superscript alef (also a diacritic)
+    // U+06D6-U+06ED: Quranic annotation signs (waqf marks, rub-el-hizb, etc.)
+    // U+08D3-U+08FF: Arabic Extended-A vocalization marks
+    // U+0640:        Tatweel / kasheeda (letter extender)
+    s = s.replace(/[ؐ-ًؚ-ٰٟۖ-ۭ࣓-ࣿـ]/g, '');
 
     // Unify alif variants → ا
     s = s.replace(/[آأإٱ]/g, 'ا');
