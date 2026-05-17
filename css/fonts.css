@@ -1,0 +1,28 @@
+/* Bundled Quran fonts — FR-008 / FR-009 / Decision 7.17
+ * indo-pak.ttf and simplified.ttf are placeholder copies of uthmani-hafs.ttf;
+ * replace with the real typefaces before Phase 5 ships the font picker UI.
+ */
+
+@font-face {
+  font-family: "QuranUthmaniHafs";
+  src: url("../resources/fonts/uthmani-hafs.ttf") format("truetype");
+  font-weight: normal;
+  font-style: normal;
+  font-display: block;
+}
+
+@font-face {
+  font-family: "QuranIndoPak";
+  src: url("../resources/fonts/indo-pak.ttf") format("truetype");
+  font-weight: normal;
+  font-style: normal;
+  font-display: block;
+}
+
+@font-face {
+  font-family: "QuranSimplified";
+  src: url("../resources/fonts/simplified.ttf") format("truetype");
+  font-weight: normal;
+  font-style: normal;
+  font-display: block;
+}

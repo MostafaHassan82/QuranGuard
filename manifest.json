@@ -28,6 +28,9 @@
       "resources": [
         "resources/quran-uthmani_desc-v2.json",
         "resources/me_quran.ttf",
+        "resources/fonts/uthmani-hafs.ttf",
+        "resources/fonts/indo-pak.ttf",
+        "resources/fonts/simplified.ttf",
         "resources/QuranAyas/*.png",
         "resources/QuranAyas2/*.png"
       ],

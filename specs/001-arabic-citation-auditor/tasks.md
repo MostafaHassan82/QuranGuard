@@ -34,10 +34,10 @@ Repo is a flat Chromium MV3 extension at the repo root. See [plan.md](./plan.md)
 
 **Purpose**: Reshape the existing flat `js/` into the module layout defined in [plan.md](./plan.md). No behavior change yet — just the skeleton.
 
-- [ ] T001 Create directory skeleton for the new module layout: `js/verifier/`, `js/render/`, `js/panel/`, `js/storage/`, `js/badge/`, `js/shared/` (no files yet — placeholder `.gitkeep` if needed)
-- [ ] T002 [P] Update `manifest.json` to keep `content_scripts.js: ["js/content.js"]` for now (Phase 2 will register the new modules); no behavior change in this task
-- [ ] T003 [P] Add three bundled Quran font files to `resources/fonts/`: `uthmani-hafs.ttf`, `indo-pak.ttf`, `simplified.ttf` (FR-008 / FR-009 / Decision 7.17); register them in `web_accessible_resources` of `manifest.json`
-- [ ] T004 [P] Create `css/fonts.css` with `@font-face` declarations for the three fonts (FR-008)
+- [x] T001 Create directory skeleton for the new module layout: `js/verifier/`, `js/render/`, `js/panel/`, `js/storage/`, `js/badge/`, `js/shared/` (no files yet — placeholder `.gitkeep` if needed)
+- [x] T002 [P] Update `manifest.json` to keep `content_scripts.js: ["js/content.js"]` for now (Phase 2 will register the new modules); no behavior change in this task
+- [x] T003 [P] Add three bundled Quran font files to `resources/fonts/`: `uthmani-hafs.ttf`, `indo-pak.ttf`, `simplified.ttf` (FR-008 / FR-009 / Decision 7.17); register them in `web_accessible_resources` of `manifest.json`
+- [x] T004 [P] Create `css/fonts.css` with `@font-face` declarations for the three fonts (FR-008)
 
 **Checkpoint**: Repo has the new directory shape and font assets; nothing functionally new yet. Existing scan still works the same.
 
