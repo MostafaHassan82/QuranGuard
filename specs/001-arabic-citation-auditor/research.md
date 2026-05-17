@@ -199,3 +199,130 @@ These came up in scoping but were intentionally deferred. They are not work for 
 - **Per-user accounts, telemetry, cloud sync (out of V1)**: V1 is local-only by design.
 - **Non-Chromium browsers (post-V1)**: Firefox/Edge port after V1 stabilizes.
 - **Researcher / Editor headless API (V2)**: the verifier design should not preclude this, but no API surface is built in V1.
+
+---
+
+## 7. Session-4 Design Decisions (post-clarification, 2026-05-17)
+
+The 20 clarifications recorded in [spec.md](./spec.md) Clarifications resolved every NEEDS CLARIFICATION the planner would otherwise have raised. The decisions below — captured for the implementer — extend the baseline above and feed directly into [plan.md](./plan.md), [data-model.md](./data-model.md), and [contracts/](./contracts/).
+
+### Decision 7.1 — Findings panel scope is all 5 colors with filters; default orange-only
+
+- **Decision**: FR-010 — panel aggregates all five categories; per-category filter toggles; default filter is orange-only.
+- **Rationale**: Reader-auditor wants to see the headline (orange) immediately without losing the ability to drill into yellow/red for full audit coverage.
+- **Alternatives considered**: orange-only (loses auditor value), all-five-always (visual noise on first open), orange+red only (artificially groups yellow with verified).
+
+### Decision 7.2 — Authentic-text swap layout absorption is span-local, line-box ≤ 1.5×
+
+- **Decision**: FR-008 + SC-013 — font-size and line-height adjustments only inside the highlighted span; no CSS outside the span may be modified; rendered line-box ≤ 1.5× original.
+- **Rationale**: Preserve Uthmani authenticity signal without leaking style changes into surrounding paragraph text.
+- **Alternatives considered**: no absorption (catastrophic jumps on Uthmani-heavy paragraphs), paragraph-level absorption (mutates non-Quran text spacing), tooltip-only rendering (loses the in-place authenticity stance from constitution Principle IV).
+
+### Decision 7.3 — Non-color signaling: icon glyph + category name in words
+
+- **Decision**: FR-005 + FR-007 + FR-010 + FR-028 — every highlight, tooltip, panel row, and badge tooltip carries a per-category glyph (✓ ⓘ ~ ⚠ ✗) and the category name spelled out.
+- **Rationale**: 4–8% of users have CVD; screen readers perceive nothing from color alone.
+- **Alternatives considered**: defer to V1.x (ships with a known accessibility gap on the entire taxonomy), full WCAG 2.2 AA in V1 (large scope add).
+
+### Decision 7.4 — Hybrid re-scan: MutationObserver + manual "Re-scan all"
+
+- **Decision**: FR-019 — `MutationObserver` re-scans only mutated subtrees with ~500 ms debounce; popup also exposes a manual "Re-scan all" that performs a full pass; SPA route changes route through the incremental path.
+- **Rationale**: Covers SPA navigation and infinite scroll without re-scanning unchanged DOM (SC-012 budget protected).
+- **Alternatives considered**: manual-only (stale highlights on dynamic pages), full re-scan on every URL change (misses in-route mutations), incremental-only without manual override (no escape hatch).
+
+### Decision 7.5 — Structured record format: plain-text Ar+En primary, JSON secondary
+
+- **Decision**: FR-011 — plain-text labeled in Arabic + English (one field per line) is the default for copy/share/report; secondary "Copy as JSON" action emits the same fields as a single JSON object.
+- **Rationale**: Primary share target is WhatsApp/email/chat (plain text wins); power users get JSON without forcing it on everyone.
+
+### Decision 7.6 — Quran data file failure = fail loud, refuse to scan
+
+- **Decision**: FR-020 — startup/runtime data-file failure: no content scripts attach, no highlights produced, popup shows explicit error + Retry, findings panel shows the same error in both surfaces.
+- **Rationale**: A silent no-highlight state is indistinguishable from a clean page — the worst failure mode given the integrity mission.
+
+### Decision 7.7 — Finding identity is a composite key
+
+- **Decision**: FR-021 + Key Entities > Finding — identity is `(normalized citation text, normalized cited reference, true reference, DOM path)`; per-finding state survives mutation ticks only when the key is unchanged.
+- **Rationale**: Cheapest stable identity that survives DOM reshuffles which leave the citation intact; collides predictably and only when the citation actually changes.
+- **Alternatives considered**: DOM-ref identity (lost on parent re-render), content-only (collides across multiple instances of the same verse), UUID in `data-` attribute (lost when wrapper is stripped).
+
+### Decision 7.8 — Correct-in-place emits a new Finding with a back-reference
+
+- **Decision**: FR-022 (reconciled with FR-021) — correct-in-place changes the cited-ref component of the composite key, so the post-correction state is a **new** Finding. The successor carries an optional `prior_finding_id` back-reference to the discarded prior Finding (used by the panel for before/after rendering in "Recently corrected").
+- **Rationale**: Keeps the composite-key identity model consistent; gives the panel UI the data it needs to show what changed.
+- **Alternatives considered**: special-case FR-012 to preserve the prior identifier (carves out the identity rule), drop cited-ref from the key (weakens identity when two citations of the same verse disagree on cited ref).
+
+### Decision 7.9 — Progressive scan reveal
+
+- **Decision**: FR-023 — popup shows "Scanning…" + running count; highlights paint as each candidate is verified; panel populates incrementally; per-finding actions usable on already-rendered findings. SC-012 budget unchanged.
+- **Rationale**: A 5-second blocking spinner is the worst perceived-latency option; progressive reveal gives feedback immediately.
+
+### Decision 7.10 — Persistence: per-URL, 30-day TTL, clearable; introduces Dismiss
+
+- **Decision**: FR-024 + FR-025 — corrections and dismissals persist per URL in `chrome.storage.local` with a 30-day TTL; popup settings expose "Clear remembered corrections and dismissals"; new per-finding Dismiss action is added; re-encountered findings show a "Previously corrected/dismissed on YYYY-MM-DD" badge (not silently suppressed) so server-side reverts remain visible.
+- **Rationale**: Avoids double-correction prompts on revisits; the badge (not suppression) preserves visibility when the page reverts.
+- **Scope note**: Dismiss is a net-new V1 capability introduced by this clarification. Flagged in plan.md.
+
+### Decision 7.11 — Scan trigger: global Manual/Autoscan toggle, default Manual
+
+- **Decision**: FR-026 — global toggle in popup; default Manual; no per-site allow-list in V1.
+- **Rationale**: Minimal-privacy posture by default; one-click escape for users who want Autoscan on every page.
+- **Alternatives considered**: per-site allow-list (more granular but adds UX surface to V1), auto-only (privacy footprint too aggressive).
+
+### Decision 7.12 — Empty-state suppression
+
+- **Decision**: FR-027 + SC-008 + Edge Cases — zero findings → no panel; popup shows "No Quran citations found on this page"; sidebar surface not injected.
+- **Rationale**: A user-explicit answer: an empty panel is more confusing than no panel.
+
+### Decision 7.13 — Stateful badge with glyph + severity color
+
+- **Decision**: FR-028 — ● idle/scanning, ✓ clean, ! defects present; ! is colored by highest-severity defect (orange > red > yellow); tooltip names state + per-category counts; FR-020 error clears badge.
+- **Rationale**: Counts in the badge get noisy on long articles; state-glyph + severity color compresses the information into one signal.
+
+### Decision 7.14 — Language check runs at scan time only
+
+- **Decision**: FR-029 — language detection runs only as part of a scan, never passively on tab activation or page load.
+- **Rationale**: Preserves Manual mode's "I never touched your page until you asked" posture.
+
+### Decision 7.15 — Keyboard model: Tab + Arrows + Enter + C/S/R/F/D/J + Esc
+
+- **Decision**: FR-030 — Tab into panel, Arrows for row focus, Enter = jump-to-highlight, single-letter shortcuts for the other actions (scoped to panel-focused state only, no host-page conflicts), Esc to exit.
+- **Rationale**: Covers screen-reader + keyboard-only users via standard focus semantics, gives power users muscle memory.
+
+### Decision 7.16 — Scalability cap: 500 findings, manual override
+
+- **Decision**: FR-031 — hard cap at 500; "Continue scanning" in popup lifts the cap for the current page in the current tab only; SC-012 doesn't apply above the cap.
+- **Rationale**: Tafseer-index-sized pages won't accidentally hang V1; user can escape when needed.
+
+### Decision 7.17 — Quran fonts: bundle 3 (Uthmanic Hafs default + Indo-Pak + simplified)
+
+- **Decision**: FR-008 + FR-009 — three fonts shipped in `resources/fonts/`; selectable via popup picker; default Uthmanic Hafs.
+- **Rationale**: Uthmanic Hafs is the most credible "authentic text" signal for Arab readers; Indo-Pak and simplified cover other regional reading conventions without per-region bundles.
+- **Bundle size note**: Three fonts ~2–8 MB each → well under Chrome Web Store's 100 MB cap.
+
+### Decision 7.18 — Tooltip activation across modalities
+
+- **Decision**: FR-032 — highlights are focusable (`tabindex="0"`); tooltip activates on hover, keyboard focus, or touch long-press; `aria-describedby` for screen readers; Esc dismisses.
+- **Rationale**: Hover-only excludes keyboard and touch users from the headline orange signal entirely.
+
+### Decision 7.19 — Per-color replacement defaults: all four non-red ON
+
+- **Decision**: FR-009 — at first install, master toggle ON; per-color toggles for green / light blue / yellow / orange all ON; red is always OFF and cannot be enabled (FR-015).
+- **Rationale**: Matches the literal reading of FR-008 ("every non-red") and constitution Principle IV ("show authentic Quran wherever possible").
+
+### Decision 7.20 — Share link format: page URL + Chrome `#:~:text=` + plain-text body
+
+- **Decision**: FR-011 — share artifact is the page URL augmented with a Chrome text-fragment directive pointing to the citation snippet, plus the plain-text record body on subsequent lines.
+- **Rationale**: Recipients land on the exact passage without needing to install the extension; gracefully degrades to a plain URL on browsers without text-fragment support.
+
+---
+
+## 8. Open Questions Still Carried Forward
+
+Carried from spec.md Open Questions; status reaffirmed by plan:
+
+- **Q1 — DOM mutability survey**: non-blocking. Plan ships FR-012 with its FR-012 clipboard fallback. A post-V1 survey across the top 10 sites determines whether to keep correct-in-place as a headline feature or relegate it.
+- **Q3 — Reference parsing for unusual formats**: non-blocking. `js/verifier/references.js` will start from the advanced copy's case set and grow as fixtures surface new formats.
+- ~~**Q5 — Swap layout policy**~~: resolved in spec (FR-008 + SC-013).
+- **Q6 — Service worker eviction**: non-blocking. Current behavior — rebuild index on activation, ~50–100 ms — is acceptable; revisit if SC-012 budget gets tight.
+- **Q7 — RTL + complex inline markup**: non-blocking. Will surface from the layout-safety fixture set (SC-013); not gating V1 ship.
