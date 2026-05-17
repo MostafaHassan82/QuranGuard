@@ -111,6 +111,31 @@ function isContiguousSubsequence(haystackWords, needleWords) {
   return false;
 }
 
+// Tolerates a single alef insertion/deletion between two tier-1 words.
+// Used only in ref-anchored matching to absorb ٰ→ا drift (e.g. كذالك vs كذلك).
+function softEqualWord(a, b) {
+  if (a === b) return true;
+  const diff = a.length - b.length;
+  if (diff !== 1 && diff !== -1) return false;
+  const [shorter, longer] = diff < 0 ? [a, b] : [b, a];
+  for (let i = 0; i <= shorter.length; i++) {
+    if (shorter.slice(0, i) + 'ا' + shorter.slice(i) === longer) return true;
+  }
+  return false;
+}
+
+function isContiguousSoftSubsequence(haystackWords, needleWords) {
+  if (needleWords.length === 0 || needleWords.length > haystackWords.length) return false;
+  for (let i = 0; i <= haystackWords.length - needleWords.length; i++) {
+    let ok = true;
+    for (let j = 0; j < needleWords.length; j++) {
+      if (!softEqualWord(haystackWords[i + j], needleWords[j])) { ok = false; break; }
+    }
+    if (ok) return true;
+  }
+  return false;
+}
+
 function candidatesFromWords(normWords, wordIdx) {
   if (normWords.length === 0) return new Set();
   const first = normWords[0];
@@ -210,7 +235,7 @@ function tier1MatchInClaimedAyahs(candidateText, candidateWords, resolved) {
   if (records.length === 1) {
     const rec = records[0];
     if (rec.tier1 === candT1) return { rec, displayRef: rec.ref, deviation: classifyDeviation(rec.text, candidateText) };
-    if (isContiguousSubsequence(rec.tier1Words, candidateWords)) return { rec, displayRef: rec.ref, deviation: 'spellingDrift' };
+    if (isContiguousSoftSubsequence(rec.tier1Words, candidateWords)) return { rec, displayRef: rec.ref, deviation: 'spellingDrift' };
     return null;
   }
 
@@ -221,8 +246,8 @@ function tier1MatchInClaimedAyahs(candidateText, candidateWords, resolved) {
   }
   let matchStart = -1;
   outer: for (let i = 0; i <= allWords.length - candidateWords.length; i++) {
-    if (allWords[i] !== candidateWords[0]) continue;
-    for (let j = 1; j < candidateWords.length; j++) if (allWords[i + j] !== candidateWords[j]) continue outer;
+    if (!softEqualWord(allWords[i], candidateWords[0])) continue;
+    for (let j = 1; j < candidateWords.length; j++) if (!softEqualWord(allWords[i + j], candidateWords[j])) continue outer;
     matchStart = i;
     break;
   }
