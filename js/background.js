@@ -111,15 +111,17 @@ function isContiguousSubsequence(haystackWords, needleWords) {
   return false;
 }
 
-// Tolerates a single alef insertion/deletion between two tier-1 words.
-// Used only in ref-anchored matching to absorb ٰ→ا drift (e.g. كذالك vs كذلك).
+// Tolerates a single long-vowel (ا و) insertion/deletion between two tier-1 words.
+// Absorbs Uthmani-vs-standard drift: ٰ→ا adds alef (كذالك vs كذلك),
+// and Uthmani spellings like الربوا vs standard الربا add waw.
 function softEqualWord(a, b) {
   if (a === b) return true;
   const diff = a.length - b.length;
   if (diff !== 1 && diff !== -1) return false;
   const [shorter, longer] = diff < 0 ? [a, b] : [b, a];
-  for (let i = 0; i <= shorter.length; i++) {
-    if (shorter.slice(0, i) + 'ا' + shorter.slice(i) === longer) return true;
+  for (let i = 0; i < longer.length; i++) {
+    if (longer[i] !== 'ا' && longer[i] !== 'و') continue;
+    if (longer.slice(0, i) + longer.slice(i + 1) === shorter) return true;
   }
   return false;
 }

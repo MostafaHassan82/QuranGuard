@@ -46,7 +46,15 @@ const QuranIndexes = (() => {
 
       for (const aya of sura.ayas) {
         const ayahNum = parseInt(aya.index, 10);
-        const t1 = tier1(aya.text);
+        // Uthmani preprocessing: يَٰبَنِى is written as one orthographic word (vocative
+        // يا merged with the following noun). Insert a space after the initial يَٰ token
+        // so tier-1 splits it into يا + noun, matching page text.
+        // Only the START of each space-delimited token is replaced to avoid splitting
+        // mid-word يَٰ in words like ءَايَٰت (آيات).
+        const ayaText = aya.text.split(' ').map(
+          tok => tok.replace(/^ي[َُِ]*ٰ/, 'يَا ')
+        ).join(' ');
+        const t1 = tier1(ayaText);
         const skeleton = toSkeleton(t1);
         const tier1Words = t1.split(' ').filter(w => w.length > 0);
         const skelWords = skeleton.split(' ').filter(w => w.length > 0);
