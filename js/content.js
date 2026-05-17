@@ -334,7 +334,15 @@ function canonicalRef(refString) {
 
 function buildTooltip(color, result) {
   switch (color) {
-    case 'green': return result.matchedRef || '(تطابق)';
+    case 'green': {
+      let tip = result.matchedRef || '(تطابق)';
+      const exact = result.allExactRefs || [];
+      const partial = result.allPartialRefs || [];
+      const otherExact = exact.filter(r => r !== result.matchedRef);
+      if (otherExact.length > 0) tip += '\nيُوجد أيضاً في: ' + otherExact.join(' • ');
+      if (partial.length > 0) tip += '\n(جزئي في: ' + partial.join(' • ') + ')';
+      return tip;
+    }
     case 'lightBlue': {
       const refs = result.matchedRefs && result.matchedRefs.length > 1 ? result.matchedRefs.join(' • ') : (result.matchedRef || '');
       return refs + '\n(لم يُذكر المرجع في الصفحة)';

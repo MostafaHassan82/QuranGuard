@@ -171,6 +171,82 @@ function findOrderedContiguousGlobal(t1Words) {
   return results;
 }
 
+function sortRecs(recs) {
+  return recs.slice().sort((a, b) => a.surahNum - b.surahNum || a.ayahNum - b.ayahNum);
+}
+
+// Word index lookup that also tries one-alef/waw insertion variants.
+// Needed because Uthmani tier1 stores كذالك but page text supplies كذلك.
+function softWordIndexLookup(word, wordIdx) {
+  const exact = wordIdx.get(word);
+  if (exact && exact.size > 0) return exact;
+  const combined = new Set();
+  // Try inserting ا or و at each position
+  for (let i = 0; i <= word.length; i++) {
+    for (const c of ['ا', 'و']) {
+      const v = word.slice(0, i) + c + word.slice(i);
+      const s = wordIdx.get(v);
+      if (s) for (const k of s) combined.add(k);
+    }
+  }
+  // Try deleting one ا or و
+  for (let i = 0; i < word.length; i++) {
+    if (word[i] === 'ا' || word[i] === 'و') {
+      const v = word.slice(0, i) + word.slice(i + 1);
+      const s = wordIdx.get(v);
+      if (s) for (const k of s) combined.add(k);
+    }
+  }
+  return combined;
+}
+
+// Like findOrderedContiguousGlobal but uses soft word lookup + soft subsequence check.
+function findOrderedContiguousSoftGlobal(t1Words) {
+  if (t1Words.length < 2) return [];
+  const first = softWordIndexLookup(t1Words[0], indexes.wordIndex);
+  const last = softWordIndexLookup(t1Words[t1Words.length - 1], indexes.wordIndex);
+  const candidates = new Set();
+  for (const k of first) if (last.has(k)) candidates.add(k);
+  const results = [];
+  for (const key of candidates) {
+    const { surahNum, ayahNum } = parseKey(key);
+    const rec = indexes.byRef[surahNum]?.[ayahNum];
+    if (!rec) continue;
+    if (isContiguousSoftSubsequence(rec.tier1Words, t1Words)) results.push(rec);
+  }
+  return results;
+}
+
+// Returns all Quran locations where the candidate text occurs, exact and partial.
+// Used to populate allExactRefs / allPartialRefs in the result for tooltip display.
+function findAllGlobalMatches(t1, words) {
+  const exactFull = findExactGlobal(t1);
+  const exactSeq = findOrderedContiguousSoftGlobal(words);
+  const seen = new Set(exactFull.map(r => r.ref));
+  for (const r of exactSeq) if (!seen.has(r.ref)) { seen.add(r.ref); exactFull.push(r); }
+  const allExactRefs = sortRecs(exactFull).map(r => r.ref);
+
+  // Partial: soft candidates + looser allowedDiffs (ceil(n/4)) for informational display.
+  const exactSet = new Set(allExactRefs);
+  const softFirst = softWordIndexLookup(words[0], indexes.wordIndex);
+  const softLast = softWordIndexLookup(words[words.length - 1], indexes.wordIndex);
+  const softCands = new Set();
+  for (const k of softFirst) if (softLast.has(k)) softCands.add(k);
+  const looseDiffs = Math.max(2, Math.ceil(words.length / 4));
+  const partialRecs = [];
+  for (const key of softCands) {
+    const { surahNum, ayahNum } = parseKey(key);
+    const rec = indexes.byRef[surahNum]?.[ayahNum];
+    if (!rec || exactSet.has(rec.ref)) continue;
+    const diffs = wordLevelCompareSingleAyahLoose(words, rec.tier1Words, looseDiffs);
+    if (diffs !== null && diffs > 0) partialRecs.push(rec);
+  }
+  const allPartialRefs = sortRecs(partialRecs).map(r => r.ref);
+
+  return { allExactRefs, allPartialRefs };
+}
+
+// wordEq: use softEqualWord so كذلك ≡ كذالك costs 0 (common alef omission in Arabic writing).
 function wordEditDistance(a, b, maxDiffs) {
   if (Math.abs(a.length - b.length) > maxDiffs) return null;
   const m = a.length, n = b.length;
@@ -180,7 +256,7 @@ function wordEditDistance(a, b, maxDiffs) {
     curr[0] = i;
     let rowMin = curr[0];
     for (let j = 1; j <= n; j++) {
-      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      const cost = softEqualWord(a[i - 1], b[j - 1]) ? 0 : 1;
       curr[j] = Math.min(prev[j] + 1, curr[j - 1] + 1, prev[j - 1] + cost);
       if (curr[j] < rowMin) rowMin = curr[j];
     }
@@ -192,6 +268,25 @@ function wordEditDistance(a, b, maxDiffs) {
 
 function wordLevelCompareSingleAyah(candidateWords, ayahWords) {
   const allowedDiffs = Math.max(1, Math.floor(candidateWords.length / 8));
+  if (candidateWords.length === 0) return null;
+  if (candidateWords.length > ayahWords.length + allowedDiffs) return null;
+  const minLen = Math.max(1, candidateWords.length - allowedDiffs);
+  const maxLen = Math.min(ayahWords.length, candidateWords.length + allowedDiffs);
+  let best = null;
+  for (let start = 0; start <= ayahWords.length - minLen; start++) {
+    for (let winLen = minLen; winLen <= maxLen && start + winLen <= ayahWords.length; winLen++) {
+      const win = ayahWords.slice(start, start + winLen);
+      const d = wordEditDistance(candidateWords, win, allowedDiffs);
+      if (d !== null && (best === null || d < best)) best = d;
+      if (best === 0) return 0;
+    }
+  }
+  return best;
+}
+
+// Like wordLevelCompareSingleAyah but with a caller-supplied allowedDiffs.
+// Used by findAllGlobalMatches for informational partial detection.
+function wordLevelCompareSingleAyahLoose(candidateWords, ayahWords, allowedDiffs) {
   if (candidateWords.length === 0) return null;
   if (candidateWords.length > ayahWords.length + allowedDiffs) return null;
   const minLen = Math.max(1, candidateWords.length - allowedDiffs);
@@ -285,6 +380,8 @@ function makeResult(o) {
     deviation: o.deviation ?? null,
     candidateConfidence: o.candidateConfidence ?? 'medium',
     matchType: o.matchType ?? 'none',
+    allExactRefs: o.allExactRefs ?? [],
+    allPartialRefs: o.allPartialRefs ?? [],
   };
 }
 
@@ -329,7 +426,10 @@ function verifyFragmentByRef(candidateText, refString, candidateConfidence = 'me
   if (!resolved) return verifyFragment(candidateText, candidateConfidence);
 
   const t1InClaimed = tier1MatchInClaimedAyahs(candidateText, words, resolved);
-  if (t1InClaimed) return makeResult({ color: 'green', matchedRef: t1InClaimed.displayRef, claimedRef: refString, authenticText: t1InClaimed.rec.text, deviation: t1InClaimed.deviation, candidateConfidence, matchType: 'exact' });
+  if (t1InClaimed) {
+    const { allExactRefs, allPartialRefs } = findAllGlobalMatches(t1, words);
+    return makeResult({ color: 'green', matchedRef: t1InClaimed.displayRef, claimedRef: refString, authenticText: t1InClaimed.rec.text, deviation: t1InClaimed.deviation, candidateConfidence, matchType: 'exact', allExactRefs, allPartialRefs });
+  }
 
   const wlInClaimed = wordLevelMatchInClaimedAyahs(words, resolved);
   if (wlInClaimed) return makeResult({ color: 'yellow', matchedRef: wlInClaimed.rec.ref, claimedRef: refString, authenticText: wlInClaimed.rec.text, deviation: 'wordLevel', candidateConfidence, matchType: 'partial' });
