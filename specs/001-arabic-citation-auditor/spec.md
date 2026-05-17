@@ -8,6 +8,16 @@
 
 **Input**: User description: "V1 reader-side Quran citation auditor for Arabic web pages: detect citations, classify each into the five-color taxonomy, surface reference-mismatch (orange) findings in a panel, render authentic Quran text in place by default, and let the user act on findings (copy, share, report, in-place edit)."
 
+## Clarifications
+
+### Session 2026-05-17
+
+- Q: Should the findings panel list only orange, or all five color categories? → A: All five colors with filters; default orange-only.
+- Q: How aggressively should authentic-text replacement adjust surrounding CSS to absorb layout shift? → A: Span-local only; line-box ≤ 1.5× original.
+- Q: How should the five-color taxonomy be communicated to color-blind and screen-reader users? → A: Color + per-category icon glyph + category named in words in every tooltip and panel row.
+- Q: How should the extension handle pages that change after the initial scan (SPA navigation, infinite scroll, AJAX inserts)? → A: Hybrid — auto incremental re-scan of mutated subtrees + manual "Re-scan all" button.
+- Q: What is the wire format of the structured record produced by copy / share / report (FR-011)? → A: Plain-text with Arabic + English labels as primary; JSON via secondary "Copy as JSON" action.
+
 ## Users & Personas
 
 - **Reader-Auditor (primary V1 user)** — Reads Arabic religious articles online, often on sites like Islamweb, Alukah, Dorar. Wants to know whether the citations they're reading are accurate. Cares deeply about Quran integrity. Will not tolerate false greens — once a green is wrong, all greens lose credibility.
@@ -44,7 +54,7 @@ A long Arabic article may contain many citations; orange findings can be missed 
 
 1. **Given** a scanned page contains three orange findings, **When** the user opens the findings panel (in either surface), **Then** all three findings are listed with citation snippet + cited ref + true ref.
 2. **Given** the findings panel is open (in either surface), **When** the user clicks an entry, **Then** the page scrolls to and focuses the corresponding orange highlight.
-3. **Given** a finding is selected in the panel, **When** the user invokes copy, **Then** the clipboard contains a structured record (citation text, cited reference, true reference, page URL).
+3. **Given** a finding is selected in the panel, **When** the user invokes copy, **Then** the clipboard contains a plain-text record with citation text, cited reference, true reference, page URL, category, and timestamp, each labeled in Arabic and English; invoking "Copy as JSON" instead places the same field set on the clipboard as a single JSON object.
 4. **Given** the user changes the panel-surface preference in popup settings, **When** the next scan runs, **Then** the panel appears in the chosen surface and the preference persists across browser restarts.
 
 ---
@@ -100,13 +110,13 @@ When a reader sees an orange finding, they can — directly from the panel or th
 - **FR-002**: System MUST classify each detected citation into exactly one of five categories: verified-with-reference (green), verified-without-reference (light blue), word-level-inexact (yellow), reference-mismatch (orange), or not-in-Quran (red).
 - **FR-003**: System MUST treat tashkeel/diacritic-only differences and normal modern-vs-Quranic Arabic spelling drift (alif variants ا/آ/ٱ, alef maqsura ↔ ya ى/ي, ta marbuta ↔ ha ة/ه, adjacent same-letter collapse such as `بِٱلَّيْلِ` ↔ `بالليل`) as fully verified, not as yellow downgrades.
 - **FR-004**: System MUST flag a citation as orange (reference-mismatch) when its text exists in the Quran at a reference different from the one written on the page.
-- **FR-005**: System MUST present, for every orange finding, a tooltip that explicitly states both the cited reference and the true reference (wording: "Cited as X, actually Y").
+- **FR-005**: System MUST present, for every orange finding, a tooltip that explicitly states both the cited reference and the true reference (wording: "Reference mismatch — Cited as X, actually Y"). The category name ("Reference mismatch") MUST appear in words at the start of the tooltip so the verdict is intelligible to screen-reader users and to readers who cannot perceive the orange color.
 - **FR-006**: System MUST flag a citation as red when the page strongly looks like a Quran citation (lead-in phrase, braces, explicit reference) but the words do not appear as ordered Quran text anywhere.
-- **FR-007**: System MUST highlight each detected citation in the page with the color of its category, preserving original markup so that text selection, copy operations, and page reflow continue to work.
-- **FR-008**: System MUST, by default, replace the visible text of every non-red highlighted citation with the authentic Quran wording (full tashkeel, Quran-font rendering) sourced from the local Quran data file.
+- **FR-007**: System MUST highlight each detected citation in the page with the color of its category, preserving original markup so that text selection, copy operations, and page reflow continue to work. Each highlight MUST also carry a leading category glyph (distinct per category, e.g., ✓ verified-with-reference, ⓘ verified-without-reference, ~ word-level-inexact, ⚠ reference-mismatch, ✗ not-in-Quran) and the per-highlight tooltip MUST always name the category in words, so the verdict is conveyed without relying on color alone.
+- **FR-008**: System MUST, by default, replace the visible text of every non-red highlighted citation with the authentic Quran wording (full tashkeel, Quran-font rendering) sourced from the local Quran data file. Layout absorption for the swap is scoped to the highlighted span only: font-size and line-height MAY be adjusted inside the span, but no CSS outside the span MAY be modified, and the rendered line-box height MUST NOT exceed 1.5× the original line-box height of the surrounding text.
 - **FR-009**: Users MUST be able to enable/disable authentic-text replacement globally and per color from the extension popup; preferences MUST persist across browser sessions.
-- **FR-010**: System MUST provide a findings panel that aggregates every orange finding on the currently scanned page into a single list. The panel MUST be available in two user-selectable surfaces: (a) attached to the extension popup, and (b) injected into the page as a sidebar/overlay. Both surfaces MUST render the same data and the same per-finding actions. The user's surface preference MUST be selectable from popup settings and MUST persist across browser sessions; the default is popup-attached.
-- **FR-011**: For each finding listed in the panel, users MUST be able to (a) jump to its highlight in the article, (b) copy a structured record of the finding (citation snippet, cited reference, true reference, page URL) to the clipboard, (c) generate a shareable text/link for the finding, and (d) generate a report record for the finding.
+- **FR-010**: System MUST provide a findings panel that can aggregate findings of any of the five categories (green, light blue, yellow, orange, red) on the currently scanned page into a single list. The panel MUST expose per-category filter toggles; the default filter shows orange only, and the user MAY enable any combination of the other four categories. Every panel row MUST display the category's icon glyph and the category name in words alongside its color swatch, so the verdict is conveyed without relying on color alone. The panel MUST be available in two user-selectable surfaces: (a) attached to the extension popup, and (b) injected into the page as a sidebar/overlay. Both surfaces MUST render the same data, the same filter controls, and the same per-finding actions. The user's surface preference and filter selection MUST be selectable from popup settings and MUST persist across browser sessions; defaults are popup-attached surface and orange-only filter.
+- **FR-011**: For each finding listed in the panel, users MUST be able to (a) jump to its highlight in the article, (b) copy a structured record of the finding (citation snippet, cited reference, true reference, page URL, category, timestamp) to the clipboard, (c) generate a shareable text/link for the finding, and (d) generate a report record for the finding. The primary copy/share/report format MUST be human-readable plain text with every field labeled in both Arabic and English (one field per line). A secondary "Copy as JSON" action MUST be available on each finding and MUST emit the same fields as a single canonical JSON object. Both formats MUST contain the same field set; the plain-text form is the default the user receives when invoking copy, share, or report without explicitly choosing JSON.
 - **FR-012**: Users MUST be able to correct an orange finding in place by replacing its cited reference with its true reference in the page DOM; on pages where DOM editing is not technically possible, the action MUST degrade to copying the corrected citation with an explanation.
 - **FR-013**: System MUST operate entirely from local resources after the extension loads — no network calls to fetch Quran data, verify citations, or render text.
 - **FR-014**: System MUST limit V1 detection and highlighting to Arabic-language pages and Arabic-language citations.
@@ -114,6 +124,7 @@ When a reader sees an orange finding, they can — directly from the panel or th
 - **FR-016**: For any citation that carries an explicit reference, the system MUST distinguish three outcomes: (a) the text matches the cited reference (green/yellow), (b) the text does not match the cited reference but matches an exact-grade Quran verse elsewhere (orange), or (c) the text does not match anywhere in the Quran (red).
 - **FR-017**: Only matches that are exact OR differ from the Quran by tashkeel/diacritics only OR differ by normal Arabic spelling drift (per FR-003) MAY be classified green. Looser matching strategies used to FIND candidates (skeleton matching, gap-allowed ordered matching, partial matching) MUST NOT promote a result to green; they may yield yellow, orange, red, or no highlight, never green.
 - **FR-018**: A candidate that lacks strong citation signals (no lead-in phrase, no braces or quotation marks, no explicit reference) and produces no verifiable match MUST be dropped silently without a red highlight. Red is reserved for candidates whose context strongly indicates a Quran citation but whose text cannot be verified.
+- **FR-019**: System MUST keep highlights and findings consistent with the page after dynamic content changes. After the initial scan, the system MUST observe DOM mutations and incrementally re-scan only newly-added or mutated subtrees, with a debounce window of approximately 500 ms to coalesce bursts. Existing highlights on unchanged DOM MUST be retained without rework. The extension popup MUST also expose a manual "Re-scan all" action that discards the current results and performs a full pass over the document. SPA route changes (history pushState/replaceState/popstate or full document replacement) MUST be treated as mutations that trigger the incremental path for any newly-rendered content.
 
 ### Key Entities
 
@@ -139,7 +150,7 @@ When a reader sees an orange finding, they can — directly from the panel or th
 - **SC-010**: On the same 20-case orange test set, orange recall is at least 90% — i.e., at most 2 of the 20 reference-mismatch cases are missed (no orange finding produced).
 - **SC-011**: On a manual audit of 20 random Arabic articles from typical religious sites, the extension produces no more than 2 false-positive red highlights total (i.e., non-citation Arabic prose flagged red).
 - **SC-012**: A full scan of a typical Islamweb article (~5,000 words) completes in under 5 seconds end-to-end, from popup "Scan" click to all highlights rendered.
-- **SC-013**: When authentic-text replacement is enabled, no page in the top 10 fixture set exhibits catastrophic layout breakage from the swap — defined as any content jump greater than 50 pixels or content moving offscreen due to overflow.
+- **SC-013**: When authentic-text replacement is enabled, no page in the top 10 fixture set exhibits catastrophic layout breakage from the swap — defined as any content jump greater than 50 pixels or content moving offscreen due to overflow. Per FR-008, layout absorption is span-local and bounded to ≤ 1.5× the original line-box height; any fixture that would violate the 50-pixel rule under that bound MUST be addressed by tuning span-local typography, not by relaxing the bound or mutating surrounding CSS.
 
 ## Assumptions
 
@@ -158,6 +169,6 @@ Carried forward from the V1 PRD. Q2 (findings panel surfaces) and Q4 (report des
 
 - **Q1 — DOM mutability survey (non-blocking for ship).** Can the extension reliably mutate the DOM on static articles across the top 10 Arabic religious sites, or does in-place edit (FR-012) fall back to clipboard often enough that the feature should be reframed?
 - **Q3 — Reference parsing for unusual formats (non-blocking).** How are page-stated references parsed when the page uses commas + lists, transliterated surah names, hijri-style numerics, or other non-canonical formats?
-- **Q5 — Swap layout policy (blocking for SC-013 polish).** How aggressively should authentic-text replacement modify surrounding font and line-height to preserve layout, without losing the Uthmani rendering's authenticity signal?
+- ~~**Q5 — Swap layout policy.**~~ Resolved 2026-05-17: span-local absorption only, line-box ≤ 1.5× original; see FR-008 and SC-013.
 - **Q6 — Service worker eviction (non-blocking).** How should the background service worker handle mid-scan eviction without re-indexing on every message?
 - **Q7 — RTL + complex inline markup (non-blocking).** Are there Arabic sites where right-to-left handling combined with complex inline markup breaks the virtual-text mapping used to project regex matches back to live DOM nodes?
