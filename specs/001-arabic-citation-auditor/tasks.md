@@ -273,6 +273,28 @@ Repo is a flat Chromium MV3 extension at the repo root. See [plan.md](./plan.md)
 - [ ] T082 Final full-suite run: `python tests/run_tests.py` over every fixture set (174389 + 10 reviewed + orange-cases + drift-cases + red-false-positives + multi-orange + persistence-badge + layout-safety + editable-orange + locked-dom-orange + persisted-correction-revisit + language-gate); confirm SC-001 through SC-013 all pass simultaneously; stop-the-line on any regression
 - [ ] T083 [P] Ship gate: re-run [quickstart.md](./quickstart.md) end-to-end as a fresh contributor would; fix anything that's drifted
 
+### Test-harness modernization (harvested from advanced-copy `tests/run_tests_node.js`)
+
+Per Principle V (Porting Discipline): harvest the **harness pattern only**, not the V2 selectors, popup scenario, or autocomplete code. Goal is to remove the flakes the persistent-profile + real-extension model produces (SW init races, `crypto.randomUUID` secure-context failures, cross-world event drops, profile state bleed) while gaining headless speed, parallelism, and coverage.
+
+- [ ] T084 [P] Build `tests/run_tests_node.js` minimal V1 harness — headless Playwright + system Chrome + single page at `http://quran.test/runner` serving an iframe per fixture. Inject `js/shared/messaging.js`, `js/verifier/normalize.js`, `js/verifier/indexes.js`, `js/verifier/references.js`, `js/background.js`, then `js/content.js` as `<script>` tags into the SAME page (no real extension load, no isolated world). Replace `chrome.runtime` with an MV3-shaped mock that:
+  - Honors the `return true` async-response contract (`sendMessage(msg, cb)` queues the response from the registered `onMessage` listener and invokes `cb` asynchronously).
+  - Provides `chrome.storage.local.{get,set}` over an in-memory dict seeded from a per-test settings object.
+  - Provides `chrome.runtime.getURL` mapping to `http://quran.test/<path>`.
+  - Implements `chrome.runtime.lastError` semantics so existing `sendToBackground` error-handling paths still fire.
+  Document the mock contract inline so the next contributor can extend it without re-reading messaging.md.
+
+- [ ] T085 [P] Adapt the harness's result-capture layer to V1's five-color taxonomy:
+  - Replace V2's `.ayah-correct` / `.ayah:not(.ayah-correct)` / `getHighlightStats()` selectors with V1's `.quran-green/.quran-lightblue/.quran-yellow/.quran-orange/.quran-red` (taxonomy is fixed per Principle II — DO NOT introduce new classes for testing).
+  - Replace V2 `data-matches` / `.tooltiptext` access with V1's `dataset.color`, `dataset.matchedRef`, `dataset.claimedRef`, `dataset.tooltip` (per contracts/window-globals.md).
+  - Expose a one-shot `window.__quranRunScan()` (Promise) so the harness can `await` a scan result directly, eliminating the polling-for-stable loop V2 needed.
+  - Keep the existing Python runner working in parallel until T086 closes the gap on every fixture in the suite — no flipping over half-tested.
+
+- [ ] T086 [P] Wire CDP-based precise coverage (`Profiler.startPreciseCoverage` per `tests/run_tests_node.js` lines 271-285, 748-851) over the full extension surface — `js/background.js`, `js/content.js`, `js/popup.js`, `js/sidebar.js`, `js/shared/messaging.js`, `js/verifier/*.js`, `js/render/*.js`, `js/panel/*.js`. Emit `tests/coverage/coverage-summary.json` + `tests/coverage/uncovered.md` with per-file function/range percentages and the actual uncovered lines (Markdown is the artifact reviewers read; JSON drives CI gates). Set initial floor at the measured baseline + 5% so coverage can only move up; raise the floor in subsequent PRs.
+
+### Out of scope for this harness migration
+The advanced-copy runner's autocomplete scenario, popup scenario, `--ignore-first-unverified` flow, image-source toggles, and worker pool are **not** ported in T084-T086 — they assume features V1 doesn't have (autocomplete typeahead, image rendering of ayahs, MV2 popup contract). Revisit only if a later user story actually needs them.
+
 ---
 
 ## Dependencies & Execution Order
