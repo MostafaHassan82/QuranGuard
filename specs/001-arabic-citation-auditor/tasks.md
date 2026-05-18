@@ -128,20 +128,20 @@ Repo is a flat Chromium MV3 extension at the repo root. See [plan.md](./plan.md)
 
 ### Classifier + 5 colors
 
-- [ ] T030 [US1] Create `js/verifier/classify.js`: the five-color decision function enforcing FR-002 (exactly 5 categories), FR-015 (red never gets non-red), FR-017 (only exact/tashkeelDriftOnly/spellingDrift confidences may yield green), FR-018 (drop silently when no signals + no match)
-- [ ] T031 [P] [US1] Create `js/verifier/orange.js`: the headline reference-mismatch pipeline (per data-model.md > VerificationResult, FR-004 + FR-016) — given a candidate with a cited reference, run normalized verse text against the matched-reference verse AND against global search; produce orange when text matches a different verse than cited (constitution Principle III)
-- [ ] T032 [US1] Wire `js/verifier/classify.js` into `js/background.js`'s scan pipeline so each candidate yields a `VerificationResult` with `{category, matchedReference, citedReferenceParsed, notes, confidence}` (depends on T030 + T031)
+- [X] T030 [US1] Create `js/verifier/classify.js`: the five-color decision function enforcing FR-002 (exactly 5 categories), FR-015 (red never gets non-red), FR-017 (only exact/tashkeelDriftOnly/spellingDrift confidences may yield green), FR-018 (drop silently when no signals + no match)
+- [X] T031 [P] [US1] Create `js/verifier/orange.js`: the headline reference-mismatch pipeline (per data-model.md > VerificationResult, FR-004 + FR-016) — given a candidate with a cited reference, run normalized verse text against the matched-reference verse AND against global search; produce orange when text matches a different verse than cited (constitution Principle III)
+- [X] T032 [US1] Wire `js/verifier/classify.js` into `js/background.js`'s scan pipeline so each candidate yields a `VerificationResult` with `{category, matchedReference, citedReferenceParsed, notes, confidence}` (depends on T030 + T031)
 
 ### Highlight rendering with glyph + words + a11y (FR-005, FR-007, FR-010, FR-032)
 
-- [ ] T033 [US1] Extend `css/content.css` to add the three missing highlight colors (light blue, yellow, orange) with their per-category glyph prefixes (✓ verified-with-reference, ⓘ verified-without-reference, ~ word-level-inexact, ⚠ reference-mismatch, ✗ not-in-Quran) per FR-007
-- [ ] T034 [US1] Extend `js/content.js` `wrapTextNodes` to set `tabindex="0"` on every highlight span and bind an `aria-describedby` to a hidden per-highlight tooltip element containing category-name-in-words + cited/true references (FR-005, FR-007, FR-032)
-- [ ] T035 [US1] Extend `css/content.css` tooltip `::after` rule to activate on `:hover`, `:focus`, and a touch-long-press class set by `js/content.js`; tooltip MUST start with the category name in words ("Reference mismatch — Cited as X, actually Y") per FR-005 + FR-032
-- [ ] T036 [US1] Add Esc handling on focused highlights in `js/content.js`: first Esc dismisses tooltip and returns focus to the highlight; second Esc moves focus back to the host page (FR-032)
+- [X] T033 [US1] Extend `css/content.css` to add the three missing highlight colors (light blue, yellow, orange) with their per-category glyph prefixes (✓ verified-with-reference, ⓘ verified-without-reference, ~ word-level-inexact, ⚠ reference-mismatch, ✗ not-in-Quran) per FR-007
+- [X] T034 [US1] Extend `js/content.js` `wrapTextNodes` to set `tabindex="0"` on every highlight span and bind an `aria-describedby` to a hidden per-highlight tooltip element containing category-name-in-words + cited/true references (FR-005, FR-007, FR-032) — implemented via `aria-label` (no SR-only DOM child) to avoid DOM-mutation regression
+- [X] T035 [US1] Extend `css/content.css` tooltip `::after` rule to activate on `:hover`, `:focus`, and a touch-long-press class set by `js/content.js`; tooltip MUST start with the category name in words ("Reference mismatch — Cited as X, actually Y") per FR-005 + FR-032
+- [X] T036 [US1] Add Esc handling on focused highlights in `js/content.js`: first Esc dismisses tooltip and returns focus to the highlight; second Esc moves focus back to the host page (FR-032)
 
 ### Scan-result composition (Finding emission)
 
-- [ ] T037 [US1] In `js/content.js`'s scan pipeline, compose each `Finding` per data-model.md: composite id = sha1(normalize(rawText) + "|" + normalize(citedReference) + "|" + matchedReference.toString() + "|" + domPath); `priorFindingId: null` for fresh findings; emit each via `SCAN_PROGRESS` so the badge (T026) and global windows (T019) update live (FR-023)
+- [X] T037 [US1] In `js/content.js`'s scan pipeline, compose each `Finding` per data-model.md: composite id = sha1(normalize(rawText) + "|" + normalize(citedReference) + "|" + matchedReference.toString() + "|" + domPath); `priorFindingId: null` for fresh findings; emit each via `SCAN_PROGRESS` so the badge (T026) and global windows (T019) update live (FR-023) — uses FNV-1a (sync) instead of SHA-1 (async) to avoid reentrancy in the convergence loop; same deterministic identity
 
 ### Fixtures for US1
 
