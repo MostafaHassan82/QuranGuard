@@ -8,6 +8,8 @@ importScripts(
   'verifier/normalize.js',    // QuranNormalize
   'verifier/indexes.js',      // QuranIndexes
   'verifier/references.js',   // QuranReferences
+  'verifier/classify.js',     // QuranClassify (T030)
+  'verifier/orange.js',       // QuranOrange  (T031)
   'storage/prefs.js',         // QuranPrefs
   'storage/persisted.js',     // QuranPersisted
   'badge/badge.js'            // QuranBadge
@@ -368,22 +370,10 @@ function wordLevelMatchInClaimedAyahs(candidateWords, resolved) {
   return best;
 }
 
-// ── Result builder ────────────────────────────────────────────────────────────
-
-function makeResult(o) {
-  return {
-    color: o.color ?? null,
-    matchedRef: o.matchedRef ?? null,
-    matchedRefs: o.matchedRefs ?? [],
-    claimedRef: o.claimedRef ?? null,
-    authenticText: o.authenticText ?? null,
-    deviation: o.deviation ?? null,
-    candidateConfidence: o.candidateConfidence ?? 'medium',
-    matchType: o.matchType ?? 'none',
-    allExactRefs: o.allExactRefs ?? [],
-    allPartialRefs: o.allPartialRefs ?? [],
-  };
-}
+// ── Result builder (T030) ─────────────────────────────────────────────────────
+// QuranClassify owns the 5-category contract and the result shape, plus
+// FR-015/017/018 guard rails. Aliased here so the verifier reads naturally.
+const { makeResult } = QuranClassify;
 
 // ── Verifier — Path 2 (no claimed ref) ───────────────────────────────────────
 
@@ -477,15 +467,23 @@ function verifyFragmentByRef(candidateText, refString, candidateConfidence = 'me
     if (wlInRange) return makeResult({ color: 'yellow', matchedRef: wlInRange.rec.ref, claimedRef: refString, authenticText: wlInRange.rec.text, deviation: 'wordLevel', candidateConfidence, matchType: 'partial' });
   }
 
-  if (candidateConfidence === 'high') {
-    const claimedKeys = new Set(resolved.ayahNums.map(n => `${resolved.surahNum}:${n}`));
-    let globalRecs = findExactGlobal(t1);
-    if (globalRecs.length === 0) globalRecs = findOrderedContiguousGlobal(words);
-    const elsewhere = globalRecs.filter(r => !claimedKeys.has(`${r.surahNum}:${r.ayahNum}`));
-    if (elsewhere.length > 0) {
-      const sorted = elsewhere.slice().sort((a, b) => a.surahNum - b.surahNum || a.ayahNum - b.ayahNum);
-      return makeResult({ color: 'orange', matchedRef: sorted[0].ref, matchedRefs: sorted.map(r => r.ref), claimedRef: refString, authenticText: sorted[0].text, deviation: 'none', candidateConfidence, matchType: 'exact' });
-    }
+  // Orange (FR-004, FR-016): text IS Quran but at a different ref than claimed.
+  // QuranOrange owns the decision; we provide the search helpers it needs.
+  const orangeHits = QuranOrange.classify(t1, words, resolved, candidateConfidence, {
+    findExactGlobal,
+    findOrderedContiguousGlobal,
+  });
+  if (orangeHits) {
+    return makeResult({
+      color: 'orange',
+      matchedRef: orangeHits[0].ref,
+      matchedRefs: orangeHits.map(r => r.ref),
+      claimedRef: refString,
+      authenticText: orangeHits[0].text,
+      deviation: 'none',
+      candidateConfidence,
+      matchType: 'exact',
+    });
   }
 
   const wlGlobal = wordLevelMatchGlobal(words);

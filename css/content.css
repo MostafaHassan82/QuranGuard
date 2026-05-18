@@ -18,6 +18,43 @@
   position: relative;
 }
 
+/* ── Per-category glyph prefix (FR-007, T033) ────────────────────────────────
+   Screen-readers get the category name in words via aria-describedby (T034);
+   sighted users get a compact glyph so the taxonomy is visible even on a
+   monochrome / colour-blind / dark-mode page. Glyphs sit OUTSIDE the highlight
+   bounding box so the page layout isn't shifted. */
+.quran-green::before,
+.quran-lightblue::before,
+.quran-yellow::before,
+.quran-orange::before,
+.quran-red::before {
+  display: inline-block;
+  margin-inline-end: 2px;
+  font-family: Arial, sans-serif;
+  font-size: 0.85em;
+  font-weight: bold;
+  vertical-align: baseline;
+  /* Glyphs are decorative — the aria-describedby tooltip carries the real label. */
+  speak: none;
+  user-select: none;
+}
+/* Focus ring (T034 + T035) — visible keyboard focus indicator on every highlight.
+   Skipped for the pending placeholder (invisible spans should stay invisible). */
+.quran-green:focus,
+.quran-lightblue:focus,
+.quran-yellow:focus,
+.quran-orange:focus,
+.quran-red:focus {
+  outline: 2px solid rgba(50, 110, 220, 0.85);
+  outline-offset: 1px;
+}
+
+.quran-green::before     { content: "✓"; color: rgba(0, 130, 0, 0.85); }
+.quran-lightblue::before { content: "ⓘ"; color: rgba(50, 140, 200, 0.9); }
+.quran-yellow::before    { content: "~"; color: rgba(200, 160, 20, 0.95); }
+.quran-orange::before    { content: "⚠"; color: rgba(220, 110, 0, 0.95); }
+.quran-red::before       { content: "✗"; color: rgba(200, 0, 0, 0.85); }
+
 .quran-green {
   background-color: rgba(0, 180, 0, 0.18);
   border-bottom: 2px solid rgba(0, 160, 0, 0.7);
@@ -53,11 +90,24 @@
 }
 
 /* ── Tooltip via data-tooltip attribute ─────────────────────────────────── */
+/* T035 — Activate on :hover (mouse), :focus (keyboard tab traversal), and
+   the .quran-pressed class (long-press on touch). Keyboard users and touch
+   users get the same tooltip as mouse users. */
 .quran-green[data-tooltip]:hover::after,
+.quran-green[data-tooltip]:focus::after,
+.quran-green[data-tooltip].quran-pressed::after,
 .quran-lightblue[data-tooltip]:hover::after,
+.quran-lightblue[data-tooltip]:focus::after,
+.quran-lightblue[data-tooltip].quran-pressed::after,
 .quran-yellow[data-tooltip]:hover::after,
+.quran-yellow[data-tooltip]:focus::after,
+.quran-yellow[data-tooltip].quran-pressed::after,
 .quran-orange[data-tooltip]:hover::after,
-.quran-red[data-tooltip]:hover::after {
+.quran-orange[data-tooltip]:focus::after,
+.quran-orange[data-tooltip].quran-pressed::after,
+.quran-red[data-tooltip]:hover::after,
+.quran-red[data-tooltip]:focus::after,
+.quran-red[data-tooltip].quran-pressed::after {
   content: attr(data-tooltip);
   position: absolute;
   top: calc(100% + 4px);

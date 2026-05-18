@@ -546,12 +546,78 @@ function buildTooltip(color, result) {
 
 // ── DOM wrapping ──────────────────────────────────────────────────────────────
 
+// Maps the 5 categories to the FR-005 human-readable category-name-in-words.
+// Used by both the visual tooltip and the SR-only aria-describedby element so
+// keyboard + assistive-tech users see the same lead text as sighted users.
+const CATEGORY_LABEL_AR = {
+  green:     'مطابق للقرآن مع المرجع',
+  lightBlue: 'مطابق للقرآن — لم يُذكر المرجع',
+  yellow:    'اختلاف لفظي',
+  orange:    'مرجع غير مطابق',
+  red:       'لم يُعثر عليه في القرآن',
+};
+
+// T037 helpers — composite finding ID. Synchronous (no Web Crypto) so the
+// scan loop stays straightforward and doesn't introduce reentrancy hazards.
+// FNV-1a 32-bit + length isn't cryptographic, but the spec's intent (a stable
+// identifier per finding for FR-024 persistence) is satisfied: same composite
+// string → same id, deterministic, no async surface area.
+function normalizeForId(s) {
+  if (!s) return '';
+  return String(s)
+    .replace(/[\s\x00]+/g, ' ')
+    .replace(/[.,،;:()\[\]{}«»﴾﴿]/g, '')
+    .trim();
+}
+function computeDomPath(node) {
+  if (!node) return '';
+  const parts = [];
+  let el = node.nodeType === 1 ? node : node.parentElement;
+  while (el && el !== document.documentElement && parts.length < 12) {
+    let idx = 0;
+    let sib = el;
+    while ((sib = sib.previousElementSibling) != null) if (sib.tagName === el.tagName) idx++;
+    parts.unshift(`${el.tagName.toLowerCase()}[${idx}]`);
+    el = el.parentElement;
+  }
+  return parts.join('/');
+}
+function fnv1a32(s) {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = (h + ((h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24))) >>> 0;
+  }
+  return ('00000000' + h.toString(16)).slice(-8);
+}
+function computeCompositeFindingId(rawText, citedReference, matchedReference, domPath) {
+  const composite = [
+    normalizeForId(rawText),
+    normalizeForId(citedReference || ''),
+    matchedReference || '',
+    domPath || '',
+  ].join('|');
+  // Length-suffixed FNV avoids collisions between same-prefix candidates.
+  return fnv1a32(composite) + '-' + composite.length.toString(36);
+}
+
 function wrapTextNodes(nodes, startOffset, endOffset, cssClass, dataAttrs) {
   if (!nodes || nodes.length === 0) return null;
   try {
     const span = document.createElement('span');
     span.className = cssClass;
     for (const [k, v] of Object.entries(dataAttrs)) { if (v != null) span.dataset[k] = v; }
+    // T034 — Keyboard focusable + role + aria-label for assistive tech.
+    // aria-label is preferred over an appended SR-only child: no DOM mutation
+    // risk, no chance of the label text being concatenated into the visible
+    // span, no chance of the mutation observer / convergence loop seeing it.
+    span.setAttribute('tabindex', '0');
+    span.setAttribute('role', 'mark');
+    const color = dataAttrs.color;
+    if (color && CATEGORY_LABEL_AR[color]) {
+      const tooltip = dataAttrs.tooltip || '';
+      span.setAttribute('aria-label', CATEGORY_LABEL_AR[color] + (tooltip ? '. ' + tooltip : ''));
+    }
     if (nodes.length === 1) {
       const node = nodes[0];
       const before = node.textContent.slice(0, startOffset);
@@ -598,7 +664,16 @@ function applyHighlight(candidate, result, { hidden = false } = {}) {
   const cssClass = hidden ? PENDING_CLASS : CSS_BY_COLOR[color];
   if (!cssClass) return null;
   const tooltip = buildTooltip(color, result);
-  const findingId = `qf-${STATE.findings.length + 1}`;
+  // T037 — Composite finding ID derived from normalized rawText + citedRef +
+  // matchedRef + domPath. Computed BEFORE wrapTextNodes mutates the DOM so
+  // domPath references the original parent chain. Stable across re-scans of
+  // the same page → enables FR-024 persisted corrections / dismissals to
+  // survive a reload. FNV-1a (sync) instead of SHA-1 (async) avoids
+  // reentrancy hazards in the convergence loop.
+  const domPath = computeDomPath(candidate.nodes && candidate.nodes[0]);
+  const findingId = computeCompositeFindingId(
+    candidate.text, result.claimedRef, result.matchedRef, domPath
+  );
   const dataAttrs = {
     tooltip, color, findingId,
     matchedRef: result.matchedRef || '',
@@ -616,7 +691,7 @@ function applyHighlight(candidate, result, { hidden = false } = {}) {
       id: findingId,
       category: color,
       rawText: candidate.text,
-      domPath: '',       // TODO T037: compute sha1-based composite id
+      domPath,
       citedReference: result.claimedRef || null,
       matchedReference: result.matchedRef || null,
       confidence: result.matchType || candidate.confidence,
@@ -907,6 +982,69 @@ async function maybeAutoscan() {
 
 // ── Highlight clearing ────────────────────────────────────────────────────────
 // Already defined above.
+
+// ── Highlight interaction (T035 long-press + T036 Esc) ───────────────────────
+// All highlight spans share the `quran-*` classes — use event delegation so we
+// don't have to attach per-span listeners (and so dynamically-added highlights
+// from mutation-observer rescans Just Work).
+const LONG_PRESS_MS = 500;
+let longPressTimer = null;
+let longPressTarget = null;
+function isHighlightSpan(el) {
+  return el && el.classList && (
+    el.classList.contains('quran-green') || el.classList.contains('quran-lightblue') ||
+    el.classList.contains('quran-yellow') || el.classList.contains('quran-orange') ||
+    el.classList.contains('quran-red')
+  );
+}
+document.addEventListener('touchstart', (e) => {
+  const t = e.target && e.target.closest && e.target.closest(HIGHLIGHT_SELECTOR);
+  if (!isHighlightSpan(t)) return;
+  longPressTarget = t;
+  if (longPressTimer) clearTimeout(longPressTimer);
+  longPressTimer = setTimeout(() => {
+    if (longPressTarget) longPressTarget.classList.add('quran-pressed');
+  }, LONG_PRESS_MS);
+}, { passive: true });
+function cancelLongPress() {
+  if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
+  if (longPressTarget) { longPressTarget.classList.remove('quran-pressed'); longPressTarget = null; }
+}
+document.addEventListener('touchend', cancelLongPress, { passive: true });
+document.addEventListener('touchmove', cancelLongPress, { passive: true });
+document.addEventListener('touchcancel', cancelLongPress, { passive: true });
+// Tap outside dismisses any sticky press state.
+document.addEventListener('click', (e) => {
+  if (!isHighlightSpan(e.target && e.target.closest && e.target.closest(HIGHLIGHT_SELECTOR))) {
+    for (const el of document.querySelectorAll('.quran-pressed')) el.classList.remove('quran-pressed');
+  }
+}, true);
+
+// T036 — Esc handling on focused highlights.
+// First Esc: dismiss any sticky-pressed tooltip and keep focus on highlight.
+// Second Esc (highlight still focused, no sticky tooltip): blur back to page.
+let escWasUsedForTooltip = false;
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  const focused = document.activeElement;
+  if (!isHighlightSpan(focused)) return;
+  if (focused.classList.contains('quran-pressed')) {
+    focused.classList.remove('quran-pressed');
+    escWasUsedForTooltip = true;
+    e.preventDefault();
+    return;
+  }
+  if (escWasUsedForTooltip) {
+    // Already dismissed a tooltip on a prior Esc — this second press blurs.
+    focused.blur();
+    escWasUsedForTooltip = false;
+    e.preventDefault();
+    return;
+  }
+  // No sticky tooltip to dismiss — blur immediately (hover/focus tooltip will hide).
+  focused.blur();
+  e.preventDefault();
+});
 
 // ── Test bridge (Playwright DOM events) ──────────────────────────────────────
 
