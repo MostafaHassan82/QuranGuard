@@ -47,6 +47,25 @@ window.__quranScan = null;      // set on SCAN_COMPLETE, null on SCAN_START
 window.__quranStats = makeEmptyStats();
 window.__quranMatches = [];
 
+// ── Debug trace ───────────────────────────────────────────────────────────────
+// Toggle in DevTools console:  __quranDebug(true)  then rescan.
+// All trace lines start with `[QD:` so you can grep/copy them as a block when
+// pasting back a bug report. Stays off by default to keep the console clean.
+let QURAN_DEBUG_TRACE = false;
+window.__quranDebug = function (on) {
+  QURAN_DEBUG_TRACE = !!on;
+  console.log(`[QD] debug trace ${QURAN_DEBUG_TRACE ? 'ON' : 'OFF'} — rescan to capture`);
+};
+function dbg(section, msg) {
+  if (!QURAN_DEBUG_TRACE) return;
+  console.log(`[QD:${section}] ${msg}`);
+}
+function dbgPreview(s, max = 80) {
+  if (!s) return '';
+  const flat = String(s).replace(/[\x00\n\r]/g, '·').replace(/\s+/g, ' ');
+  return flat.length <= max ? flat : flat.slice(0, max - 1) + '…';
+}
+
 // ── Regex constants ───────────────────────────────────────────────────────────
 
 function escapeRe(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
@@ -132,7 +151,11 @@ function createTextWalker(root) {
       if (!parent) return NodeFilter.FILTER_REJECT;
       if (SKIP_TAGS.has(parent.tagName)) return NodeFilter.FILTER_REJECT;
       if (parent.closest(HIGHLIGHT_SELECTOR)) return NodeFilter.FILTER_REJECT;
-      if (node.textContent.trim().length < 2) return NodeFilter.FILTER_SKIP;
+      // Keep short non-whitespace text nodes — single chars like "{", "}", "*"
+      // often sit in their own text nodes between inline elements (e.g.
+      //   {<font>v88</font> * <font>v89</font>}) and are required for BRACE_RE
+      // / verse-separator extraction to span across the elements.
+      if (node.textContent.trim().length === 0) return NodeFilter.FILTER_SKIP;
       return NodeFilter.FILTER_ACCEPT;
     },
   });
@@ -299,9 +322,16 @@ function extractExplicitRefBackward(combined, map, textNodes, alreadyCovered, pr
     if (lastBm) {
       const content = braceContent(lastBm);
       if (content && content.length >= 4) {
+        // Use RAW captured length, not cleaned text.length — braceContent collapses
+        // \x00 boundaries and adjacent whitespace, so text.length is shorter than the
+        // span actually occupied in `combined`. Underestimating innerEnd truncates the
+        // candidate (e.g. trailing letters get clipped on {<font>v</font> * <font>v'</font>}
+        // patterns where the inner separator collapses 2 spaces). Mirrors the comment
+        // in extractLeadInBraced.
+        const rawInner = lastBm[1] ?? lastBm[2] ?? '';
         text = content;
-        const rawStart = backStart + nearOffset + lastBm.index + lastBm[0].indexOf(lastBm[1] ?? lastBm[2]);
-        innerStart = rawStart; innerEnd = rawStart + text.length; confidence = 'high';
+        const rawStart = backStart + nearOffset + lastBm.index + lastBm[0].indexOf(rawInner);
+        innerStart = rawStart; innerEnd = rawStart + rawInner.length; confidence = 'high';
       }
     }
     // Lead-in fallback: pick the CLOSEST lead-in to the ref (not just the closest primary).
@@ -839,6 +869,17 @@ async function scanPage({ liftCap = false, subtreeRoot = null } = {}) {
       STATS.candidatesExtracted = candidates.length;
       console.log(`[QuranExt] pass ${pass}: nodes=${textNodes.length} candidates=${candidates.length}`);
 
+      if (QURAN_DEBUG_TRACE) {
+        dbg('scan', `pass=${pass} nodes=${textNodes.length} combinedLen=${combined.length} candidates=${candidates.length}`);
+        const byStrat = {};
+        for (const c of candidates) byStrat[c.strategy] = (byStrat[c.strategy] || 0) + 1;
+        for (const [s, n] of Object.entries(byStrat)) dbg('strat', `${s}: ${n}`);
+        for (let i = 0; i < candidates.length; i++) {
+          const c = candidates[i];
+          dbg('cand', `#${i} [${c.strategy}/${c.confidence}] ref=${JSON.stringify(c.ref || null)} range=[${c.charStart}..${c.charEnd}] text="${dbgPreview(c.text, 100)}"`);
+        }
+      }
+
       const perCategoryCount = { green: 0, lightBlue: 0, yellow: 0, orange: 0, red: 0 };
 
       for (const candidate of candidates) {
@@ -849,9 +890,14 @@ async function scanPage({ liftCap = false, subtreeRoot = null } = {}) {
 
         try {
           const msg = candidate.ref
-            ? { type: 'verifyFragmentByRef', text: candidate.text, ref: candidate.ref, candidateConfidence: candidate.confidence }
-            : { type: 'verifyFragment', text: candidate.text, candidateConfidence: candidate.confidence };
+            ? { type: 'verifyFragmentByRef', text: candidate.text, ref: candidate.ref, candidateConfidence: candidate.confidence, debug: QURAN_DEBUG_TRACE }
+            : { type: 'verifyFragment', text: candidate.text, candidateConfidence: candidate.confidence, debug: QURAN_DEBUG_TRACE };
           const result = await sendToBackground(msg);
+          if (QURAN_DEBUG_TRACE) {
+            const r = result || {};
+            dbg('verify', `ref=${JSON.stringify(candidate.ref || null)} → color=${r.color ?? 'null'} matchedRef=${JSON.stringify(r.matchedRef || null)} deviation=${r.deviation || '-'} matchType=${r.matchType || '-'}`);
+            if (Array.isArray(r._trace)) for (const t of r._trace) console.log(`[QD:bg] ${t}`);
+          }
           if (result && !result.error && result.color) {
             const span = applyHighlight(candidate, result, { hidden: useHidden });
             if (span) {

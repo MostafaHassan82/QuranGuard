@@ -113,17 +113,47 @@ function isContiguousSubsequence(haystackWords, needleWords) {
   return false;
 }
 
-// Tolerates a single long-vowel (ا و) insertion/deletion between two tier-1 words.
-// Absorbs Uthmani-vs-standard drift: ٰ→ا adds alef (كذالك vs كذلك),
-// and Uthmani spellings like الربوا vs standard الربا add waw.
+// Tolerates a 1- or 2-letter (ا و ي ء) insertion/deletion between two tier-1
+// words. Each tolerated letter must be a drift-set member; that keeps the
+// relaxation tight (a 4-letter word can't match an unrelated 5-letter word
+// just because their consonant skeletons happen to align).
+//
+// Absorbs Uthmani-vs-standard drift:
+//   ٰ→ا adds alef     (كذالك vs كذلك)
+//   Uthmani الربوا vs standard الربا adds waw
+//   Uthmani ىٰ → tier1 "يا"; modern equivalent is plain ا (e.g. أَنجَىٰكُم → "انجياكم"
+//     vs modern "انجاكم"), leaving exactly one extra ي to tolerate.
+//   Quranic U+0654 (HAMZA ABOVE, a diacritic) is stripped by tier1, so words
+//     like خَٰسِـِٔينَ → "خاسين"; the modern citation خاسئين preserves the hamza as
+//     a letter ئ → "خاسءين", leaving exactly one extra ء to tolerate.
+//   Two-letter cases:
+//     Imperative drift: Uthmani وَسْـَٔلِ → "وسل" vs modern واسأل → "واسال"
+//       (disjoining alef + bare-vs-diacritic hamza, both removed from longer).
+//     Leading-و + ٰ→ا on the same word: Uthmani وَكَذَٰلِكَ → "وكذالك" vs cited
+//       كذلك → "كذلك" (citation drops the conjunction and the dagger-alef).
 function softEqualWord(a, b) {
   if (a === b) return true;
-  const diff = a.length - b.length;
-  if (diff !== 1 && diff !== -1) return false;
-  const [shorter, longer] = diff < 0 ? [a, b] : [b, a];
+  const diff = Math.abs(a.length - b.length);
+  if (diff < 1 || diff > 2) return false;
+  const [shorter, longer] = a.length < b.length ? [a, b] : [b, a];
+  const isDrift = c => c === 'ا' || c === 'و' || c === 'ي' || c === 'ء';
+
+  if (diff === 1) {
+    for (let i = 0; i < longer.length; i++) {
+      if (!isDrift(longer[i])) continue;
+      if (longer.slice(0, i) + longer.slice(i + 1) === shorter) return true;
+    }
+    return false;
+  }
+
+  // diff === 2: try removing two drift letters from longer
   for (let i = 0; i < longer.length; i++) {
-    if (longer[i] !== 'ا' && longer[i] !== 'و') continue;
-    if (longer.slice(0, i) + longer.slice(i + 1) === shorter) return true;
+    if (!isDrift(longer[i])) continue;
+    const after1 = longer.slice(0, i) + longer.slice(i + 1);
+    for (let j = 0; j < after1.length; j++) {
+      if (!isDrift(after1[j])) continue;
+      if (after1.slice(0, j) + after1.slice(j + 1) === shorter) return true;
+    }
   }
   return false;
 }
@@ -183,17 +213,18 @@ function softWordIndexLookup(word, wordIdx) {
   const exact = wordIdx.get(word);
   if (exact && exact.size > 0) return exact;
   const combined = new Set();
-  // Try inserting ا or و at each position
+  // Try inserting ا, و, ي, or ء at each position (mirrors softEqualWord tolerance)
   for (let i = 0; i <= word.length; i++) {
-    for (const c of ['ا', 'و']) {
+    for (const c of ['ا', 'و', 'ي', 'ء']) {
       const v = word.slice(0, i) + c + word.slice(i);
       const s = wordIdx.get(v);
       if (s) for (const k of s) combined.add(k);
     }
   }
-  // Try deleting one ا or و
+  // Try deleting one ا, و, ي, or ء
   for (let i = 0; i < word.length; i++) {
-    if (word[i] === 'ا' || word[i] === 'و') {
+    const ch = word[i];
+    if (ch === 'ا' || ch === 'و' || ch === 'ي' || ch === 'ء') {
       const v = word.slice(0, i) + word.slice(i + 1);
       const s = wordIdx.get(v);
       if (s) for (const k of s) combined.add(k);
@@ -325,16 +356,20 @@ function wordLevelMatchGlobal(t1Words) {
 
 // ── Reference-anchored match helpers ─────────────────────────────────────────
 
-function tier1MatchInClaimedAyahs(candidateText, candidateWords, resolved) {
+function tier1MatchInClaimedAyahs(candidateText, candidateWords, resolved, tr = null) {
   const { surahNum, ayahNums } = resolved;
   const records = ayahNums.map(n => indexes.byRef[surahNum]?.[n]).filter(Boolean);
-  if (records.length === 0) return null;
+  if (records.length === 0) { if (tr) tr(`  match: no records for surah=${surahNum} ayahs=[${ayahNums.join(',')}]`); return null; }
   const candT1 = tier1Normalize(candidateText);
 
   if (records.length === 1) {
     const rec = records[0];
     if (rec.tier1 === candT1) return { rec, displayRef: rec.ref, deviation: classifyDeviation(rec.text, candidateText) };
     if (isContiguousSoftSubsequence(rec.tier1Words, candidateWords)) return { rec, displayRef: rec.ref, deviation: 'spellingDrift' };
+    if (tr) {
+      tr(`  match[single]: verse=${rec.ref} verseWords=${rec.tier1Words.length} candWords=${candidateWords.length}`);
+      tr(`    verse-t1: ${JSON.stringify(rec.tier1.length > 160 ? rec.tier1.slice(0,157)+'...' : rec.tier1)}`);
+    }
     return null;
   }
 
@@ -344,13 +379,31 @@ function tier1MatchInClaimedAyahs(candidateText, candidateWords, resolved) {
     for (const w of rec.tier1Words) { allWords.push(w); wordToAyah.push(rec.ayahNum); }
   }
   let matchStart = -1;
+  let bestPrefix = { i: -1, j: -1 }; // for trace: longest prefix that matched before failing
   outer: for (let i = 0; i <= allWords.length - candidateWords.length; i++) {
     if (!softEqualWord(allWords[i], candidateWords[0])) continue;
-    for (let j = 1; j < candidateWords.length; j++) if (!softEqualWord(allWords[i + j], candidateWords[j])) continue outer;
+    for (let j = 1; j < candidateWords.length; j++) {
+      if (!softEqualWord(allWords[i + j], candidateWords[j])) {
+        if (j > bestPrefix.j) bestPrefix = { i, j };
+        continue outer;
+      }
+    }
     matchStart = i;
     break;
   }
-  if (matchStart === -1) return null;
+  if (matchStart === -1) {
+    if (tr) {
+      tr(`  match[multi]: NO alignment (verseWords=${allWords.length} candWords=${candidateWords.length})`);
+      if (bestPrefix.j > 0) {
+        const i = bestPrefix.i, j = bestPrefix.j;
+        tr(`    bestPrefix: matched ${j} words at start=${i}, failed at j=${j}`);
+        tr(`    verse[${i+j}]=${JSON.stringify(allWords[i+j])} vs cand[${j}]=${JSON.stringify(candidateWords[j])}`);
+      } else {
+        tr(`    first-word never matched. cand[0]=${JSON.stringify(candidateWords[0])} cand[last]=${JSON.stringify(candidateWords[candidateWords.length-1])}`);
+      }
+    }
+    return null;
+  }
   const matchEnd = matchStart + candidateWords.length - 1;
   const firstAyah = wordToAyah[matchStart], lastAyah = wordToAyah[matchEnd];
   const surahName = records[0].surahName;
@@ -433,38 +486,50 @@ function preferClaimedSpelling(matchedRef, claimedRef) {
   return matchedRef;
 }
 
-function verifyFragmentByRef(candidateText, refString, candidateConfidence = 'medium') {
-  if (!candidateText) return makeResult({ color: null, candidateConfidence, claimedRef: refString });
+function verifyFragmentByRef(candidateText, refString, candidateConfidence = 'medium', debug = false) {
+  const trace = debug ? [] : null;
+  const tr = (s) => { if (trace) trace.push(s); };
+  const wrap = (r) => trace ? Object.assign(r, { _trace: trace }) : r;
+
+  if (!candidateText) return wrap(makeResult({ color: null, candidateConfidence, claimedRef: refString }));
   const resolved = QuranReferences.resolve(refString, indexes);
   const t1 = tier1Normalize(candidateText.replace(/\*/g, ' '));
   const words = t1.split(' ').filter(w => w.length > 0);
-  if (words.length === 0) return makeResult({ color: null, candidateConfidence, claimedRef: refString });
+  tr(`input: ref=${JSON.stringify(refString)} candLen=${candidateText.length} t1Words=${words.length}`);
+  tr(`cand-t1: ${JSON.stringify(t1.length > 200 ? t1.slice(0, 197) + '...' : t1)}`);
+  if (resolved) tr(`resolved: surahNum=${resolved.surahNum} ayahs=[${resolved.ayahNums.join(',')}] isRange=${!!resolved.isRange}`);
+  else tr(`resolved: NULL (ref didn't parse) — falling back to verifyFragment`);
+  if (words.length === 0) return wrap(makeResult({ color: null, candidateConfidence, claimedRef: refString }));
   if (!resolved) return verifyFragment(candidateText, candidateConfidence);
 
-  const t1InClaimed = tier1MatchInClaimedAyahs(candidateText, words, resolved);
+  const t1InClaimed = tier1MatchInClaimedAyahs(candidateText, words, resolved, tr);
   if (t1InClaimed) {
+    tr(`tier1MatchInClaimed: HIT (${t1InClaimed.displayRef}, deviation=${t1InClaimed.deviation}) → green`);
     const { allExactRefs, allPartialRefs } = findAllGlobalMatches(t1, words);
-    return makeResult({ color: 'green', matchedRef: preferClaimedSpelling(t1InClaimed.displayRef, refString), claimedRef: refString, authenticText: t1InClaimed.rec.text, deviation: t1InClaimed.deviation, candidateConfidence, matchType: 'exact', allExactRefs, allPartialRefs });
+    return wrap(makeResult({ color: 'green', matchedRef: preferClaimedSpelling(t1InClaimed.displayRef, refString), claimedRef: refString, authenticText: t1InClaimed.rec.text, deviation: t1InClaimed.deviation, candidateConfidence, matchType: 'exact', allExactRefs, allPartialRefs }));
   }
+  tr(`tier1MatchInClaimed: MISS`);
 
   // Range-fallback: {Surah:a،b} where author meant the range a..b (، used as a hyphen).
   // Only retried when discrete-parse failed and references.js suggested a small-gap expansion.
   if (resolved.rangeAyahNums) {
     const rangeResolved = { surahNum: resolved.surahNum, ayahNums: resolved.rangeAyahNums, isRange: true };
-    const t1InRange = tier1MatchInClaimedAyahs(candidateText, words, rangeResolved);
+    const t1InRange = tier1MatchInClaimedAyahs(candidateText, words, rangeResolved, tr);
     if (t1InRange) {
+      tr(`tier1MatchInRange: HIT → green`);
       const { allExactRefs, allPartialRefs } = findAllGlobalMatches(t1, words);
-      return makeResult({ color: 'green', matchedRef: preferClaimedSpelling(t1InRange.displayRef, refString), claimedRef: refString, authenticText: t1InRange.rec.text, deviation: t1InRange.deviation, candidateConfidence, matchType: 'exact', allExactRefs, allPartialRefs });
+      return wrap(makeResult({ color: 'green', matchedRef: preferClaimedSpelling(t1InRange.displayRef, refString), claimedRef: refString, authenticText: t1InRange.rec.text, deviation: t1InRange.deviation, candidateConfidence, matchType: 'exact', allExactRefs, allPartialRefs }));
     }
   }
 
   const wlInClaimed = wordLevelMatchInClaimedAyahs(words, resolved);
-  if (wlInClaimed) return makeResult({ color: 'yellow', matchedRef: preferClaimedSpelling(wlInClaimed.rec.ref, refString), claimedRef: refString, authenticText: wlInClaimed.rec.text, deviation: 'wordLevel', candidateConfidence, matchType: 'partial' });
+  if (wlInClaimed) { tr(`wordLevelInClaimed: HIT (${wlInClaimed.rec.ref}, diffs=${wlInClaimed.diffs}) → yellow`); return wrap(makeResult({ color: 'yellow', matchedRef: preferClaimedSpelling(wlInClaimed.rec.ref, refString), claimedRef: refString, authenticText: wlInClaimed.rec.text, deviation: 'wordLevel', candidateConfidence, matchType: 'partial' })); }
+  tr(`wordLevelInClaimed: MISS`);
 
   if (resolved.rangeAyahNums) {
     const rangeResolved = { surahNum: resolved.surahNum, ayahNums: resolved.rangeAyahNums, isRange: true };
     const wlInRange = wordLevelMatchInClaimedAyahs(words, rangeResolved);
-    if (wlInRange) return makeResult({ color: 'yellow', matchedRef: wlInRange.rec.ref, claimedRef: refString, authenticText: wlInRange.rec.text, deviation: 'wordLevel', candidateConfidence, matchType: 'partial' });
+    if (wlInRange) { tr(`wordLevelInRange: HIT → yellow`); return wrap(makeResult({ color: 'yellow', matchedRef: wlInRange.rec.ref, claimedRef: refString, authenticText: wlInRange.rec.text, deviation: 'wordLevel', candidateConfidence, matchType: 'partial' })); }
   }
 
   // Orange (FR-004, FR-016): text IS Quran but at a different ref than claimed.
@@ -474,7 +539,8 @@ function verifyFragmentByRef(candidateText, refString, candidateConfidence = 'me
     findOrderedContiguousGlobal,
   });
   if (orangeHits) {
-    return makeResult({
+    tr(`orange: HIT (${orangeHits.length} refs, first=${orangeHits[0].ref}) → orange`);
+    return wrap(makeResult({
       color: 'orange',
       matchedRef: orangeHits[0].ref,
       matchedRefs: orangeHits.map(r => r.ref),
@@ -483,17 +549,21 @@ function verifyFragmentByRef(candidateText, refString, candidateConfidence = 'me
       deviation: 'none',
       candidateConfidence,
       matchType: 'exact',
-    });
+    }));
   }
+  tr(`orange: MISS`);
 
   const wlGlobal = wordLevelMatchGlobal(words);
   if (wlGlobal.length > 0) {
     const sorted = wlGlobal.slice().sort((a, b) => a.diffs - b.diffs || a.rec.surahNum - b.rec.surahNum);
-    return makeResult({ color: 'yellow', matchedRef: sorted[0].rec.ref, matchedRefs: sorted.slice(0, 3).map(r => r.rec.ref), claimedRef: refString, authenticText: sorted[0].rec.text, deviation: 'wordLevel', candidateConfidence, matchType: 'partial' });
+    tr(`wordLevelGlobal: HIT (${wlGlobal.length} verses, best=${sorted[0].rec.ref} diffs=${sorted[0].diffs}) → yellow`);
+    return wrap(makeResult({ color: 'yellow', matchedRef: sorted[0].rec.ref, matchedRefs: sorted.slice(0, 3).map(r => r.rec.ref), claimedRef: refString, authenticText: sorted[0].rec.text, deviation: 'wordLevel', candidateConfidence, matchType: 'partial' }));
   }
+  tr(`wordLevelGlobal: MISS`);
 
-  if (candidateConfidence === 'high') return makeResult({ color: 'red', claimedRef: refString, candidateConfidence, matchType: 'none' });
-  return makeResult({ color: null, claimedRef: refString, candidateConfidence, matchType: 'none' });
+  if (candidateConfidence === 'high') { tr(`fallthrough: high-confidence → red`); return wrap(makeResult({ color: 'red', claimedRef: refString, candidateConfidence, matchType: 'none' })); }
+  tr(`fallthrough: low-confidence → silent drop`);
+  return wrap(makeResult({ color: null, claimedRef: refString, candidateConfidence, matchType: 'none' }));
 }
 
 // ── Convenience ───────────────────────────────────────────────────────────────
@@ -611,7 +681,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         case 'verifyFragment':
           return verifyFragment(msg.text, msg.candidateConfidence);
         case 'verifyFragmentByRef':
-          return verifyFragmentByRef(msg.text, msg.ref, msg.candidateConfidence);
+          return verifyFragmentByRef(msg.text, msg.ref, msg.candidateConfidence, !!msg.debug);
         case 'resolveReference': {
           const r = QuranReferences.resolve(msg.ref, indexes);
           if (!r) return null;

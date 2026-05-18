@@ -44,17 +44,17 @@ const QuranNormalize = (() => {
     // 4. Uthmani decomposed آ: ء immediately before ا → ا
     s = s.replace(/ءا/g, 'ا');
 
-    // 5. Hamza-bearing letters → base
-    s = s.replace(/ؤ/g, 'و'); // ؤ → و
-    s = s.replace(/ئ/g, 'ي'); // ئ → ي
-    // 5b. Bare hamza ء → ي for spelling parity with the Quran's ئ form.
-    //   Quran writes بِلِقَآئِ / سَمَآءِ with hamza on yeh (→ي via step 5).
-    //   Modern Arabic writes بلقاء / سماء with bare hamza on the line.
-    //   Treat both the same so soft-equality doesn't reject the trailing-letter
-    //   difference. Step 4 already collapsed Uthmani-decomposed ءا → ا, so the
-    //   only ء remaining here represents a real hamza that's a yeh-carrier
-    //   variant in standard spelling.
-    s = s.replace(/ء/g, 'ي');
+    // 5. Hamza-bearing letters → bare hamza ء.
+    //   Quran's carrier choice for hamza (ؤ on waw, ئ on yeh, bare ء, etc.)
+    //   is determined by the surrounding vowel; modern Arabic spelling makes
+    //   different choices on the same root, so the carrier can disagree even
+    //   when the consonant skeleton is identical (e.g. Uthmani أَبْنَٰٓؤُا۟ vs
+    //   modern أبناء — same word, ؤ vs bare ء).
+    //   Mapping every carrier to a single neutral marker ء lets soft-equality
+    //   absorb the carrier drift on top of its existing alef/waw/yeh insertion
+    //   tolerance. Step 4 already collapsed Uthmani-decomposed ءا → ا, so the
+    //   ء values produced here represent real hamzas, not orthographic alefs.
+    s = s.replace(/[ؤئء]/g, 'ء');
 
     // 6. Alef maqsura → ya; ta marbuta → ha
     s = s.replace(/ى/g, 'ي'); // ى → ي

@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<!--
+  Synthetic fixture for Uthmani-vs-modern spelling drift cases that previously
+  fell out of the green path because softEqualWord only tolerated ا/و insertion.
+
+  Case 1 (Ibrahim:6): modern أَنْجاكُمْ vs Uthmani أَنجَىٰكُم.
+    Tier-1 normalizes to "انجاكم" (cited) vs "انجياكم" (Quran) — one extra ي.
+    Expected: green with deviation=spellingDrift, NOT yellow.
+-->
+<html dir="rtl" lang="ar">
+<head>
+  <meta charset="UTF-8">
+  <title>Uthmani drift — synthetic</title>
+</head>
+<body>
+<article class="article-content">
+
+<p>
+  في قصة بني إسرائيل قال سبحانه:
+  {وَإِذْ قالَ مُوسى لِقَوْمِهِ اذْكُرُوا نِعْمَةَ اللَّهِ عَلَيْكُمْ إِذْ أَنْجاكُمْ مِنْ آلِ فِرْعَوْنَ يَسُومُونَكُمْ سُوءَ الْعَذابِ}
+  [إبراهيم:6].
+</p>
+
+</article>
+</body>
+</html>

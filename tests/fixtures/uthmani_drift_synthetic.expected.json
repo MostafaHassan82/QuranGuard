@@ -1,0 +1,22 @@
+{
+  "source_label": "uthmani_drift_synthetic",
+  "_comment": "Regression fixture for Uthmani ىٰ → modern ا drift (one extra ي). Citation MUST classify as green, not yellow.",
+  "stats": {
+    "greenMatches": 1,
+    "lightBlueMatches": 0,
+    "yellowMatches": 0,
+    "orangeMatches": 0,
+    "redMatches": 0,
+    "totalFindings": 1,
+    "refsSeen": 1,
+    "refCandidates": 0
+  },
+  "matches": [
+    {
+      "text": "وَإِذْ قالَ مُوسى لِقَوْمِهِ اذْكُرُوا نِعْمَةَ اللَّهِ عَلَيْكُمْ إِذْ أَنْجاكُمْ مِنْ آلِ فِرْعَوْنَ يَسُومُونَكُمْ سُوءَ الْعَذابِ",
+      "color": "green",
+      "matchedRef": "إبراهيم:6",
+      "claimedRef": "[إبراهيم:6]"
+    }
+  ]
+}
