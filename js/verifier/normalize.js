@@ -47,6 +47,14 @@ const QuranNormalize = (() => {
     // 5. Hamza-bearing letters → base
     s = s.replace(/ؤ/g, 'و'); // ؤ → و
     s = s.replace(/ئ/g, 'ي'); // ئ → ي
+    // 5b. Bare hamza ء → ي for spelling parity with the Quran's ئ form.
+    //   Quran writes بِلِقَآئِ / سَمَآءِ with hamza on yeh (→ي via step 5).
+    //   Modern Arabic writes بلقاء / سماء with bare hamza on the line.
+    //   Treat both the same so soft-equality doesn't reject the trailing-letter
+    //   difference. Step 4 already collapsed Uthmani-decomposed ءا → ا, so the
+    //   only ء remaining here represents a real hamza that's a yeh-carrier
+    //   variant in standard spelling.
+    s = s.replace(/ء/g, 'ي');
 
     // 6. Alef maqsura → ya; ta marbuta → ha
     s = s.replace(/ى/g, 'ي'); // ى → ي

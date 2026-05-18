@@ -64,7 +64,12 @@ const LEAD_IN_PATTERNS = [
   'قال ربكم', 'في كتاب الله', 'في قوله تعالى',
   'فقوله تعالى', 'فقوله سبحانه', 'فقوله عز وجل', 'فقوله جل وعلا', 'فقوله الكريم',
 ];
-const LEAD_IN_RE = new RegExp('(' + LEAD_IN_PATTERNS.map(escapeRe).join('|') + ')\\s*[:：]?\\s*', 'u');
+// Word-boundary guard: lead-in patterns must NOT be preceded by another Arabic letter,
+// or they'd false-match substrings of unrelated words (e.g. قوله inside عقولهم — "their
+// minds" — once produced a phantom candidate by triggering SECONDARY extraction).
+// Arabic has no native \b; lookbehind on the AR_CHAR class plays the same role.
+const LEAD_IN_BOUNDARY = '(?<![\\u0621-\\u063A\\u0641-\\u064A\\u066E\\u066F\\u0671-\\u06D3\\u06FA-\\u06FF\\uFB50-\\uFDFF\\uFE70-\\uFEFF])';
+const LEAD_IN_RE = new RegExp(LEAD_IN_BOUNDARY + '(' + LEAD_IN_PATTERNS.map(escapeRe).join('|') + ')\\s*[:：]?\\s*', 'u');
 
 // Secondary lead-ins — "what he said" (قوله/وقوله/فقوله without an explicit divine epithet).
 // The referent is ambiguous: only treat as a Quran citation if a primary citation ended
@@ -72,15 +77,27 @@ const LEAD_IN_RE = new RegExp('(' + LEAD_IN_PATTERNS.map(escapeRe).join('|') + '
 const SECONDARY_LEAD_IN_PATTERNS = [
   'وقوله', 'فقوله', 'قوله',
 ];
-const SECONDARY_LEAD_IN_RE = new RegExp('(' + SECONDARY_LEAD_IN_PATTERNS.map(escapeRe).join('|') + ')\\s*[:：]?\\s*', 'u');
+const SECONDARY_LEAD_IN_RE = new RegExp(LEAD_IN_BOUNDARY + '(' + SECONDARY_LEAD_IN_PATTERNS.map(escapeRe).join('|') + ')\\s*[:：]?\\s*', 'u');
 const SECONDARY_WINDOW = 150;
 
 const AR_CHAR = '[\\u0621-\\u063A\\u0641-\\u064A\\u066E\\u066F\\u0671-\\u06D3\\u06FA-\\u06FF\\uFB50-\\uFDFF\\uFE70-\\uFEFF]';
 // Tashkeel (harakat + superscript alef) that follow Arabic letters in vocalized text.
 const AR_TASHKEEL = '[\\u064B-\\u065F\\u0670]';
-const AR_RUN = `${AR_CHAR}${AR_TASHKEEL}*(?:[\\s]*${AR_CHAR}${AR_TASHKEEL}*)*`;
-const BRACE_RE = new RegExp('[{«\\[](' + AR_RUN + '(?:[*،,\\s]+' + AR_RUN + ')*)[}»\\]]|\\((' + AR_RUN + '(?:[*،,\\s]+' + AR_RUN + ')*)\\)', 'u');
-const STRONG_BRACE_RE = new RegExp('[{«\\[](' + AR_RUN + '(?:[*،,\\s]+' + AR_RUN + ')*)[}»\\]]', 'u');
+// WS includes \x00 (text-node boundary in combined text) so brace/run matching crosses node boundaries.
+// Common pattern: <font>{</font><font color=...>ayah text</font><font>}</font> — the { and } end up
+// in different text nodes, with \x00 boundaries on either side of the inner Arabic.
+const WS = '[\\s\\x00]';
+const AR_RUN = `${AR_CHAR}${AR_TASHKEEL}*(?:${WS}*${AR_CHAR}${AR_TASHKEEL}*)*`;
+const BRACE_INNER_SEP = `[*،,\\s\\x00]+`;
+const BRACE_RE = new RegExp(
+  '[{«\\[]' + WS + '*(' + AR_RUN + '(?:' + BRACE_INNER_SEP + AR_RUN + ')*)' + WS + '*[}»\\]]' +
+  '|\\(' + WS + '*(' + AR_RUN + '(?:' + BRACE_INNER_SEP + AR_RUN + ')*)' + WS + '*\\)',
+  'u'
+);
+const STRONG_BRACE_RE = new RegExp(
+  '[{«\\[]' + WS + '*(' + AR_RUN + '(?:' + BRACE_INNER_SEP + AR_RUN + ')*)' + WS + '*[}»\\]]',
+  'u'
+);
 // AR_CHAR_NAME includes tatweel U+0640 so surah names like يــس are matched.
 const AR_CHAR_NAME = '[\\u0621-\\u063A\\u0640-\\u064A\\u066E\\u066F\\u0671-\\u06D3\\u06FA-\\u06FF\\uFB50-\\uFDFF\\uFE70-\\uFEFF]';
 const REF_RE = new RegExp(
@@ -168,7 +185,11 @@ function resolveRange(start, end, textNodes, map) {
 
 // ── Extraction strategies ─────────────────────────────────────────────────────
 
-function braceContent(m) { return (m[1] ?? m[2] ?? '').trim(); }
+function braceContent(m) {
+  // \x00 (text-node boundary) can appear inside captured Arabic spans when the ayah text
+  // is split across inline tags. Normalize to space so the verifier sees clean text.
+  return (m[1] ?? m[2] ?? '').replace(/\x00/g, ' ').replace(/\s+/g, ' ').trim();
+}
 
 function extractLeadInBraced(combined, map, textNodes) {
   const candidates = [];
@@ -176,18 +197,24 @@ function extractLeadInBraced(combined, map, textNodes) {
   let lm;
   while ((lm = leadRe.exec(combined)) !== null) {
     const afterLead = lm.index + lm[0].length;
-    const window = combined.slice(afterLead, afterLead + 250);
+    // Window must comfortably hold the longest Quran ayah with tashkeel + braces.
+    // Long ayahs (e.g. الحج:18) exceed 500 chars vocalized; use 1000 to cover ranges too.
+    const window = combined.slice(afterLead, afterLead + 1000);
     const bm = BRACE_RE.exec(window);
     if (!bm) continue;
     const braceStart = afterLead + bm.index;
     const braceEnd = braceStart + bm[0].length;
+    const rawInner = bm[1] ?? bm[2] ?? '';
     const text = braceContent(bm);
     if (!text || text.length < 4) continue;
     const afterBrace = combined.slice(braceEnd, braceEnd + 80);
     const refMatch = new RegExp(REF_RE.source, 'u').exec(afterBrace);
     const ref = refMatch ? refMatch[0] : null;
-    const innerStart = braceStart + bm[0].indexOf(bm[1] ?? bm[2]);
-    const innerEnd = innerStart + text.length;
+    const innerStart = braceStart + bm[0].indexOf(rawInner);
+    // Use RAW captured length so the DOM range covers the full inner span.
+    // braceContent() strips \x00 / collapses whitespace, so text.length is SHORTER
+    // than rawInner.length — using text.length would cut off final chars.
+    const innerEnd = innerStart + rawInner.length;
     const resolved = resolveRange(innerStart, innerEnd, textNodes, map);
     if (!resolved) continue;
     candidates.push({ ...resolved, ref, strategy: 'leadInBraced', confidence: 'high', charStart: innerStart, charEnd: innerEnd });
@@ -208,18 +235,20 @@ function extractSecondaryLeadInBraced(combined, map, textNodes, primaryEnds) {
     const leadStart = lm.index;
     if (!primaryEnds.some(end => leadStart - end >= 0 && leadStart - end <= SECONDARY_WINDOW)) continue;
     const afterLead = leadStart + lm[0].length;
-    const fwd = combined.slice(afterLead, afterLead + 250);
+    const fwd = combined.slice(afterLead, afterLead + 1000);
     const bm = BRACE_RE.exec(fwd);
     if (!bm) continue;
     const braceStart = afterLead + bm.index;
     const braceEnd = braceStart + bm[0].length;
+    const rawInner = bm[1] ?? bm[2] ?? '';
     const text = braceContent(bm);
     if (!text || text.length < 4) continue;
     const afterBrace = combined.slice(braceEnd, braceEnd + 80);
     const refMatch = new RegExp(REF_RE.source, 'u').exec(afterBrace);
     const ref = refMatch ? refMatch[0] : null;
-    const innerStart = braceStart + bm[0].indexOf(bm[1] ?? bm[2]);
-    const innerEnd = innerStart + text.length;
+    const innerStart = braceStart + bm[0].indexOf(rawInner);
+    // Use raw capture length (see extractLeadInBraced comment).
+    const innerEnd = innerStart + rawInner.length;
     const resolved = resolveRange(innerStart, innerEnd, textNodes, map);
     if (!resolved) continue;
     candidates.push({ ...resolved, ref, strategy: 'secondaryLeadInBraced', confidence: 'high', charStart: innerStart, charEnd: innerEnd });
@@ -229,17 +258,26 @@ function extractSecondaryLeadInBraced(combined, map, textNodes, primaryEnds) {
   return candidates;
 }
 
-function extractExplicitRefBackward(combined, map, textNodes, alreadyCovered, primaryEnds = []) {
+function extractExplicitRefBackward(combined, map, textNodes, alreadyCovered, primaryEnds = [], claimedRefs = new Set()) {
   const candidates = [];
   const refRe = new RegExp(REF_RE.source, 'gu');
   let rm;
   while ((rm = refRe.exec(combined)) !== null) {
     STATS.candidatesExtracted++;
     const refStart = rm.index;
+    // Skip refs already claimed by an earlier extractor (typically extractLeadInBraced).
+    // Without this, the backward lead-in fallback would re-extract the same ref's text
+    // (often grabbing explanatory prose between the lead-in and the actual braced ayah).
+    if (claimedRefs.has(refStart)) continue;
     if (alreadyCovered.some(([s, e]) => refStart >= s && refStart < e)) continue;
     const isMetaList = /الآيات\s*\d/.test(rm[0]) || ((rm[2] || '').match(/[،,]/g) || []).length >= 2;
     if (isMetaList) continue;
-    const rawBackStart = Math.max(0, refStart - 300);
+    // Windows sized to cover the longest fully-vocalized Quran ayah (~500-800 chars with tashkeel).
+    const BACK_WINDOW = 1200;
+    const BRACE_NEAR = 1000;     // brace-before-ref search window
+    const LEAD_SLICE = 1000;     // lead-in backward search window
+    const MAX_AYAH_LEN = 900;    // length cap for extracted ayah text
+    const rawBackStart = Math.max(0, refStart - BACK_WINDOW);
     const rawBackWindow = combined.slice(rawBackStart, refStart);
     let lastBreakEnd = -1;
     const paraRe = /\x00{2,}|[\r\n]{2,}/g;
@@ -249,8 +287,8 @@ function extractExplicitRefBackward(combined, map, textNodes, alreadyCovered, pr
     const backWindow = combined.slice(backStart, refStart);
     let text = null, innerStart = null, innerEnd = null, confidence = 'medium';
     let matchedPrimary = false;
-    const nearSlice = backWindow.slice(Math.max(0, backWindow.length - 100));
-    const nearOffset = backWindow.length - Math.min(100, backWindow.length);
+    const nearSlice = backWindow.slice(Math.max(0, backWindow.length - BRACE_NEAR));
+    const nearOffset = backWindow.length - Math.min(BRACE_NEAR, backWindow.length);
     const bmGlobal = new RegExp(BRACE_RE.source, 'gu');
     let lastBm = null, bmTmp;
     while ((bmTmp = bmGlobal.exec(nearSlice)) !== null) lastBm = bmTmp;
@@ -262,49 +300,46 @@ function extractExplicitRefBackward(combined, map, textNodes, alreadyCovered, pr
         innerStart = rawStart; innerEnd = rawStart + text.length; confidence = 'high';
       }
     }
+    // Lead-in fallback: pick the CLOSEST lead-in to the ref (not just the closest primary).
+    // Without this, a far-back primary `قوله تعالى:` from an earlier paragraph would beat a
+    // SECONDARY `وقوله:` that's right next to the ref, and the wrong (earlier) ayah text
+    // would be extracted.
     if (!text) {
-      const leadSlice = backWindow.slice(Math.max(0, backWindow.length - 200));
-      const leadOffset = backWindow.length - Math.min(200, backWindow.length);
-      const leadGlobal = new RegExp(LEAD_IN_RE.source, 'gu');
-      let lastLead = null, lm;
-      while ((lm = leadGlobal.exec(leadSlice)) !== null) lastLead = lm;
-      if (lastLead) {
-        const leadEndInSlice = lastLead.index + lastLead[0].length;
+      const leadSlice = backWindow.slice(Math.max(0, backWindow.length - LEAD_SLICE));
+      const leadOffset = backWindow.length - Math.min(LEAD_SLICE, backWindow.length);
+
+      // Last PRIMARY match in window
+      let lastPrim = null;
+      const primGlobal = new RegExp(LEAD_IN_RE.source, 'gu');
+      let pm; while ((pm = primGlobal.exec(leadSlice)) !== null) lastPrim = pm;
+
+      // Last SECONDARY match in window, gated on a recent primary citation end
+      let lastSec = null;
+      const secGlobal = new RegExp(SECONDARY_LEAD_IN_RE.source, 'gu');
+      let sm; while ((sm = secGlobal.exec(leadSlice)) !== null) {
+        const secAbsStart = backStart + leadOffset + sm.index;
+        if (primaryEnds.some(end => secAbsStart - end >= 0 && secAbsStart - end <= SECONDARY_WINDOW)) {
+          lastSec = sm;
+        }
+      }
+
+      // Pick whichever lead-in is CLOSEST to the ref (latest position wins).
+      let chosen = null, chosenKind = null;
+      if (lastPrim && (!lastSec || lastPrim.index >= lastSec.index)) { chosen = lastPrim; chosenKind = 'primary'; }
+      else if (lastSec) { chosen = lastSec; chosenKind = 'secondary'; }
+
+      if (chosen) {
+        const leadEndInSlice = chosen.index + chosen[0].length;
         const between = leadSlice.slice(leadEndInSlice).replace(/[\x00{«»}()]/g, ' ');
         const arabicMatch = new RegExp('^\\s*(' + AR_RUN + ')', 'u').exec(between);
         if (arabicMatch) {
           const extracted = arabicMatch[1].trim();
-          if (extracted.length >= 8 && extracted.length <= 200) {
+          if (extracted.length >= 8 && extracted.length <= MAX_AYAH_LEN) {
             const leadEndAbs = backStart + leadOffset + leadEndInSlice;
             innerStart = leadEndAbs + between.indexOf(arabicMatch[1]);
             innerEnd = innerStart + extracted.length;
-            text = extracted; confidence = 'high'; matchedPrimary = true;
-          }
-        }
-      }
-    }
-    // Secondary lead-in fallback: وقوله:/فقوله:/قوله: — only if a primary citation ended recently.
-    if (!text) {
-      const leadSlice = backWindow.slice(Math.max(0, backWindow.length - 200));
-      const leadOffset = backWindow.length - Math.min(200, backWindow.length);
-      const secGlobal = new RegExp(SECONDARY_LEAD_IN_RE.source, 'gu');
-      let lastSec = null, sm;
-      while ((sm = secGlobal.exec(leadSlice)) !== null) lastSec = sm;
-      if (lastSec) {
-        const secAbsStart = backStart + leadOffset + lastSec.index;
-        const activated = primaryEnds.some(end => secAbsStart - end >= 0 && secAbsStart - end <= SECONDARY_WINDOW);
-        if (activated) {
-          const leadEndInSlice = lastSec.index + lastSec[0].length;
-          const between = leadSlice.slice(leadEndInSlice).replace(/[\x00{«»}()]/g, ' ');
-          const arabicMatch = new RegExp('^\\s*(' + AR_RUN + ')', 'u').exec(between);
-          if (arabicMatch) {
-            const extracted = arabicMatch[1].trim();
-            if (extracted.length >= 8 && extracted.length <= 200) {
-              const leadEndAbs = backStart + leadOffset + leadEndInSlice;
-              innerStart = leadEndAbs + between.indexOf(arabicMatch[1]);
-              innerEnd = innerStart + extracted.length;
-              text = extracted; confidence = 'high';
-            }
+            text = extracted; confidence = 'high';
+            if (chosenKind === 'primary') matchedPrimary = true;
           }
         }
       }
@@ -314,7 +349,7 @@ function extractExplicitRefBackward(combined, map, textNodes, alreadyCovered, pr
       // Strip braces, parens, text-node boundary, and trailing punctuation so a final `.`
       // before `{ref}` doesn't block the end-anchored match.
       const arMatch = arRunRe.exec(backWindow.replace(/[{}«»()\x00.,،;]/g, ' '));
-      if (arMatch && arMatch[0].trim().length >= 8 && arMatch[0].trim().length <= 150) {
+      if (arMatch && arMatch[0].trim().length >= 8 && arMatch[0].trim().length <= MAX_AYAH_LEN) {
         const matchStart = backStart + arMatch.index;
         text = arMatch[0].trim(); innerStart = matchStart; innerEnd = matchStart + text.length; confidence = 'medium';
       }
@@ -347,19 +382,21 @@ function extractRangeConstruct(combined, map, textNodes, alreadyCovered) {
     if (!bm1 || !bm2) continue;
     const text1 = braceContent(bm1), text2 = braceContent(bm2);
     if (!text1 || text1.length < 4 || !text2 || text2.length < 4) continue;
+    const rawInner1 = bm1[1] ?? bm1[2] ?? '';
+    const rawInner2 = bm2[1] ?? bm2[2] ?? '';
     const afterBrace2 = combined.slice(sepEnd + fwdWin.indexOf(bm2[0]) + bm2[0].length, sepEnd + 250);
     const refMatch = new RegExp(REF_RE.source, 'u').exec(afterBrace2);
     const ref = refMatch ? refMatch[0] : null;
     const backOffset = Math.max(0, sepStart - 150);
-    const innerStart1 = backOffset + backWin.indexOf(bm1[0]) + bm1[0].indexOf(bm1[1] ?? bm1[2]);
-    const innerEnd1 = innerStart1 + text1.length;
+    const innerStart1 = backOffset + backWin.indexOf(bm1[0]) + bm1[0].indexOf(rawInner1);
+    const innerEnd1 = innerStart1 + rawInner1.length;
     const r1 = resolveRange(innerStart1, innerEnd1, textNodes, map);
     if (r1 && !alreadyCovered.some(([s, e]) => innerStart1 < e && innerEnd1 > s)) {
       candidates.push({ ...r1, ref, strategy: 'rangeConstruct', confidence: 'high', charStart: innerStart1, charEnd: innerEnd1 });
       alreadyCovered.push([innerStart1, innerEnd1]);
     }
-    const innerStart2 = sepEnd + fwdWin.indexOf(bm2[0]) + bm2[0].indexOf(bm2[1] ?? bm2[2]);
-    const innerEnd2 = innerStart2 + text2.length;
+    const innerStart2 = sepEnd + fwdWin.indexOf(bm2[0]) + bm2[0].indexOf(rawInner2);
+    const innerEnd2 = innerStart2 + rawInner2.length;
     const r2 = resolveRange(innerStart2, innerEnd2, textNodes, map);
     if (r2 && !alreadyCovered.some(([s, e]) => innerStart2 < e && innerEnd2 > s)) {
       candidates.push({ ...r2, ref, strategy: 'rangeConstruct', confidence: 'high', charStart: innerStart2, charEnd: innerEnd2 });
@@ -393,26 +430,69 @@ function extractShortFragmentWithRef(combined, map, textNodes, alreadyCovered) {
   return candidates;
 }
 
+// Brace-only citation: {Arabic text} with neither a lead-in before nor a ref bracket after.
+// The brace itself is a strong "this is a quotation" signal; the verifier decides whether
+// the text actually matches a Quran ayah (lightBlue) or not (drops silently).
+// Runs LAST so genuine lead-in / ref-bracket citations win position-based dedup.
+function extractBracedOnly(combined, map, textNodes, alreadyCovered) {
+  const candidates = [];
+  // Strong braces only: {…}, «…», […]. Skip (…) to avoid false-positives on parenthetical asides.
+  const braceGlobal = new RegExp(STRONG_BRACE_RE.source, 'gu');
+  let bm;
+  while ((bm = braceGlobal.exec(combined)) !== null) {
+    const braceStart = bm.index;
+    const braceEnd = braceStart + bm[0].length;
+    if (alreadyCovered.some(([s, e]) => braceStart < e && braceEnd > s)) continue;
+    const rawInner = bm[1] ?? '';
+    const text = braceContent(bm);
+    // Min length filters out incidental short braces; max keeps it bounded.
+    if (!text || text.length < 8 || text.length > 900) continue;
+    const innerStart = braceStart + bm[0].indexOf(rawInner);
+    const innerEnd = innerStart + rawInner.length;
+    if (alreadyCovered.some(([s, e]) => innerStart < e && innerEnd > s)) continue;
+    const resolved = resolveRange(innerStart, innerEnd, textNodes, map);
+    if (!resolved) continue;
+    // No ref → verifier does a global lookup; returns lightBlue if found, null otherwise.
+    candidates.push({ ...resolved, ref: null, strategy: 'bracedOnly', confidence: 'medium', charStart: innerStart, charEnd: innerEnd });
+    alreadyCovered.push([innerStart, innerEnd]);
+  }
+  return candidates;
+}
+
 function runExtractionStrategies(textNodes, combined, map) {
   const covered = [];
   const s1 = extractLeadInBraced(combined, map, textNodes);
   for (const c of s1) covered.push([c.charStart, c.charEnd]);
 
-  // Compute where each primary citation ends (after text span + ref bracket if present).
-  const primaryEnds = s1.map(c => {
+  // Compute where each primary citation ends (after text span + ref bracket if present)
+  // and which ref positions s1 already handled (so s2 doesn't re-extract the same refs).
+  const primaryEnds = [];
+  const claimedRefs = new Set();
+  for (const c of s1) {
     if (c.ref) {
       const ri = combined.indexOf(c.ref, c.charEnd);
-      if (ri !== -1 && ri - c.charEnd < 80) return ri + c.ref.length;
+      if (ri !== -1 && ri - c.charEnd < 120) {
+        primaryEnds.push(ri + c.ref.length);
+        claimedRefs.add(ri);
+        continue;
+      }
     }
-    return c.charEnd;
-  });
+    primaryEnds.push(c.charEnd);
+  }
   const s5 = extractSecondaryLeadInBraced(combined, map, textNodes, primaryEnds);
-  for (const c of s5) covered.push([c.charStart, c.charEnd]);
+  for (const c of s5) {
+    covered.push([c.charStart, c.charEnd]);
+    if (c.ref) {
+      const ri = combined.indexOf(c.ref, c.charEnd);
+      if (ri !== -1 && ri - c.charEnd < 120) claimedRefs.add(ri);
+    }
+  }
 
   const s3 = extractRangeConstruct(combined, map, textNodes, covered);
-  const s2 = extractExplicitRefBackward(combined, map, textNodes, covered, primaryEnds);
+  const s2 = extractExplicitRefBackward(combined, map, textNodes, covered, primaryEnds, claimedRefs);
   const s4 = extractShortFragmentWithRef(combined, map, textNodes, covered);
-  const all = [...s1, ...s5, ...s3, ...s2, ...s4].sort((a, b) => a.charStart - b.charStart);
+  const s6 = extractBracedOnly(combined, map, textNodes, covered);
+  const all = [...s1, ...s5, ...s3, ...s2, ...s4, ...s6].sort((a, b) => a.charStart - b.charStart);
   const result = [];
   const finalCovered = [];
   for (const c of all) {

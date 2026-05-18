@@ -399,7 +399,11 @@ function verifyFragment(candidateText, candidateConfidence = 'medium') {
     return makeResult({ color: 'lightBlue', matchedRef: sorted[0].ref, matchedRefs: sorted.map(r => r.ref), authenticText: sorted[0].text, deviation: classifyDeviation(sorted[0].text, candidateText), candidateConfidence, matchType: 'exact' });
   }
 
-  const orderedRecs = findOrderedContiguousGlobal(words);
+  // Strict first (matchedRef is the cleaner spelling); fall back to soft (handles
+  // ولكن vs ولاكن — Quran's superscript alef expands to an extra ا that strict
+  // equality rejects but softEqualWord tolerates).
+  let orderedRecs = findOrderedContiguousGlobal(words);
+  if (orderedRecs.length === 0) orderedRecs = findOrderedContiguousSoftGlobal(words);
   if (orderedRecs.length > 0) {
     const sorted = orderedRecs.slice().sort((a, b) => a.surahNum - b.surahNum || a.ayahNum - b.ayahNum);
     return makeResult({ color: 'lightBlue', matchedRef: sorted[0].ref, matchedRefs: sorted.map(r => r.ref), authenticText: sorted[0].text, deviation: 'spellingDrift', candidateConfidence, matchType: 'orderedContiguous' });
