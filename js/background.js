@@ -421,6 +421,28 @@ function verifyFragment(candidateText, candidateConfidence = 'medium') {
 
 // ── Verifier — Path 1 (with claimed ref, includes orange) ────────────────────
 
+// When the verifier confirms a green/yellow match against the user's claimed ref,
+// the user's spelling of the surah name (e.g. إبراهيم with hamza) is more familiar
+// than the JSON's metadata spelling (e.g. ابراهيم bare alef). Use the claimed
+// spelling for display when both refer to the same surah after tier1 normalization.
+function preferClaimedSpelling(matchedRef, claimedRef) {
+  if (!matchedRef || !claimedRef) return matchedRef;
+  const cleanClaim = claimedRef.replace(/^[\s({«\[﴿]+|[\s.,;)}\»\]﴾]+$/g, '').trim()
+    .replace(/^(?:من\s+)?سور[ةه]\s+/u, '');
+  const colonClaim = cleanClaim.search(/[:：]/);
+  if (colonClaim === -1) return matchedRef;
+  const claimSurah = cleanClaim.slice(0, colonClaim).trim();
+  const claimAyah = cleanClaim.slice(colonClaim + 1).trim();
+  const colonMatch = matchedRef.search(/[:：]/);
+  if (colonMatch === -1) return matchedRef;
+  const matchSurah = matchedRef.slice(0, colonMatch).trim();
+  const matchAyah = matchedRef.slice(colonMatch + 1).trim();
+  if (tier1Normalize(claimSurah) === tier1Normalize(matchSurah)) {
+    return `${claimSurah}:${matchAyah}`;
+  }
+  return matchedRef;
+}
+
 function verifyFragmentByRef(candidateText, refString, candidateConfidence = 'medium') {
   if (!candidateText) return makeResult({ color: null, candidateConfidence, claimedRef: refString });
   const resolved = QuranReferences.resolve(refString, indexes);
@@ -432,7 +454,7 @@ function verifyFragmentByRef(candidateText, refString, candidateConfidence = 'me
   const t1InClaimed = tier1MatchInClaimedAyahs(candidateText, words, resolved);
   if (t1InClaimed) {
     const { allExactRefs, allPartialRefs } = findAllGlobalMatches(t1, words);
-    return makeResult({ color: 'green', matchedRef: t1InClaimed.displayRef, claimedRef: refString, authenticText: t1InClaimed.rec.text, deviation: t1InClaimed.deviation, candidateConfidence, matchType: 'exact', allExactRefs, allPartialRefs });
+    return makeResult({ color: 'green', matchedRef: preferClaimedSpelling(t1InClaimed.displayRef, refString), claimedRef: refString, authenticText: t1InClaimed.rec.text, deviation: t1InClaimed.deviation, candidateConfidence, matchType: 'exact', allExactRefs, allPartialRefs });
   }
 
   // Range-fallback: {Surah:a،b} where author meant the range a..b (، used as a hyphen).
@@ -442,12 +464,12 @@ function verifyFragmentByRef(candidateText, refString, candidateConfidence = 'me
     const t1InRange = tier1MatchInClaimedAyahs(candidateText, words, rangeResolved);
     if (t1InRange) {
       const { allExactRefs, allPartialRefs } = findAllGlobalMatches(t1, words);
-      return makeResult({ color: 'green', matchedRef: t1InRange.displayRef, claimedRef: refString, authenticText: t1InRange.rec.text, deviation: t1InRange.deviation, candidateConfidence, matchType: 'exact', allExactRefs, allPartialRefs });
+      return makeResult({ color: 'green', matchedRef: preferClaimedSpelling(t1InRange.displayRef, refString), claimedRef: refString, authenticText: t1InRange.rec.text, deviation: t1InRange.deviation, candidateConfidence, matchType: 'exact', allExactRefs, allPartialRefs });
     }
   }
 
   const wlInClaimed = wordLevelMatchInClaimedAyahs(words, resolved);
-  if (wlInClaimed) return makeResult({ color: 'yellow', matchedRef: wlInClaimed.rec.ref, claimedRef: refString, authenticText: wlInClaimed.rec.text, deviation: 'wordLevel', candidateConfidence, matchType: 'partial' });
+  if (wlInClaimed) return makeResult({ color: 'yellow', matchedRef: preferClaimedSpelling(wlInClaimed.rec.ref, refString), claimedRef: refString, authenticText: wlInClaimed.rec.text, deviation: 'wordLevel', candidateConfidence, matchType: 'partial' });
 
   if (resolved.rangeAyahNums) {
     const rangeResolved = { surahNum: resolved.surahNum, ayahNums: resolved.rangeAyahNums, isRange: true };

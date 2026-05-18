@@ -246,6 +246,10 @@ function extractSecondaryLeadInBraced(combined, map, textNodes, primaryEnds) {
     const afterBrace = combined.slice(braceEnd, braceEnd + 80);
     const refMatch = new RegExp(REF_RE.source, 'u').exec(afterBrace);
     const ref = refMatch ? refMatch[0] : null;
+    // Single-word brace after a SECONDARY lead-in without a trailing ref is the
+    // "discussing a word" pattern, e.g. `قوله {شريك} أي: مشارك ...` — not a citation.
+    // Real ayahs are sentences. If a ref follows, the ref signal is enough to proceed.
+    if (!ref && text.split(/\s+/).filter(Boolean).length < 2) continue;
     const innerStart = braceStart + bm[0].indexOf(rawInner);
     // Use raw capture length (see extractLeadInBraced comment).
     const innerEnd = innerStart + rawInner.length;
