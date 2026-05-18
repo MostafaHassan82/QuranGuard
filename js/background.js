@@ -431,8 +431,25 @@ function verifyFragmentByRef(candidateText, refString, candidateConfidence = 'me
     return makeResult({ color: 'green', matchedRef: t1InClaimed.displayRef, claimedRef: refString, authenticText: t1InClaimed.rec.text, deviation: t1InClaimed.deviation, candidateConfidence, matchType: 'exact', allExactRefs, allPartialRefs });
   }
 
+  // Range-fallback: {Surah:a،b} where author meant the range a..b (، used as a hyphen).
+  // Only retried when discrete-parse failed and references.js suggested a small-gap expansion.
+  if (resolved.rangeAyahNums) {
+    const rangeResolved = { surahNum: resolved.surahNum, ayahNums: resolved.rangeAyahNums, isRange: true };
+    const t1InRange = tier1MatchInClaimedAyahs(candidateText, words, rangeResolved);
+    if (t1InRange) {
+      const { allExactRefs, allPartialRefs } = findAllGlobalMatches(t1, words);
+      return makeResult({ color: 'green', matchedRef: t1InRange.displayRef, claimedRef: refString, authenticText: t1InRange.rec.text, deviation: t1InRange.deviation, candidateConfidence, matchType: 'exact', allExactRefs, allPartialRefs });
+    }
+  }
+
   const wlInClaimed = wordLevelMatchInClaimedAyahs(words, resolved);
   if (wlInClaimed) return makeResult({ color: 'yellow', matchedRef: wlInClaimed.rec.ref, claimedRef: refString, authenticText: wlInClaimed.rec.text, deviation: 'wordLevel', candidateConfidence, matchType: 'partial' });
+
+  if (resolved.rangeAyahNums) {
+    const rangeResolved = { surahNum: resolved.surahNum, ayahNums: resolved.rangeAyahNums, isRange: true };
+    const wlInRange = wordLevelMatchInClaimedAyahs(words, rangeResolved);
+    if (wlInRange) return makeResult({ color: 'yellow', matchedRef: wlInRange.rec.ref, claimedRef: refString, authenticText: wlInRange.rec.text, deviation: 'wordLevel', candidateConfidence, matchType: 'partial' });
+  }
 
   if (candidateConfidence === 'high') {
     const claimedKeys = new Set(resolved.ayahNums.map(n => `${resolved.surahNum}:${n}`));

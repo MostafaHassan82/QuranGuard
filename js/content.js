@@ -682,38 +682,33 @@ async function scanPage({ liftCap = false, subtreeRoot = null } = {}) {
 
       const perCategoryCount = { green: 0, lightBlue: 0, yellow: 0, orange: 0, red: 0 };
 
-      // Phase 1 — verify all candidates in parallel (the SW RPC roundtrip dominates wall time).
-      const results = await Promise.all(candidates.map(c => {
-        const msg = c.ref
-          ? { type: 'verifyFragmentByRef', text: c.text, ref: c.ref, candidateConfidence: c.confidence }
-          : { type: 'verifyFragment', text: c.text, candidateConfidence: c.confidence };
-        return sendToBackground(msg).catch(e => {
-          console.warn('[QuranExt] verification error:', c.text, e);
-          return null;
-        });
-      }));
-
-      // Phase 2 — apply highlights sequentially in document order (deterministic DOM mutations).
-      for (let i = 0; i < candidates.length; i++) {
+      for (const candidate of candidates) {
         if (!liftCap && STATE.findings.length >= SCAN_CAP) {
           STATE.capHit = true;
           break;
         }
-        const candidate = candidates[i];
-        const result = results[i];
-        if (result && !result.error && result.color) {
-          const span = applyHighlight(candidate, result, { hidden: useHidden });
-          if (span) {
-            const finding = STATE.findings[STATE.findings.length - 1];
-            if (finding && perCategoryCount[result.color] !== undefined) perCategoryCount[result.color]++;
-            // Only emit live progress for single-pass scans (liftCap / mutation rescan).
-            if (!useHidden) {
-              QuranMsg.emit('SCAN_PROGRESS', { scanId, finding, runningCount: STATE.findings.length, perCategoryCount: { ...perCategoryCount } });
-              window.__quranMatches = STATE.findings.slice();
+
+        try {
+          const msg = candidate.ref
+            ? { type: 'verifyFragmentByRef', text: candidate.text, ref: candidate.ref, candidateConfidence: candidate.confidence }
+            : { type: 'verifyFragment', text: candidate.text, candidateConfidence: candidate.confidence };
+          const result = await sendToBackground(msg);
+          if (result && !result.error && result.color) {
+            const span = applyHighlight(candidate, result, { hidden: useHidden });
+            if (span) {
+              const finding = STATE.findings[STATE.findings.length - 1];
+              if (finding && perCategoryCount[result.color] !== undefined) perCategoryCount[result.color]++;
+              // Only emit live progress for single-pass scans (liftCap / mutation rescan).
+              if (!useHidden) {
+                QuranMsg.emit('SCAN_PROGRESS', { scanId, finding, runningCount: STATE.findings.length, perCategoryCount: { ...perCategoryCount } });
+                window.__quranMatches = STATE.findings.slice();
+              }
             }
+          } else if (result?.color === null || result?.color === undefined) {
+            STATS.candidatesDroppedSilently++;
           }
-        } else if (result?.color === null || result?.color === undefined) {
-          STATS.candidatesDroppedSilently++;
+        } catch (e) {
+          console.warn('[QuranExt] verification error:', candidate.text, e);
         }
       }
 
@@ -816,7 +811,8 @@ function setupMutationObserver() {
 
 async function maybeAutoscan() {
   try {
-    const resp = await sendToBackground({ type: 'PREFS_READ', requestId: crypto.randomUUID(), payload: {} });
+    // QuranMsg.sendRequest handles requestId internally (works in non-secure contexts).
+    const resp = await QuranMsg.sendRequest('PREFS_READ', {});
     const prefs = resp?.payload?.result || resp?.result;
     if (prefs?.scanTrigger === 'autoscan') {
       await scanPage();

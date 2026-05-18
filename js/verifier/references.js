@@ -28,6 +28,9 @@ const QuranReferences = (() => {
 
     const ayahNums = [];
     let isRange = false;
+    // Fallback expansion when a،b might mean "a to b" rather than "a and b".
+    // Populated only when ayahPart parses as exactly two close numbers.
+    let rangeAyahNums = null;
 
     const rangeMatch = ayahPart.match(/^(\d+)\s*[-–—]\s*(\d+)$/);
     if (rangeMatch) {
@@ -44,10 +47,17 @@ const QuranReferences = (() => {
         if (!isNaN(n) && n > 0) ayahNums.push(n);
       }
       if (parts.length > 1) isRange = true;
+      // Common Arabic shorthand: {Surah:a،b} where author meant the range a..b
+      // (، used as a hyphen). Only when exactly two numbers and gap is small (≤ 10),
+      // so legitimate "ayah 1 and 255" style citations aren't disrupted.
+      if (ayahNums.length === 2 && ayahNums[1] > ayahNums[0] && ayahNums[1] - ayahNums[0] <= 10) {
+        rangeAyahNums = [];
+        for (let i = ayahNums[0]; i <= ayahNums[1]; i++) rangeAyahNums.push(i);
+      }
     }
 
     if (ayahNums.length === 0) return null;
-    return { surahNum, ayahNums, isRange };
+    return { surahNum, ayahNums, isRange, rangeAyahNums };
   }
 
   return { resolve };
