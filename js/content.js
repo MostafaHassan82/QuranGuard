@@ -54,10 +54,26 @@ function escapeRe(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
 const LEAD_IN_PATTERNS = [
   'قال الله تعالى', 'قال تعالى', 'وقال تعالى', 'قال سبحانه وتعالى', 'قال سبحانه',
   'قوله تعالى', 'وقوله تعالى', 'قوله سبحانه', 'قوله عز وجل', 'وقوله عز وجل',
-  'قال عز وجل', 'قال جل وعلا', 'قال جل جلاله', 'يقول الله تعالى',
+  'قال عز وجل', 'وقال عز وجل', 'قال جل وعلا', 'قال جل جلاله', 'يقول الله تعالى',
+  'يقول تعالى', 'ويقول تعالى', 'يقول عز وجل', 'ويقول عز وجل',
+  'يقول سبحانه وتعالى', 'ويقول سبحانه وتعالى',
+  'يقول تبارك وتعالى', 'ويقول تبارك وتعالى',
+  'يقول الله عز وجل', 'يقول جل وعلا',
+  'وقوله الكريم', 'قوله الكريم', 'وقوله جل وعلا', 'قوله جل وعلا',
+  'وقوله جل جلاله', 'قوله جل جلاله', 'وقوله سبحانه',
   'قال ربكم', 'في كتاب الله', 'في قوله تعالى',
+  'فقوله تعالى', 'فقوله سبحانه', 'فقوله عز وجل', 'فقوله جل وعلا', 'فقوله الكريم',
 ];
 const LEAD_IN_RE = new RegExp('(' + LEAD_IN_PATTERNS.map(escapeRe).join('|') + ')\\s*[:：]?\\s*', 'u');
+
+// Secondary lead-ins — "what he said" (قوله/وقوله/فقوله without an explicit divine epithet).
+// The referent is ambiguous: only treat as a Quran citation if a primary citation ended
+// within SECONDARY_WINDOW chars before this pattern (chaining is allowed).
+const SECONDARY_LEAD_IN_PATTERNS = [
+  'وقوله', 'فقوله', 'قوله',
+];
+const SECONDARY_LEAD_IN_RE = new RegExp('(' + SECONDARY_LEAD_IN_PATTERNS.map(escapeRe).join('|') + ')\\s*[:：]?\\s*', 'u');
+const SECONDARY_WINDOW = 150;
 
 const AR_CHAR = '[\\u0621-\\u063A\\u0641-\\u064A\\u066E\\u066F\\u0671-\\u06D3\\u06FA-\\u06FF\\uFB50-\\uFDFF\\uFE70-\\uFEFF]';
 // Tashkeel (harakat + superscript alef) that follow Arabic letters in vocalized text.
@@ -65,10 +81,12 @@ const AR_TASHKEEL = '[\\u064B-\\u065F\\u0670]';
 const AR_RUN = `${AR_CHAR}${AR_TASHKEEL}*(?:[\\s]*${AR_CHAR}${AR_TASHKEEL}*)*`;
 const BRACE_RE = new RegExp('[{«\\[](' + AR_RUN + '(?:[*،,\\s]+' + AR_RUN + ')*)[}»\\]]|\\((' + AR_RUN + '(?:[*،,\\s]+' + AR_RUN + ')*)\\)', 'u');
 const STRONG_BRACE_RE = new RegExp('[{«\\[](' + AR_RUN + '(?:[*،,\\s]+' + AR_RUN + ')*)[}»\\]]', 'u');
+// AR_CHAR_NAME includes tatweel U+0640 so surah names like يــس are matched.
+const AR_CHAR_NAME = '[\\u0621-\\u063A\\u0640-\\u064A\\u066E\\u066F\\u0671-\\u06D3\\u06FA-\\u06FF\\uFB50-\\uFDFF\\uFE70-\\uFEFF]';
 const REF_RE = new RegExp(
-  '[({«﴿\\[]\\s*(' + AR_CHAR + '+(?:\\s+' + AR_CHAR + '+)*)\\s*[:：]\\s*' +
+  '[({«﴿\\[]\\s*(' + AR_CHAR_NAME + '+(?:\\s+' + AR_CHAR_NAME + '+)*)\\s*[:：]\\s*' +
   '([\\d\\u0660-\\u0669\\u06F0-\\u06F9]+(?:\\s*[-–]\\s*[\\d\\u0660-\\u0669\\u06F0-\\u06F9]+)?(?:\\s*[،,]\\s*[\\d\\u0660-\\u0669\\u06F0-\\u06F9]+)*)' +
-  '\\s*[)}»﴾\\]]',
+  '\\s*[.,]?\\s*[)}»﴾\\]]',
   'gu'
 );
 
@@ -177,7 +195,41 @@ function extractLeadInBraced(combined, map, textNodes) {
   return candidates;
 }
 
-function extractExplicitRefBackward(combined, map, textNodes, alreadyCovered) {
+// primaryEnds: char positions where primary citations ended (text span end or ref bracket end).
+// A secondary lead-in at position P fires only if some end in primaryEnds satisfies
+// 0 <= P - end <= SECONDARY_WINDOW. Each new secondary match extends primaryEnds,
+// allowing chains: قوله … وقوله … وقوله all within 150 chars of each predecessor.
+function extractSecondaryLeadInBraced(combined, map, textNodes, primaryEnds) {
+  const candidates = [];
+  if (primaryEnds.length === 0) return candidates;
+  const secRe = new RegExp(SECONDARY_LEAD_IN_RE.source, 'gu');
+  let lm;
+  while ((lm = secRe.exec(combined)) !== null) {
+    const leadStart = lm.index;
+    if (!primaryEnds.some(end => leadStart - end >= 0 && leadStart - end <= SECONDARY_WINDOW)) continue;
+    const afterLead = leadStart + lm[0].length;
+    const fwd = combined.slice(afterLead, afterLead + 250);
+    const bm = BRACE_RE.exec(fwd);
+    if (!bm) continue;
+    const braceStart = afterLead + bm.index;
+    const braceEnd = braceStart + bm[0].length;
+    const text = braceContent(bm);
+    if (!text || text.length < 4) continue;
+    const afterBrace = combined.slice(braceEnd, braceEnd + 80);
+    const refMatch = new RegExp(REF_RE.source, 'u').exec(afterBrace);
+    const ref = refMatch ? refMatch[0] : null;
+    const innerStart = braceStart + bm[0].indexOf(bm[1] ?? bm[2]);
+    const innerEnd = innerStart + text.length;
+    const resolved = resolveRange(innerStart, innerEnd, textNodes, map);
+    if (!resolved) continue;
+    candidates.push({ ...resolved, ref, strategy: 'secondaryLeadInBraced', confidence: 'high', charStart: innerStart, charEnd: innerEnd });
+    // This match is itself an anchor for subsequent secondary patterns.
+    primaryEnds.push(ref ? braceEnd + refMatch[0].length : braceEnd);
+  }
+  return candidates;
+}
+
+function extractExplicitRefBackward(combined, map, textNodes, alreadyCovered, primaryEnds = []) {
   const candidates = [];
   const refRe = new RegExp(REF_RE.source, 'gu');
   let rm;
@@ -196,6 +248,7 @@ function extractExplicitRefBackward(combined, map, textNodes, alreadyCovered) {
     const backStart = lastBreakEnd !== -1 ? rawBackStart + lastBreakEnd : rawBackStart;
     const backWindow = combined.slice(backStart, refStart);
     let text = null, innerStart = null, innerEnd = null, confidence = 'medium';
+    let matchedPrimary = false;
     const nearSlice = backWindow.slice(Math.max(0, backWindow.length - 100));
     const nearOffset = backWindow.length - Math.min(100, backWindow.length);
     const bmGlobal = new RegExp(BRACE_RE.source, 'gu');
@@ -225,14 +278,42 @@ function extractExplicitRefBackward(combined, map, textNodes, alreadyCovered) {
             const leadEndAbs = backStart + leadOffset + leadEndInSlice;
             innerStart = leadEndAbs + between.indexOf(arabicMatch[1]);
             innerEnd = innerStart + extracted.length;
-            text = extracted; confidence = 'high';
+            text = extracted; confidence = 'high'; matchedPrimary = true;
+          }
+        }
+      }
+    }
+    // Secondary lead-in fallback: وقوله:/فقوله:/قوله: — only if a primary citation ended recently.
+    if (!text) {
+      const leadSlice = backWindow.slice(Math.max(0, backWindow.length - 200));
+      const leadOffset = backWindow.length - Math.min(200, backWindow.length);
+      const secGlobal = new RegExp(SECONDARY_LEAD_IN_RE.source, 'gu');
+      let lastSec = null, sm;
+      while ((sm = secGlobal.exec(leadSlice)) !== null) lastSec = sm;
+      if (lastSec) {
+        const secAbsStart = backStart + leadOffset + lastSec.index;
+        const activated = primaryEnds.some(end => secAbsStart - end >= 0 && secAbsStart - end <= SECONDARY_WINDOW);
+        if (activated) {
+          const leadEndInSlice = lastSec.index + lastSec[0].length;
+          const between = leadSlice.slice(leadEndInSlice).replace(/[\x00{«»}()]/g, ' ');
+          const arabicMatch = new RegExp('^\\s*(' + AR_RUN + ')', 'u').exec(between);
+          if (arabicMatch) {
+            const extracted = arabicMatch[1].trim();
+            if (extracted.length >= 8 && extracted.length <= 200) {
+              const leadEndAbs = backStart + leadOffset + leadEndInSlice;
+              innerStart = leadEndAbs + between.indexOf(arabicMatch[1]);
+              innerEnd = innerStart + extracted.length;
+              text = extracted; confidence = 'high';
+            }
           }
         }
       }
     }
     if (!text) {
       const arRunRe = new RegExp(AR_RUN + '$', 'u');
-      const arMatch = arRunRe.exec(backWindow.replace(/[{}«»()\x00]/g, ' '));
+      // Strip braces, parens, text-node boundary, and trailing punctuation so a final `.`
+      // before `{ref}` doesn't block the end-anchored match.
+      const arMatch = arRunRe.exec(backWindow.replace(/[{}«»()\x00.,،;]/g, ' '));
       if (arMatch && arMatch[0].trim().length >= 8 && arMatch[0].trim().length <= 150) {
         const matchStart = backStart + arMatch.index;
         text = arMatch[0].trim(); innerStart = matchStart; innerEnd = matchStart + text.length; confidence = 'medium';
@@ -244,6 +325,11 @@ function extractExplicitRefBackward(combined, map, textNodes, alreadyCovered) {
     if (!resolved) continue;
     candidates.push({ ...resolved, ref: rm[0], strategy: 'explicitRefBackward', confidence, charStart: innerStart, charEnd: innerEnd });
     alreadyCovered.push([innerStart, innerEnd]);
+    // If this citation used a primary lead-in (or the brace path), it acts as an anchor
+    // for subsequent secondary lead-ins. Push the ref-bracket end into primaryEnds.
+    if (matchedPrimary || confidence === 'high') {
+      primaryEnds.push(rm.index + rm[0].length);
+    }
   }
   return candidates;
 }
@@ -311,10 +397,22 @@ function runExtractionStrategies(textNodes, combined, map) {
   const covered = [];
   const s1 = extractLeadInBraced(combined, map, textNodes);
   for (const c of s1) covered.push([c.charStart, c.charEnd]);
+
+  // Compute where each primary citation ends (after text span + ref bracket if present).
+  const primaryEnds = s1.map(c => {
+    if (c.ref) {
+      const ri = combined.indexOf(c.ref, c.charEnd);
+      if (ri !== -1 && ri - c.charEnd < 80) return ri + c.ref.length;
+    }
+    return c.charEnd;
+  });
+  const s5 = extractSecondaryLeadInBraced(combined, map, textNodes, primaryEnds);
+  for (const c of s5) covered.push([c.charStart, c.charEnd]);
+
   const s3 = extractRangeConstruct(combined, map, textNodes, covered);
-  const s2 = extractExplicitRefBackward(combined, map, textNodes, covered);
+  const s2 = extractExplicitRefBackward(combined, map, textNodes, covered, primaryEnds);
   const s4 = extractShortFragmentWithRef(combined, map, textNodes, covered);
-  const all = [...s1, ...s3, ...s2, ...s4].sort((a, b) => a.charStart - b.charStart);
+  const all = [...s1, ...s5, ...s3, ...s2, ...s4].sort((a, b) => a.charStart - b.charStart);
   const result = [];
   const finalCovered = [];
   for (const c of all) {
@@ -584,35 +682,38 @@ async function scanPage({ liftCap = false, subtreeRoot = null } = {}) {
 
       const perCategoryCount = { green: 0, lightBlue: 0, yellow: 0, orange: 0, red: 0 };
 
-      for (const candidate of candidates) {
+      // Phase 1 — verify all candidates in parallel (the SW RPC roundtrip dominates wall time).
+      const results = await Promise.all(candidates.map(c => {
+        const msg = c.ref
+          ? { type: 'verifyFragmentByRef', text: c.text, ref: c.ref, candidateConfidence: c.confidence }
+          : { type: 'verifyFragment', text: c.text, candidateConfidence: c.confidence };
+        return sendToBackground(msg).catch(e => {
+          console.warn('[QuranExt] verification error:', c.text, e);
+          return null;
+        });
+      }));
+
+      // Phase 2 — apply highlights sequentially in document order (deterministic DOM mutations).
+      for (let i = 0; i < candidates.length; i++) {
         if (!liftCap && STATE.findings.length >= SCAN_CAP) {
           STATE.capHit = true;
           break;
         }
-
-        try {
-          let result;
-          if (candidate.ref) {
-            result = await sendToBackground({ type: 'verifyFragmentByRef', text: candidate.text, ref: candidate.ref, candidateConfidence: candidate.confidence });
-          } else {
-            result = await sendToBackground({ type: 'verifyFragment', text: candidate.text, candidateConfidence: candidate.confidence });
-          }
-          if (result && !result.error && result.color) {
-            const span = applyHighlight(candidate, result, { hidden: useHidden });
-            if (span) {
-              const finding = STATE.findings[STATE.findings.length - 1];
-              if (finding && perCategoryCount[result.color] !== undefined) perCategoryCount[result.color]++;
-              // Only emit live progress for single-pass scans (liftCap / mutation rescan).
-              if (!useHidden) {
-                QuranMsg.emit('SCAN_PROGRESS', { scanId, finding, runningCount: STATE.findings.length, perCategoryCount: { ...perCategoryCount } });
-                window.__quranMatches = STATE.findings.slice();
-              }
+        const candidate = candidates[i];
+        const result = results[i];
+        if (result && !result.error && result.color) {
+          const span = applyHighlight(candidate, result, { hidden: useHidden });
+          if (span) {
+            const finding = STATE.findings[STATE.findings.length - 1];
+            if (finding && perCategoryCount[result.color] !== undefined) perCategoryCount[result.color]++;
+            // Only emit live progress for single-pass scans (liftCap / mutation rescan).
+            if (!useHidden) {
+              QuranMsg.emit('SCAN_PROGRESS', { scanId, finding, runningCount: STATE.findings.length, perCategoryCount: { ...perCategoryCount } });
+              window.__quranMatches = STATE.findings.slice();
             }
-          } else if (result?.color === null || result?.color === undefined) {
-            STATS.candidatesDroppedSilently++;
           }
-        } catch (e) {
-          console.warn('[QuranExt] verification error:', candidate.text, e);
+        } else if (result?.color === null || result?.color === undefined) {
+          STATS.candidatesDroppedSilently++;
         }
       }
 

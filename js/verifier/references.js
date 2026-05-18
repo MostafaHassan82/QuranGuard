@@ -9,7 +9,7 @@ const QuranReferences = (() => {
   function resolve(refString, indexes) {
     if (!refString || !indexes) return null;
 
-    let s = refString.replace(/^[\s({«\[﴿]+|[\s)}\»\]﴾]+$/g, '').trim();
+    let s = refString.replace(/^[\s({«\[﴿]+|[\s.,;)}\»\]﴾]+$/g, '').trim();
     s = s.replace(/^(?:من\s+)?سور[ةه]\s+/u, '');
 
     const colonIdx = s.search(/[:：]/);

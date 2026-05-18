@@ -9,7 +9,18 @@
       "Bash(Select-Object -First 20)",
       "Bash(pip show *)",
       "Bash(pip3 show *)",
-      "Bash(python3 -m pip list)"
+      "Bash(python3 -m pip list)",
+      "PowerShell(& .specify/scripts/powershell/check-prerequisites.ps1 -Json -PathsOnly)",
+      "PowerShell(& .specify/scripts/powershell/setup-plan.ps1 -Json)",
+      "Skill(speckit-tasks)",
+      "PowerShell(& .specify/scripts/powershell/setup-tasks.ps1 -Json)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git -C C:/Users/mosta/PycharmProjects/QuranAuditPlugin rev-parse --git-dir)",
+      "Bash(python -c ' *)",
+      "Bash(python3 -c ' *)",
+      "Bash(node *)",
+      "Bash(powershell -File \".specify/extensions/git/scripts/powershell/auto-commit.ps1\" \"manual\")"
     ]
   }
 }
