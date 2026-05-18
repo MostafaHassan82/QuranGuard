@@ -169,6 +169,43 @@ chrome.runtime.onMessage.addListener((msg) => {
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 
+async function hydrateFromActiveTab() {
+  // Pull the current scan state from the content script. Covers two cases the
+  // live SCAN_COMPLETE listener can't: (a) autoscan finished before the popup
+  // opened, (b) user closed the popup after a manual scan and reopened it.
+  try {
+    const tab = await getActiveTab();
+    if (!tab) return;
+    const state = await sendToContent(tab.id, { type: 'getState' });
+    if (!state) return;
+    activeScanId = state.scanId || null;
+    if (state.scanning) {
+      setStatus('جارٍ الفحص…');
+      document.getElementById('progress').hidden = false;
+      document.getElementById('progress-count').textContent = state.totalCount ?? 0;
+      return;
+    }
+    if (state.scanComplete) {
+      if (state.languageDetected && state.languageDetected !== 'ar') {
+        setStatus('الصفحة ليست بالعربية — لم يُعثر على آيات قرآنية');
+        return;
+      }
+      if (state.totalCount === 0) {
+        setStatus('لم يُعثر على آيات قرآنية في هذه الصفحة');
+        return;
+      }
+      setStatus('اكتمل الفحص');
+      displayStats(state.perCategoryCount, state.totalCount);
+      if (state.capHit) {
+        document.getElementById('btn-continue').hidden = false;
+        document.getElementById('btn-continue').disabled = false;
+      }
+    }
+  } catch (_) {
+    // Content script not present (e.g. chrome:// page) — leave UI in default state.
+  }
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
   const prefs = await loadPrefs();
   applyPrefsToUI(prefs);
@@ -183,4 +220,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (radio.checked) savePrefs({ scanTrigger: radio.value });
     });
   });
+
+  // Show stats from a prior scan (autoscan or earlier manual run).
+  hydrateFromActiveTab();
 });

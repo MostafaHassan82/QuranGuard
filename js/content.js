@@ -876,6 +876,22 @@ if (chrome?.runtime?.onMessage) {
       sendResponse({ findings: STATE.findings });
       return;
     }
+    // Popup-on-open state query — lets the popup show results from a scan that
+    // completed before it opened (autoscan, or earlier manual scan).
+    if (type === 'getState') {
+      const pcc = { green: 0, lightBlue: 0, yellow: 0, orange: 0, red: 0 };
+      for (const f of STATE.findings) if (pcc[f.category] !== undefined) pcc[f.category]++;
+      sendResponse({
+        scanId: STATE.scanId,
+        scanComplete: !STATE.scanning && STATE.scanId !== null,
+        scanning: STATE.scanning,
+        perCategoryCount: pcc,
+        totalCount: STATE.findings.length,
+        languageDetected: STATE.languageDetected,
+        capHit: STATE.capHit,
+      });
+      return;
+    }
 
     // DATA_UNAVAILABLE — refuse to scan
     if (type === 'DATA_UNAVAILABLE') {
