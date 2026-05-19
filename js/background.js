@@ -44,7 +44,7 @@ async function broadcastToContent(type, payload) {
   try {
     const tabs = await chrome.tabs.query({});
     for (const tab of tabs) {
-      chrome.tabs.sendMessage(tab.id, { type, requestId: crypto.randomUUID(), payload })
+      chrome.tabs.sendMessage(tab.id, { type, requestId: QuranMsg.randomId(), payload })
         .catch(() => {}); // tab may have no content script
     }
   } catch (_) {}
@@ -64,7 +64,7 @@ async function loadAndIndex() {
     dataState = 'unavailable';
     dataError = err;
     broadcastToContent('DATA_UNAVAILABLE', err);
-    chrome.runtime.sendMessage({ type: 'DATA_UNAVAILABLE', requestId: crypto.randomUUID(), payload: err }).catch(() => {});
+    chrome.runtime.sendMessage({ type: 'DATA_UNAVAILABLE', requestId: QuranMsg.randomId(), payload: err }).catch(() => {});
     throw err;
   }
 
@@ -74,7 +74,7 @@ async function loadAndIndex() {
     dataState = 'unavailable';
     dataError = err;
     broadcastToContent('DATA_UNAVAILABLE', err);
-    chrome.runtime.sendMessage({ type: 'DATA_UNAVAILABLE', requestId: crypto.randomUUID(), payload: err }).catch(() => {});
+    chrome.runtime.sendMessage({ type: 'DATA_UNAVAILABLE', requestId: QuranMsg.randomId(), payload: err }).catch(() => {});
     throw err;
   }
 
@@ -884,7 +884,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     loadAndIndex()
       .then(() => {
         broadcastToContent('DATA_AVAILABLE', {});
-        chrome.runtime.sendMessage({ type: 'DATA_AVAILABLE', requestId: crypto.randomUUID(), payload: {} }).catch(() => {});
+        chrome.runtime.sendMessage({ type: 'DATA_AVAILABLE', requestId: QuranMsg.randomId(), payload: {} }).catch(() => {});
         sendResponse(QuranMsg.okResponse(requestId, {}));
       })
       .catch(e => sendResponse(QuranMsg.errResponse(requestId, 'DATA_UNAVAILABLE', e.detail || e.message)));

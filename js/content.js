@@ -876,7 +876,7 @@ async function scanPage({ liftCap = false, subtreeRoot = null } = {}) {
   if (STATE.scanning) return;
   STATE.scanning = true;
 
-  const scanId = crypto.randomUUID();
+  const scanId = QuranMsg.randomId();
   STATE.scanId = scanId;
   const startedAt = new Date().toISOString();
   const startTime = Date.now();
