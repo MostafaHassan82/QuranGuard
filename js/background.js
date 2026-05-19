@@ -134,9 +134,24 @@ function isContiguousSubsequence(haystackWords, needleWords) {
 function softEqualWord(a, b) {
   if (a === b) return true;
   const diff = Math.abs(a.length - b.length);
-  if (diff < 1 || diff > 2) return false;
-  const [shorter, longer] = a.length < b.length ? [a, b] : [b, a];
+  if (diff > 2) return false;
   const isDrift = c => c === 'ا' || c === 'و' || c === 'ي' || c === 'ء';
+
+  // diff === 0: same length, allow a single drift-letter substitution at one
+  // position (both differing chars must be drift letters). Handles Uthmani
+  // أَقْصَا (terminal alef) vs modern أقصى (alef maqsura → ي): "ءقصا" vs "ءقصي".
+  if (diff === 0) {
+    let mismatchPos = -1;
+    for (let i = 0; i < a.length; i++) {
+      if (a[i] === b[i]) continue;
+      if (mismatchPos !== -1) return false;       // >1 mismatch — reject
+      if (!isDrift(a[i]) || !isDrift(b[i])) return false; // non-drift sub — reject
+      mismatchPos = i;
+    }
+    return mismatchPos !== -1; // exactly one drift substitution
+  }
+
+  const [shorter, longer] = a.length < b.length ? [a, b] : [b, a];
 
   if (diff === 1) {
     for (let i = 0; i < longer.length; i++) {
@@ -158,16 +173,109 @@ function softEqualWord(a, b) {
   return false;
 }
 
-function isContiguousSoftSubsequence(haystackWords, needleWords) {
-  if (needleWords.length === 0 || needleWords.length > haystackWords.length) return false;
-  for (let i = 0; i <= haystackWords.length - needleWords.length; i++) {
-    let ok = true;
-    for (let j = 0; j < needleWords.length; j++) {
-      if (!softEqualWord(haystackWords[i + j], needleWords[j])) { ok = false; break; }
+// Recursive aligner that tries 1:1 soft-equality first, then merges in both
+// directions (concatenating up to 3 adjacent words on either side).
+// Handles word-segmentation drift between citation and Quran:
+//   k:1  — modern splits a Quranic fused word (يا + بن + أم ↔ Uthmani يبنءم)
+//   1:k  — modern fuses what the Quran writes as separate words, often via a
+//          missing space (فقلءفلا ↔ Quran فقل ءفلا — case from Yunus:31)
+// Returns the haystack index one past the last consumed word on success, or -1.
+// Backtracks (returns -1 from a successful 1:1 only to try the merge path) when
+// the rest of the alignment fails downstream.
+const MAX_MERGE = 3;
+function alignSoftWithMerge(haystack, needle, hi, ji) {
+  if (ji === needle.length) return hi;
+  if (hi >= haystack.length) return -1;
+  // 1:1
+  if (softEqualWord(haystack[hi], needle[ji])) {
+    const r = alignSoftWithMerge(haystack, needle, hi + 1, ji + 1);
+    if (r >= 0) return r;
+  }
+  // k:1 merge — concatenate next k needle words to match one haystack word
+  for (let k = 2; k <= MAX_MERGE && ji + k <= needle.length; k++) {
+    const merged = needle.slice(ji, ji + k).join('');
+    if (softEqualWord(haystack[hi], merged)) {
+      const r = alignSoftWithMerge(haystack, needle, hi + 1, ji + k);
+      if (r >= 0) return r;
     }
-    if (ok) return true;
+  }
+  // 1:k merge — concatenate next k haystack words to match one needle word
+  for (let k = 2; k <= MAX_MERGE && hi + k <= haystack.length; k++) {
+    const merged = haystack.slice(hi, hi + k).join('');
+    if (softEqualWord(merged, needle[ji])) {
+      const r = alignSoftWithMerge(haystack, needle, hi + k, ji + 1);
+      if (r >= 0) return r;
+    }
+  }
+  return -1;
+}
+
+function isContiguousSoftSubsequence(haystackWords, needleWords) {
+  if (needleWords.length === 0) return false;
+  for (let i = 0; i < haystackWords.length; i++) {
+    if (alignSoftWithMerge(haystackWords, needleWords, i, 0) >= 0) return true;
   }
   return false;
+}
+
+// Multi-segment match for `*`-separated citations that span multiple verses
+// (and may skip verses). Each `*` is the page's verse-end marker; the segments
+// must each match a verse in the same surah in strictly ascending ayah order,
+// within a bounded ayah-window so unrelated coincidental matches don't pass.
+// Returns {firstRec, surahNum, ayahs[], displayRef} on success, or null.
+//
+// Used as a fallback when single-verse lookups fail. Handles both:
+//   - Contiguous spans (الواقعة:27-29)
+//   - Spans that skip verses (الواقعة:10,11,13 — user dropped v12)
+const MULTI_SEGMENT_MAX_SPAN = 30; // max ayah-distance between first and last segment match
+function matchMultiSegmentCitation(candidateText) {
+  const segments = candidateText.split('*').map(s => s.trim()).filter(s => s.length > 0);
+  if (segments.length < 2) return null;
+
+  // For each segment, collect candidate verses (exact → strict-ordered → soft-ordered)
+  const segHits = [];
+  for (const seg of segments) {
+    const t1 = tier1Normalize(seg);
+    const words = t1.split(' ').filter(Boolean);
+    if (words.length === 0) return null;
+    let recs = findExactGlobal(t1);
+    if (recs.length === 0) recs = findOrderedContiguousGlobal(words);
+    if (recs.length === 0) recs = findOrderedContiguousSoftGlobal(words);
+    if (recs.length === 0) return null; // any segment unmatched → bail
+    segHits.push(recs);
+  }
+
+  // Find a surah where every segment can be placed in ascending ayah order.
+  const surahCounts = new Map();
+  for (const recs of segHits) {
+    const surahs = new Set(recs.map(r => r.surahNum));
+    for (const s of surahs) surahCounts.set(s, (surahCounts.get(s) || 0) + 1);
+  }
+  for (const [surahNum, count] of surahCounts) {
+    if (count !== segHits.length) continue;
+    const ayahLists = segHits.map(recs =>
+      recs.filter(r => r.surahNum === surahNum).map(r => r.ayahNum).sort((a, b) => a - b)
+    );
+    let prev = 0;
+    const picked = [];
+    let ok = true;
+    for (const ayahs of ayahLists) {
+      const next = ayahs.find(a => a > prev);
+      if (next === undefined) { ok = false; break; }
+      picked.push(next);
+      prev = next;
+    }
+    if (!ok) continue;
+    if (picked[picked.length - 1] - picked[0] > MULTI_SEGMENT_MAX_SPAN) continue;
+    const firstRec = indexes.byRef[surahNum]?.[picked[0]];
+    if (!firstRec) continue;
+    const surahName = firstRec.surahName;
+    const displayRef = picked.length === 1
+      ? `${surahName}:${picked[0]}`
+      : `${surahName}:${picked[0]}-${picked[picked.length - 1]}`;
+    return { firstRec, surahNum, ayahs: picked, displayRef };
+  }
+  return null;
 }
 
 function candidatesFromWords(normWords, wordIdx) {
@@ -378,33 +486,22 @@ function tier1MatchInClaimedAyahs(candidateText, candidateWords, resolved, tr = 
   for (const rec of records) {
     for (const w of rec.tier1Words) { allWords.push(w); wordToAyah.push(rec.ayahNum); }
   }
-  let matchStart = -1;
-  let bestPrefix = { i: -1, j: -1 }; // for trace: longest prefix that matched before failing
-  outer: for (let i = 0; i <= allWords.length - candidateWords.length; i++) {
-    if (!softEqualWord(allWords[i], candidateWords[0])) continue;
-    for (let j = 1; j < candidateWords.length; j++) {
-      if (!softEqualWord(allWords[i + j], candidateWords[j])) {
-        if (j > bestPrefix.j) bestPrefix = { i, j };
-        continue outer;
-      }
-    }
-    matchStart = i;
-    break;
+  // Merge-aware alignment (mirrors single-record path): allow up to 3 cited
+  // words to fuse onto one verse word (e.g. cited "يا بن أم" ↔ verse "يبنءم").
+  let matchStart = -1, matchEndHi = -1;
+  for (let i = 0; i < allWords.length; i++) {
+    const endHi = alignSoftWithMerge(allWords, candidateWords, i, 0);
+    if (endHi >= 0) { matchStart = i; matchEndHi = endHi; break; }
   }
   if (matchStart === -1) {
     if (tr) {
       tr(`  match[multi]: NO alignment (verseWords=${allWords.length} candWords=${candidateWords.length})`);
-      if (bestPrefix.j > 0) {
-        const i = bestPrefix.i, j = bestPrefix.j;
-        tr(`    bestPrefix: matched ${j} words at start=${i}, failed at j=${j}`);
-        tr(`    verse[${i+j}]=${JSON.stringify(allWords[i+j])} vs cand[${j}]=${JSON.stringify(candidateWords[j])}`);
-      } else {
-        tr(`    first-word never matched. cand[0]=${JSON.stringify(candidateWords[0])} cand[last]=${JSON.stringify(candidateWords[candidateWords.length-1])}`);
-      }
+      tr(`    cand[0]=${JSON.stringify(candidateWords[0])} cand[last]=${JSON.stringify(candidateWords[candidateWords.length-1])}`);
     }
     return null;
   }
-  const matchEnd = matchStart + candidateWords.length - 1;
+  // matchEndHi is one past last consumed haystack index; clamp into [matchStart, len-1].
+  const matchEnd = Math.max(matchStart, matchEndHi - 1);
   const firstAyah = wordToAyah[matchStart], lastAyah = wordToAyah[matchEnd];
   const surahName = records[0].surahName;
   const displayRef = firstAyah === lastAyah ? `${surahName}:${firstAyah}` : `${surahName}:${firstAyah}-${lastAyah}`;
@@ -412,7 +509,57 @@ function tier1MatchInClaimedAyahs(candidateText, candidateWords, resolved, tr = 
   return { rec: anchorRec, displayRef, deviation: 'spellingDrift' };
 }
 
+// Ellipsis-excerpt match. Pages often quote a long ayah as "first part ... last
+// part" using `...` or `…` to indicate skipped middle words. Treat that as a
+// green match: split the raw candidate on the ellipsis, tier1-normalize each
+// segment, and require each segment to align (soft + merge-aware) against the
+// claimed ayah's words in strictly ascending order. Returns {rec, displayRef}
+// on success, or null. Caller decides the deviation label.
+function ellipsisMatchInClaimedAyahs(rawCandidateText, resolved, tr = null) {
+  if (!/\.{3,}|…/.test(rawCandidateText)) return null;
+  const rawSegments = rawCandidateText.split(/\s*(?:\.{3,}|…+)\s*/u).map(s => s.trim()).filter(Boolean);
+  if (rawSegments.length < 2) return null;
+  const segWords = rawSegments.map(s => tier1Normalize(s).split(' ').filter(Boolean));
+  if (segWords.some(w => w.length === 0)) return null;
+
+  const { surahNum, ayahNums } = resolved;
+  const records = ayahNums.map(n => indexes.byRef[surahNum]?.[n]).filter(Boolean);
+  if (records.length === 0) return null;
+
+  // Concatenate all claimed-ayah words and track which ayah each came from so
+  // we can build a range displayRef when the excerpt spans multiple ayahs.
+  const allWords = [], wordToAyah = [];
+  for (const rec of records) {
+    for (const w of rec.tier1Words) { allWords.push(w); wordToAyah.push(rec.ayahNum); }
+  }
+
+  let cursor = 0;
+  let firstStart = -1, lastEnd = -1;
+  for (const seg of segWords) {
+    let placed = -1;
+    for (let i = cursor; i < allWords.length; i++) {
+      const endHi = alignSoftWithMerge(allWords, seg, i, 0);
+      if (endHi >= 0) { placed = i; cursor = endHi; lastEnd = endHi - 1; if (firstStart === -1) firstStart = i; break; }
+    }
+    if (placed === -1) {
+      if (tr) tr(`  ellipsis: seg ${JSON.stringify(seg.slice(0, 3))}… failed to align from cursor=${cursor}`);
+      return null;
+    }
+  }
+  const surahName = records[0].surahName;
+  const firstAyah = wordToAyah[firstStart];
+  const lastAyah = wordToAyah[Math.max(firstStart, lastEnd)];
+  const displayRef = firstAyah === lastAyah ? `${surahName}:${firstAyah}` : `${surahName}:${firstAyah}-${lastAyah}`;
+  const anchorRec = records.find(r => r.ayahNum === firstAyah) || records[0];
+  return { rec: anchorRec, displayRef };
+}
+
 function wordLevelMatchInClaimedAyahs(candidateWords, resolved) {
+  // For 1-word candidates, the edit-distance path would always return diffs=1
+  // against any verse word (one allowed substitution), producing a spurious
+  // yellow even when the word isn't in the verse. tier1MatchInClaimed already
+  // handles the only legitimate 1-word green path (soft-equal in claimed verse).
+  if (candidateWords.length < 2) return null;
   const { surahNum, ayahNums } = resolved;
   const records = ayahNums.map(n => indexes.byRef[surahNum]?.[n]).filter(Boolean);
   let best = null;
@@ -421,6 +568,25 @@ function wordLevelMatchInClaimedAyahs(candidateWords, resolved) {
     if (diffs !== null && (best === null || diffs < best.diffs)) best = { rec, diffs };
   }
   return best;
+}
+
+// Single-word orange path: search wordIndex for the candidate word elsewhere
+// in the Quran (excluding claimed ayahs). Gated by a max-hits threshold so
+// very common words (الله, من, ما, ...) don't spawn noisy orange findings.
+function findElsewhereForSingleWord(word, claimedKeySet, maxHits = 8) {
+  const keys = softWordIndexLookup(word, indexes.wordIndex);
+  const recs = [];
+  for (const key of keys) {
+    if (claimedKeySet.has(key)) continue;
+    const { surahNum, ayahNum } = parseKey(key);
+    const rec = indexes.byRef[surahNum]?.[ayahNum];
+    if (!rec) continue;
+    recs.push(rec);
+    if (recs.length > maxHits) return null; // too generic to be a useful orange signal
+  }
+  if (recs.length === 0) return null;
+  recs.sort((a, b) => a.surahNum - b.surahNum || a.ayahNum - b.ayahNum);
+  return recs;
 }
 
 // ── Result builder (T030) ─────────────────────────────────────────────────────
@@ -450,6 +616,28 @@ function verifyFragment(candidateText, candidateConfidence = 'medium') {
   if (orderedRecs.length > 0) {
     const sorted = orderedRecs.slice().sort((a, b) => a.surahNum - b.surahNum || a.ayahNum - b.ayahNum);
     return makeResult({ color: 'lightBlue', matchedRef: sorted[0].ref, matchedRefs: sorted.map(r => r.ref), authenticText: sorted[0].text, deviation: 'spellingDrift', candidateConfidence, matchType: 'orderedContiguous' });
+  }
+
+  // Multi-segment fallback for `*`-separated multi-verse citations (often used
+  // with "إلى قوله" to indicate "the passage from … to …", sometimes skipping
+  // intermediate verses entirely — e.g. الواقعة:10*11*13).
+  const multi = matchMultiSegmentCitation(candidateText);
+  if (multi) {
+    return makeResult({ color: 'lightBlue', matchedRef: multi.displayRef, authenticText: multi.firstRec.text, deviation: 'spellingDrift', candidateConfidence, matchType: 'orderedContiguous' });
+  }
+
+  // Single-word brace with no ref (e.g. `قوله سبحانه: {أرني}` — a primary lead-in
+  // pointing at a single Quranic word). The ordered/wordLevel global searches all
+  // bail for 1-word candidates; consult the wordIndex directly. Gated by maxHits
+  // so common particles (الله, من, ما, …) don't spawn noisy lightBlue findings.
+  if (words.length === 1) {
+    const recs = findElsewhereForSingleWord(words[0], new Set(), 8);
+    if (recs && recs.length > 0) {
+      return makeResult({
+        color: 'lightBlue', matchedRef: recs[0].ref, matchedRefs: recs.map(r => r.ref),
+        authenticText: recs[0].text, deviation: 'spellingDrift', candidateConfidence, matchType: 'partial',
+      });
+    }
   }
 
   const wlRecs = wordLevelMatchGlobal(words);
@@ -522,6 +710,25 @@ function verifyFragmentByRef(candidateText, refString, candidateConfidence = 'me
     }
   }
 
+  // Ellipsis-excerpt path: `{first part ... last part}` against a long ayah.
+  // Tried after the strict tier1 match misses but before falling to yellow,
+  // so genuine excerpts stay green rather than getting downgraded.
+  const ellInClaimed = ellipsisMatchInClaimedAyahs(candidateText, resolved, tr);
+  if (ellInClaimed) {
+    tr(`ellipsisMatchInClaimed: HIT (${ellInClaimed.displayRef}) → green`);
+    const { allExactRefs, allPartialRefs } = findAllGlobalMatches(t1, words);
+    return wrap(makeResult({ color: 'green', matchedRef: preferClaimedSpelling(ellInClaimed.displayRef, refString), claimedRef: refString, authenticText: ellInClaimed.rec.text, deviation: 'spellingDrift', candidateConfidence, matchType: 'exact', allExactRefs, allPartialRefs }));
+  }
+  if (resolved.rangeAyahNums) {
+    const rangeResolved = { surahNum: resolved.surahNum, ayahNums: resolved.rangeAyahNums, isRange: true };
+    const ellInRange = ellipsisMatchInClaimedAyahs(candidateText, rangeResolved, tr);
+    if (ellInRange) {
+      tr(`ellipsisMatchInRange: HIT → green`);
+      const { allExactRefs, allPartialRefs } = findAllGlobalMatches(t1, words);
+      return wrap(makeResult({ color: 'green', matchedRef: preferClaimedSpelling(ellInRange.displayRef, refString), claimedRef: refString, authenticText: ellInRange.rec.text, deviation: 'spellingDrift', candidateConfidence, matchType: 'exact', allExactRefs, allPartialRefs }));
+    }
+  }
+
   const wlInClaimed = wordLevelMatchInClaimedAyahs(words, resolved);
   if (wlInClaimed) { tr(`wordLevelInClaimed: HIT (${wlInClaimed.rec.ref}, diffs=${wlInClaimed.diffs}) → yellow`); return wrap(makeResult({ color: 'yellow', matchedRef: preferClaimedSpelling(wlInClaimed.rec.ref, refString), claimedRef: refString, authenticText: wlInClaimed.rec.text, deviation: 'wordLevel', candidateConfidence, matchType: 'partial' })); }
   tr(`wordLevelInClaimed: MISS`);
@@ -532,11 +739,36 @@ function verifyFragmentByRef(candidateText, refString, candidateConfidence = 'me
     if (wlInRange) { tr(`wordLevelInRange: HIT → yellow`); return wrap(makeResult({ color: 'yellow', matchedRef: wlInRange.rec.ref, claimedRef: refString, authenticText: wlInRange.rec.text, deviation: 'wordLevel', candidateConfidence, matchType: 'partial' })); }
   }
 
+  // Single-word orange: text is a single word that doesn't appear in the claimed
+  // verse(s) but appears elsewhere in the Quran. QuranOrange.findElsewhere bails
+  // on <2-word candidates, so handle 1-word here. High-confidence only — same
+  // gate the multi-word orange path uses.
+  if (words.length === 1 && candidateConfidence === 'high') {
+    const claimedKeySet = new Set(resolved.ayahNums.map(n => `${resolved.surahNum}:${n}`));
+    const elsewhere = findElsewhereForSingleWord(words[0], claimedKeySet);
+    if (elsewhere) {
+      tr(`orange[1-word]: HIT (${elsewhere.length} refs, first=${elsewhere[0].ref}) → orange`);
+      return wrap(makeResult({
+        color: 'orange',
+        matchedRef: elsewhere[0].ref,
+        matchedRefs: elsewhere.map(r => r.ref),
+        claimedRef: refString,
+        authenticText: elsewhere[0].text,
+        deviation: 'none',
+        candidateConfidence,
+        matchType: 'exact',
+      }));
+    }
+    tr(`orange[1-word]: MISS (word not found elsewhere or too generic)`);
+  }
+
   // Orange (FR-004, FR-016): text IS Quran but at a different ref than claimed.
-  // QuranOrange owns the decision; we provide the search helpers it needs.
+  // QuranOrange owns the decision; we provide the search helpers it needs,
+  // including the soft variant so Uthmani drift doesn't mask wrong-ref cases.
   const orangeHits = QuranOrange.classify(t1, words, resolved, candidateConfidence, {
     findExactGlobal,
     findOrderedContiguousGlobal,
+    findOrderedContiguousSoftGlobal,
   });
   if (orangeHits) {
     tr(`orange: HIT (${orangeHits.length} refs, first=${orangeHits[0].ref}) → orange`);

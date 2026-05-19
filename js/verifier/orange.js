@@ -10,16 +10,24 @@
 // orange.js stays a pure module.
 const QuranOrange = (() => {
 
-  // Returns an array of records that match candidate text EXACTLY (full or
+  // Returns an array of records that match candidate text (full or
   // contiguous-subsequence) but are NOT at the claimed ref. Empty if no
   // elsewhere-match exists.
   //
-  // searchAPI: { findExactGlobal, findOrderedContiguousGlobal }
-  // resolved : { surahNum, ayahNums } from QuranReferences.resolve()
+  // Search escalates from strict to soft so cited text with normal Uthmani
+  // drift (e.g. cited "تري" vs Quran "تريا") still triggers orange when the
+  // text matches an unrelated verse — without this, drift would silently
+  // downgrade a wrong-reference into red.
+  //
+  // searchAPI: { findExactGlobal, findOrderedContiguousGlobal,
+  //              findOrderedContiguousSoftGlobal? }
   function findElsewhere(t1, words, resolved, searchAPI) {
     const claimedKeys = new Set(resolved.ayahNums.map(n => `${resolved.surahNum}:${n}`));
     let recs = searchAPI.findExactGlobal(t1);
     if (recs.length === 0) recs = searchAPI.findOrderedContiguousGlobal(words);
+    if (recs.length === 0 && searchAPI.findOrderedContiguousSoftGlobal) {
+      recs = searchAPI.findOrderedContiguousSoftGlobal(words);
+    }
     return recs.filter(r => !claimedKeys.has(`${r.surahNum}:${r.ayahNum}`));
   }
 

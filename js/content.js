@@ -48,10 +48,29 @@ window.__quranStats = makeEmptyStats();
 window.__quranMatches = [];
 
 // ── Debug trace ───────────────────────────────────────────────────────────────
-// Toggle in DevTools console:  __quranDebug(true)  then rescan.
+// Toggle in the page DevTools console:  __quranDebug(true)  then rescan.
+// Bridged via a DOM event because content scripts run in an isolated world,
+// so a `window.__quranDebug` defined here is NOT visible to the page console.
+// A tiny shim is injected into the MAIN world that defines window.__quranDebug
+// to dispatch the event below; we listen for it and flip the flag.
 // All trace lines start with `[QD:` so you can grep/copy them as a block when
 // pasting back a bug report. Stays off by default to keep the console clean.
 let QURAN_DEBUG_TRACE = false;
+document.addEventListener('__quranDebugSet', (e) => {
+  QURAN_DEBUG_TRACE = !!(e && e.detail && e.detail.on);
+  console.log(`[QD] debug trace ${QURAN_DEBUG_TRACE ? 'ON' : 'OFF'} — rescan to capture`);
+});
+// Inject via src= (web-accessible resource) instead of inline textContent so
+// strict-CSP pages (e.g. islamweb.net) don't log a violation on every load.
+try {
+  const shim = document.createElement('script');
+  shim.src = chrome.runtime.getURL('js/debug-bridge.js');
+  shim.onload = () => shim.remove();
+  (document.documentElement || document.head || document.body).appendChild(shim);
+} catch (_) {
+  // Fallback: window.__quranDebug remains defined on the isolated-world `window`
+  // below, accessible via the DevTools console's context dropdown.
+}
 window.__quranDebug = function (on) {
   QURAN_DEBUG_TRACE = !!on;
   console.log(`[QD] debug trace ${QURAN_DEBUG_TRACE ? 'ON' : 'OFF'} — rescan to capture`);
@@ -82,6 +101,12 @@ const LEAD_IN_PATTERNS = [
   'وقوله جل جلاله', 'قوله جل جلاله', 'وقوله سبحانه',
   'قال ربكم', 'في كتاب الله', 'في قوله تعالى',
   'فقوله تعالى', 'فقوله سبحانه', 'فقوله عز وجل', 'فقوله جل وعلا', 'فقوله الكريم',
+  // ب-/ك-/ل-prefixed forms: "بقوله تعالى" (in His saying), "كقوله تعالى"
+  // (as in His saying), "لقوله تعالى" (per His saying) — all standard
+  // citation introducers used in Arabic Islamic writing.
+  'بقوله تعالى', 'بقوله سبحانه', 'بقوله عز وجل', 'بقوله جل وعلا', 'بقوله الكريم', 'بقول الله تعالى',
+  'كقوله تعالى', 'كقوله سبحانه', 'كقوله عز وجل', 'كقوله جل وعلا', 'كقول الله تعالى',
+  'لقوله تعالى', 'لقوله سبحانه', 'لقوله عز وجل',
 ];
 // Word-boundary guard: lead-in patterns must NOT be preceded by another Arabic letter,
 // or they'd false-match substrings of unrelated words (e.g. قوله inside عقولهم — "their
@@ -107,7 +132,12 @@ const AR_TASHKEEL = '[\\u064B-\\u065F\\u0670]';
 // in different text nodes, with \x00 boundaries on either side of the inner Arabic.
 const WS = '[\\s\\x00]';
 const AR_RUN = `${AR_CHAR}${AR_TASHKEEL}*(?:${WS}*${AR_CHAR}${AR_TASHKEEL}*)*`;
-const BRACE_INNER_SEP = `[*،,\\s\\x00]+`;
+// `.` and `…` are common excerpt markers inside braced ayahs (e.g.
+// `{وسيق الذين كفروا...الكافرين}` shows "first part … last part" from one ayah).
+// Without them in the separator class, BRACE_RE would fail to match the brace
+// at all, and the backward-ref extractor would walk past it to grab an
+// unrelated earlier brace.
+const BRACE_INNER_SEP = `[*.…،,\\s\\x00]+`;
 const BRACE_RE = new RegExp(
   '[{«\\[]' + WS + '*(' + AR_RUN + '(?:' + BRACE_INNER_SEP + AR_RUN + ')*)' + WS + '*[}»\\]]' +
   '|\\(' + WS + '*(' + AR_RUN + '(?:' + BRACE_INNER_SEP + AR_RUN + ')*)' + WS + '*\\)',
@@ -119,8 +149,15 @@ const STRONG_BRACE_RE = new RegExp(
 );
 // AR_CHAR_NAME includes tatweel U+0640 so surah names like يــس are matched.
 const AR_CHAR_NAME = '[\\u0621-\\u063A\\u0640-\\u064A\\u066E\\u066F\\u0671-\\u06D3\\u06FA-\\u06FF\\uFB50-\\uFDFF\\uFE70-\\uFEFF]';
+// Opening bracket is optional so we also catch the common typo `Surah:N)` where
+// the user dropped the opening paren (e.g. `{ayah} الواقعة:82) أي: ...`).
+// The closing bracket remains required so the pattern still anchors on real
+// citation punctuation rather than free-floating "word:number" text. Spurious
+// surah-name captures (e.g. "بقوله:5)") are filtered downstream by
+// QuranReferences.resolve(), which validates the captured name against the
+// surah index — unknown names fall back to the no-ref verifier path.
 const REF_RE = new RegExp(
-  '[({«﴿\\[]\\s*(' + AR_CHAR_NAME + '+(?:\\s+' + AR_CHAR_NAME + '+)*)\\s*[:：]\\s*' +
+  '[({«﴿\\[]?\\s*(' + AR_CHAR_NAME + '+(?:\\s+' + AR_CHAR_NAME + '+)*)\\s*[:：]\\s*' +
   '([\\d\\u0660-\\u0669\\u06F0-\\u06F9]+(?:\\s*[-–]\\s*[\\d\\u0660-\\u0669\\u06F0-\\u06F9]+)?(?:\\s*[،,]\\s*[\\d\\u0660-\\u0669\\u06F0-\\u06F9]+)*)' +
   '\\s*[.,]?\\s*[)}»﴾\\]]',
   'gu'
@@ -214,6 +251,28 @@ function braceContent(m) {
   return (m[1] ?? m[2] ?? '').replace(/\x00/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
+// Find the first REF_RE match in `tail`, but only claim it if no OTHER opening
+// brace ({, «, [) sits between the start of `tail` and the ref. A ref behind
+// another brace belongs to that other brace, not to ours — without this guard
+// a paragraph like `{cite A} … {cite B} (ref)` would mis-attribute (ref) to A.
+function nearestOwnedRef(tail) {
+  const refMatch = new RegExp(REF_RE.source, 'u').exec(tail);
+  if (!refMatch) return null;
+  const gap = tail.slice(0, refMatch.index);
+  if (/[{«\[]/.test(gap)) return null;
+  return refMatch[0];
+}
+
+// Max gap (in combined-chars) between a lead-in's end and the opening brace it
+// claims as its citation. Real citations have at most ~15-30 chars (a colon +
+// whitespace + maybe \x00 text-node boundaries). Beyond that, the lead-in's
+// actual citation is missing (e.g. on a related-articles tile heading) and
+// the next brace in the window typically belongs to unrelated content
+// (sidebar links, footer parentheticals). Without this cap the 1000-char
+// content window let lead-ins reach far across the page and mis-claim e.g.
+// related-article tile parens as citations.
+const LEAD_IN_BRACE_MAX_GAP = 80;
+
 function extractLeadInBraced(combined, map, textNodes) {
   const candidates = [];
   const leadRe = new RegExp(LEAD_IN_RE.source, 'gu');
@@ -225,14 +284,19 @@ function extractLeadInBraced(combined, map, textNodes) {
     const window = combined.slice(afterLead, afterLead + 1000);
     const bm = BRACE_RE.exec(window);
     if (!bm) continue;
+    if (bm.index > LEAD_IN_BRACE_MAX_GAP) continue; // brace too far from lead-in
+    // Parens (vs strong braces {…}/«…»/[…]) are weak citation signals — they're
+    // also used for asides, emphasis, definitions. Require either a trailing ref
+    // OR a non-trivial word count to count a paren as a citation. Strong braces
+    // skip this gate (they're the standard Quran-quotation form).
+    const isParen = !!bm[2];
     const braceStart = afterLead + bm.index;
     const braceEnd = braceStart + bm[0].length;
     const rawInner = bm[1] ?? bm[2] ?? '';
     const text = braceContent(bm);
     if (!text || text.length < 4) continue;
     const afterBrace = combined.slice(braceEnd, braceEnd + 80);
-    const refMatch = new RegExp(REF_RE.source, 'u').exec(afterBrace);
-    const ref = refMatch ? refMatch[0] : null;
+    const ref = nearestOwnedRef(afterBrace);
     const innerStart = braceStart + bm[0].indexOf(rawInner);
     // Use RAW captured length so the DOM range covers the full inner span.
     // braceContent() strips \x00 / collapses whitespace, so text.length is SHORTER
@@ -261,14 +325,14 @@ function extractSecondaryLeadInBraced(combined, map, textNodes, primaryEnds) {
     const fwd = combined.slice(afterLead, afterLead + 1000);
     const bm = BRACE_RE.exec(fwd);
     if (!bm) continue;
+    if (bm.index > LEAD_IN_BRACE_MAX_GAP) continue; // brace too far from lead-in (same cap as primary)
     const braceStart = afterLead + bm.index;
     const braceEnd = braceStart + bm[0].length;
     const rawInner = bm[1] ?? bm[2] ?? '';
     const text = braceContent(bm);
     if (!text || text.length < 4) continue;
     const afterBrace = combined.slice(braceEnd, braceEnd + 80);
-    const refMatch = new RegExp(REF_RE.source, 'u').exec(afterBrace);
-    const ref = refMatch ? refMatch[0] : null;
+    const ref = nearestOwnedRef(afterBrace);
     // Single-word brace after a SECONDARY lead-in without a trailing ref is the
     // "discussing a word" pattern, e.g. `قوله {شريك} أي: مشارك ...` — not a citation.
     // Real ayahs are sentences. If a ref follows, the ref signal is enough to proceed.
@@ -280,7 +344,7 @@ function extractSecondaryLeadInBraced(combined, map, textNodes, primaryEnds) {
     if (!resolved) continue;
     candidates.push({ ...resolved, ref, strategy: 'secondaryLeadInBraced', confidence: 'high', charStart: innerStart, charEnd: innerEnd });
     // This match is itself an anchor for subsequent secondary patterns.
-    primaryEnds.push(ref ? braceEnd + refMatch[0].length : braceEnd);
+    primaryEnds.push(ref ? braceEnd + afterBrace.indexOf(ref) + ref.length : braceEnd);
   }
   return candidates;
 }
@@ -414,6 +478,13 @@ function extractRangeConstruct(combined, map, textNodes, alreadyCovered) {
     const fwdWin = combined.slice(sepEnd, sepEnd + 150);
     const bm2 = STRONG_BRACE_RE.exec(fwdWin);
     if (!bm1 || !bm2) continue;
+    // If brace1 already has its own ref before the "إلى قوله" separator, this
+    // isn't a true range — it's two independent citations the author narrated
+    // as "from X … to Y". Skip; explicitRefBackward / leadInBraced will pair
+    // each brace with its correct ref. Without this, the range extractor steals
+    // brace2's ref and slaps it onto brace1, producing a wrong claimedRef.
+    const between = backWin.slice(bm1.index + bm1[0].length);
+    if (new RegExp(REF_RE.source, 'u').test(between)) continue;
     const text1 = braceContent(bm1), text2 = braceContent(bm2);
     if (!text1 || text1.length < 4 || !text2 || text2.length < 4) continue;
     const rawInner1 = bm1[1] ?? bm1[2] ?? '';

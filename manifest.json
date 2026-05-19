@@ -26,6 +26,7 @@
   "web_accessible_resources": [
     {
       "resources": [
+        "js/debug-bridge.js",
         "resources/quran-uthmani_desc-v2.json",
         "resources/me_quran.ttf",
         "resources/fonts/uthmani-hafs.ttf",

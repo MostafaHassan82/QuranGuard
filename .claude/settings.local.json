@@ -20,7 +20,9 @@
       "Bash(python -c ' *)",
       "Bash(python3 -c ' *)",
       "Bash(node *)",
-      "Bash(powershell -File \".specify/extensions/git/scripts/powershell/auto-commit.ps1\" \"manual\")"
+      "Bash(powershell -File \".specify/extensions/git/scripts/powershell/auto-commit.ps1\" \"manual\")",
+      "Bash(python tests/run_tests.py tests/fixtures/uthmani_drift_synthetic.html --write-observed)",
+      "Bash(python tests/run_tests.py tests/fixtures/orange_synthetic.html --write-observed)"
     ]
   }
 }
