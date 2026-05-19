@@ -16,6 +16,8 @@
       "js": [
         "js/shared/messaging.js",
         "js/panel/model.js",
+        "js/panel/actions.js",
+        "js/panel/keyboard.js",
         "js/panel/sidebar-surface.js",
         "js/content.js"
       ],

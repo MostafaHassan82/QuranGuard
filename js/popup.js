@@ -272,7 +272,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   const prefs = await loadPrefs();
   activePrefs = prefs;
   applyPrefsToUI(prefs);
+  // Pass active tab info to the surface so per-row jump + record builders work.
+  try {
+    const tab = await getActiveTab();
+    if (tab) QuranPanelSurface.setContext({ tabId: tab.id, pageUrl: tab.url || '' });
+  } catch (_) {}
   renderPanel();
+  QuranPanelSurface.attachKeyboard();
 
   document.getElementById('btn-scan').addEventListener('click', () => onScanClick(false));
   document.getElementById('btn-continue').addEventListener('click', () => onScanClick(true));

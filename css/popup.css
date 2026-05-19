@@ -149,6 +149,7 @@ button:disabled {
 }
 
 .filter-chip input { display: none; }
+.filter-chip:focus { outline: 2px solid #4a90e2; outline-offset: 1px; }
 
 /* Active chip: tinted by its category color. */
 .filter-chip:has(input:checked) { font-weight: 600; }
@@ -270,3 +271,23 @@ button:disabled {
   color: #6b4a1f;
 }
 .panel-persisted-corrected { background: #dff0d8; color: #2d6e2d; }
+
+/* ── Per-row action buttons (T052) ─────────────────────────────────────── */
+.panel-actions {
+  display: flex;
+  gap: 4px;
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+.panel-action-btn {
+  flex: 0 0 auto;
+  padding: 3px 8px;
+  font-size: 10px;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+  background: #fff;
+  color: #444;
+  cursor: pointer;
+}
+.panel-action-btn:hover { background: #f0f0f0; }
+.panel-action-btn:focus { outline: 2px solid #4a90e2; outline-offset: 1px; }

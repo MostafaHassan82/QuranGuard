@@ -128,3 +128,17 @@
   pointer-events: none;
   box-shadow: 0 2px 8px rgba(0,0,0,0.3);
 }
+
+
+/* ── Jump-to-finding flash (T051/T052, FR-011a) ────────────────────────────
+   Brief outline animation when a panel row triggers scrollIntoView on its
+   highlight, so the target is unambiguous after the scroll lands. */
+.quran-jump-flash {
+  animation: quran-jump-flash 1.5s ease-out;
+  outline: 3px solid #4a90e2;
+  outline-offset: 2px;
+}
+@keyframes quran-jump-flash {
+  0%   { outline-color: #4a90e2; }
+  100% { outline-color: transparent; }
+}

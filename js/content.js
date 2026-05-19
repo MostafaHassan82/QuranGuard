@@ -1276,6 +1276,15 @@ if (chrome?.runtime?.onMessage) {
     if (type === 'DATA_AVAILABLE') {
       return;
     }
+    // JUMP_TO_FINDING — popup surface jump-to-highlight handler (FR-011a).
+    if (type === 'JUMP_TO_FINDING') {
+      const ok = (typeof QuranActions !== 'undefined')
+        ? QuranActions.jumpInContent(msg.findingId)
+        : false;
+      sendResponse({ ok });
+      return;
+    }
+
     // PREFS_CHANGED — mount/unmount the sidebar to match the new surface pref.
     if (type === 'PREFS_CHANGED') {
       const prefs = payload?.prefs;

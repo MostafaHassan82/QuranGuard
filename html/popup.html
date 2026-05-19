@@ -61,19 +61,19 @@
   <!-- Filter chips + surface picker (T047) -->
   <div id="panel-controls">
     <div id="filter-chips" role="group" aria-label="تصفية حسب الفئة">
-      <label class="filter-chip filter-orange">
+      <label class="filter-chip filter-orange" tabindex="0">
         <input type="checkbox" data-color="orange"><span>⚠ مرجع خاطئ</span>
       </label>
-      <label class="filter-chip filter-green">
+      <label class="filter-chip filter-green" tabindex="0">
         <input type="checkbox" data-color="green"><span>✓ تطابق تام</span>
       </label>
-      <label class="filter-chip filter-lightBlue">
+      <label class="filter-chip filter-lightBlue" tabindex="0">
         <input type="checkbox" data-color="lightBlue"><span>✓ بدون مرجع</span>
       </label>
-      <label class="filter-chip filter-yellow">
+      <label class="filter-chip filter-yellow" tabindex="0">
         <input type="checkbox" data-color="yellow"><span>~ اختلاف لفظي</span>
       </label>
-      <label class="filter-chip filter-red">
+      <label class="filter-chip filter-red" tabindex="0">
         <input type="checkbox" data-color="red"><span>✗ لم يُتحقَّق</span>
       </label>
     </div>
@@ -95,6 +95,8 @@
 
   <script src="../js/shared/messaging.js"></script>
   <script src="../js/panel/model.js"></script>
+  <script src="../js/panel/actions.js"></script>
+  <script src="../js/panel/keyboard.js"></script>
   <script src="../js/panel/popup-surface.js"></script>
   <script src="../js/popup.js"></script>
 </body>

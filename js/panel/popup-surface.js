@@ -7,6 +7,11 @@
 // Action wiring (jump / copy / share / report / copy-as-JSON) ships with T051;
 // rows currently emit no events. The surface is render-only here.
 const QuranPanelSurface = (() => {
+  // Owned by popup.js — surface needs the active tab to dispatch jumps + page
+  // URL for the record builders. Set via setContext({tabId, pageUrl}).
+  let _ctx = { tabId: null, pageUrl: '' };
+  function setContext(ctx) { _ctx = { ..._ctx, ...ctx }; }
+
   // FR-005 category-name-in-words. Mirrors content.js CATEGORY_LABEL_AR; kept
   // in sync by hand (the popup loads no content scripts so we can't import it).
   const CATEGORY_LABEL_AR = {
@@ -81,7 +86,49 @@ const QuranPanelSurface = (() => {
     head.append(glyph, swatch, label);
     row.append(head, snippet);
     if (refs.textContent) row.append(refs);
+
+    // Action buttons (T052). F + D ship with US4 — omit until then.
+    const actions = document.createElement('div');
+    actions.className = 'panel-actions';
+    actions.append(
+      makeActionBtn('نسخ',     'copy',    () => doAction('copy', finding)),
+      makeActionBtn('مشاركة',  'share',   () => doAction('share', finding)),
+      makeActionBtn('تقرير',   'report',  () => doAction('report', finding)),
+      makeActionBtn('JSON',    'json',    () => doAction('json', finding)),
+    );
+    row.append(actions);
+
+    // Primary action: click on row body = jump-to-highlight (FR-011a).
+    row.addEventListener('click', (e) => {
+      // Avoid double-firing when the click landed on an action button.
+      if (e.target.closest('.panel-action-btn')) return;
+      doAction('jump', finding);
+    });
+
     return row;
+  }
+
+  function makeActionBtn(label, kind, onClick) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = `panel-action-btn panel-action-${kind}`;
+    b.textContent = label;
+    b.addEventListener('click', (e) => { e.stopPropagation(); onClick(); });
+    return b;
+  }
+
+  async function doAction(kind, finding) {
+    if (typeof QuranActions === 'undefined') return;
+    const opts = { pageUrl: _ctx.pageUrl };
+    try {
+      switch (kind) {
+        case 'jump':   await QuranActions.jumpFromPopup(_ctx.tabId, finding.id); break;
+        case 'copy':   await QuranActions.copyRecord(finding, opts); break;
+        case 'share':  await QuranActions.copyShareArtifact(finding, opts); break;
+        case 'report': await QuranActions.copyReport(finding, opts); break;
+        case 'json':   await QuranActions.copyRecordJson(finding, opts); break;
+      }
+    } catch (_) { /* clipboard or messaging errors are non-fatal */ }
   }
 
   function makeSection(title, findings) {
@@ -124,5 +171,28 @@ const QuranPanelSurface = (() => {
     if (prior.length > 0)     root.append(makeSection('مرفوضة سابقًا', prior));
   }
 
-  return { render };
+  // T054 — keyboard wiring for the popup surface (FR-030).
+  function attachKeyboard() {
+    if (typeof QuranPanelKeyboard === 'undefined') return () => {};
+    const root = $('panel-container');
+    if (!root) return () => {};
+    return QuranPanelKeyboard.attach(root, {
+      rowSelector: '.panel-row',
+      chipSelector: '.filter-chip',
+      onAction: (kind, findingId) => {
+        const finding = QuranPanelModel.get(findingId);
+        if (!finding) return;
+        doAction(kind, finding);
+      },
+      onEscape: () => {
+        // Second Esc in the popup: return focus to the popup root (body).
+        if (document.body && typeof document.body.focus === 'function') {
+          document.body.setAttribute('tabindex', '-1');
+          document.body.focus();
+        }
+      },
+    });
+  }
+
+  return { render, setContext, attachKeyboard };
 })();

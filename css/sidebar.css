@@ -61,6 +61,17 @@ html.quran-ext-sidebar-mounted { margin-right: 320px !important; }
 
 .quran-ext-panel-close:hover { color: #222; }
 
+.quran-ext-panel-hint {
+  font-size: 10px;
+  color: #888;
+  text-align: right;
+  margin-top: -4px;
+  cursor: help;
+}
+
+/* Match popup chip focus ring for chip labels themselves (Tab focus). */
+.quran-ext-filter-chip:focus { outline: 2px solid #4a90e2; outline-offset: 1px; }
+
 .quran-ext-filter-chips {
   display: flex;
   flex-wrap: wrap;
@@ -180,3 +191,23 @@ html.quran-ext-sidebar-mounted { margin-right: 320px !important; }
   color: #6b4a1f;
 }
 .quran-ext-panel-persisted-corrected { background: #dff0d8; color: #2d6e2d; }
+
+/* ── Per-row action buttons (T052) ─────────────────────────────────────── */
+.quran-ext-panel-actions {
+  display: flex;
+  gap: 4px;
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+.quran-ext-panel-action-btn {
+  flex: 0 0 auto;
+  padding: 3px 8px;
+  font-size: 10px;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+  background: #fff;
+  color: #444;
+  cursor: pointer;
+}
+.quran-ext-panel-action-btn:hover { background: #f0f0f0; }
+.quran-ext-panel-action-btn:focus { outline: 2px solid #4a90e2; outline-offset: 1px; }

@@ -21,6 +21,8 @@ const QuranPanelSidebar = (() => {
   // don't auto-remount on subsequent scans. Cleared explicitly by the caller
   // when a fresh-full scan begins (so the next user-initiated scan reopens it).
   let userClosed = false;
+  // Keyboard listener detacher; set on mount, called on unmount.
+  let detachKeyboard = null;
 
   async function fetchTemplate() {
     const url = chrome.runtime.getURL('html/sidebar.html');
@@ -66,6 +68,21 @@ const QuranPanelSidebar = (() => {
     row.append(head, snippet);
     if (refs.textContent) row.append(refs);
 
+    // Action buttons (T052). Primary action is row click = jump (FR-011a).
+    const actions = document.createElement('div');
+    actions.className = 'quran-ext-panel-actions';
+    actions.append(
+      makeActionBtn('نسخ',    () => runAction('copy',   finding)),
+      makeActionBtn('مشاركة', () => runAction('share',  finding)),
+      makeActionBtn('تقرير',  () => runAction('report', finding)),
+      makeActionBtn('JSON',   () => runAction('json',   finding)),
+    );
+    row.append(actions);
+    row.addEventListener('click', (e) => {
+      if (e.target.closest('.quran-ext-panel-action-btn')) return;
+      runAction('jump', finding);
+    });
+
     const persist = finding.panelState?.persistedBadge;
     if (persist) {
       const badge = document.createElement('span');
@@ -75,6 +92,29 @@ const QuranPanelSidebar = (() => {
       row.append(badge);
     }
     return row;
+  }
+
+  function makeActionBtn(label, onClick) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'quran-ext-panel-action-btn';
+    b.textContent = label;
+    b.addEventListener('click', (e) => { e.stopPropagation(); onClick(); });
+    return b;
+  }
+
+  async function runAction(kind, finding) {
+    if (typeof QuranActions === 'undefined') return;
+    const opts = { pageUrl: location.href };
+    try {
+      switch (kind) {
+        case 'jump':   QuranActions.jumpInContent(finding.id); break;
+        case 'copy':   await QuranActions.copyRecord(finding, opts); break;
+        case 'share':  await QuranActions.copyShareArtifact(finding, opts); break;
+        case 'report': await QuranActions.copyReport(finding, opts); break;
+        case 'json':   await QuranActions.copyRecordJson(finding, opts); break;
+      }
+    } catch (_) {}
   }
 
   function makeSection(title, findings) {
@@ -158,12 +198,58 @@ const QuranPanelSidebar = (() => {
     syncChips();
     wireEvents();
     render();
+
+    // Page-level shortcut: Alt+Shift+Q from anywhere on the host page pulls
+    // focus into the sidebar's first row. Lets keyboard users hop back to the
+    // panel after a jump-to-highlight or any other page interaction without
+    // having to Tab through every focusable element on the host page.
+    if (!window.__quranSidebarHotkey) {
+      window.__quranSidebarHotkey = (e) => {
+        if (e.altKey && e.shiftKey && (e.key === 'Q' || e.key === 'q')) {
+          e.preventDefault();
+          focusFirstRow();
+        }
+      };
+      document.addEventListener('keydown', window.__quranSidebarHotkey);
+    }
+
+    // T054 — attach the panel keyboard model to the sidebar root (FR-030).
+    if (typeof QuranPanelKeyboard !== 'undefined') {
+      // Make the root focusable so the first Esc press can land there.
+      if (!rootEl.hasAttribute('tabindex')) rootEl.setAttribute('tabindex', '-1');
+      detachKeyboard = QuranPanelKeyboard.attach(rootEl, {
+        rowSelector: '.quran-ext-panel-row',
+        chipSelector: '.quran-ext-filter-chip',
+        onAction: (kind, findingId) => {
+          const finding = QuranPanelModel.get(findingId);
+          if (finding) runAction(kind, finding);
+        },
+        onEscape: () => {
+          // Second Esc in the sidebar: blur back to the host page.
+          if (document.activeElement && typeof document.activeElement.blur === 'function') {
+            document.activeElement.blur();
+          }
+        },
+      });
+    }
   }
 
   function unmount() {
+    if (detachKeyboard) { detachKeyboard(); detachKeyboard = null; }
+    if (window.__quranSidebarHotkey) {
+      document.removeEventListener('keydown', window.__quranSidebarHotkey);
+      window.__quranSidebarHotkey = null;
+    }
     if (rootEl && rootEl.parentNode) rootEl.parentNode.removeChild(rootEl);
     rootEl = null;
     document.documentElement.classList.remove('quran-ext-sidebar-mounted');
+  }
+
+  function focusFirstRow() {
+    if (!rootEl) return;
+    const row = rootEl.querySelector('.quran-ext-panel-row');
+    if (row) row.focus();
+    else rootEl.focus();
   }
 
   // Called by content.js at fresh-full scan start so a new user-initiated scan

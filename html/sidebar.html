@@ -2,26 +2,29 @@
      Markup is fetched at runtime by js/panel/sidebar-surface.js and inserted
      into the host page's <body>. All styles live in css/sidebar.css and are
      namespaced under .quran-ext-panel to prevent host-page CSS bleed. -->
-<aside class="quran-ext-panel" role="region" aria-label="نتائج التحقق من الاقتباسات">
+<aside class="quran-ext-panel" role="region" aria-label="نتائج التحقق من الاقتباسات" aria-keyshortcuts="Alt+Shift+Q">
   <header class="quran-ext-panel-header">
     <h2 class="quran-ext-panel-title">نتائج التحقق</h2>
     <button class="quran-ext-panel-close" type="button" aria-label="إغلاق">×</button>
   </header>
+  <div class="quran-ext-panel-hint" title="اضغط Alt+Shift+Q من أي مكان في الصفحة للعودة إلى اللوحة">
+    Alt+Shift+Q ← اللوحة
+  </div>
 
   <div class="quran-ext-filter-chips" role="group" aria-label="تصفية حسب الفئة">
-    <label class="quran-ext-filter-chip quran-ext-filter-orange">
+    <label class="quran-ext-filter-chip quran-ext-filter-orange" tabindex="0">
       <input type="checkbox" data-color="orange"><span>⚠ مرجع خاطئ</span>
     </label>
-    <label class="quran-ext-filter-chip quran-ext-filter-green">
+    <label class="quran-ext-filter-chip quran-ext-filter-green" tabindex="0">
       <input type="checkbox" data-color="green"><span>✓ تطابق تام</span>
     </label>
-    <label class="quran-ext-filter-chip quran-ext-filter-lightBlue">
+    <label class="quran-ext-filter-chip quran-ext-filter-lightBlue" tabindex="0">
       <input type="checkbox" data-color="lightBlue"><span>✓ بدون مرجع</span>
     </label>
-    <label class="quran-ext-filter-chip quran-ext-filter-yellow">
+    <label class="quran-ext-filter-chip quran-ext-filter-yellow" tabindex="0">
       <input type="checkbox" data-color="yellow"><span>~ اختلاف لفظي</span>
     </label>
-    <label class="quran-ext-filter-chip quran-ext-filter-red">
+    <label class="quran-ext-filter-chip quran-ext-filter-red" tabindex="0">
       <input type="checkbox" data-color="red"><span>✗ لم يُتحقَّق</span>
     </label>
   </div>
