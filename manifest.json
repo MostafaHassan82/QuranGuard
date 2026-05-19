@@ -13,8 +13,13 @@
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["js/shared/messaging.js", "js/content.js"],
-      "css": ["css/content.css"],
+      "js": [
+        "js/shared/messaging.js",
+        "js/panel/model.js",
+        "js/panel/sidebar-surface.js",
+        "js/content.js"
+      ],
+      "css": ["css/content.css", "css/sidebar.css"],
       "run_at": "document_start"
     }
   ],
@@ -27,6 +32,7 @@
     {
       "resources": [
         "js/debug-bridge.js",
+        "html/sidebar.html",
         "resources/quran-uthmani_desc-v2.json",
         "resources/me_quran.ttf",
         "resources/fonts/uthmani-hafs.ttf",

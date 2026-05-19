@@ -918,6 +918,10 @@ async function scanPage({ liftCap = false, subtreeRoot = null } = {}) {
       STATE.highlightedSpans = [];
       window.__quranScan = null;
       window.__quranMatches = [];
+      if (pass === 1 && typeof QuranPanelSidebar !== 'undefined') {
+        QuranPanelSidebar.reset();
+        QuranPanelSidebar.clearUserClosed();
+      }
     }
 
     STATE.capHit = false;
@@ -1039,6 +1043,25 @@ function emitComplete(scanId, startedAt, startTime) {
 
   QuranMsg.emit('SCAN_COMPLETE', payload);
   updateWindowGlobals(scanId, startedAt, payload);
+
+  // T050 — Mount the sidebar surface if the user opted into it and the scan
+  // found something worth showing (FR-010, FR-027, FR-029).
+  maybeMountSidebar(finalState).catch(() => {});
+}
+
+async function maybeMountSidebar(finalState) {
+  if (typeof QuranPanelSidebar === 'undefined') return;
+  if (finalState === 'empty' || finalState === 'notArabic') return;
+  let prefs = null;
+  try {
+    const resp = await QuranMsg.sendRequest('PREFS_READ', {});
+    prefs = resp?.payload?.result || null;
+  } catch (_) { return; }
+  if (prefs?.panelSurface !== 'sidebar') return;
+
+  QuranPanelSidebar.reset();
+  for (const f of STATE.findings) QuranPanelSidebar.upsert(f);
+  await QuranPanelSidebar.mount();
 }
 
 function updateWindowGlobals(scanId, startedAt, payload) {
@@ -1067,7 +1090,19 @@ function setupMutationObserver() {
     STATS.mutationsObserved += mutations.length;
     const roots = new Set();
     for (const m of mutations) {
-      if (m.addedNodes.length > 0) roots.add(m.target);
+      if (m.addedNodes.length === 0) continue;
+      // Ignore mutations inside our own sidebar — its mount/render churn must
+      // not trigger a rescan that would re-mount the sidebar after the user
+      // closed it (or churn through scan loops on every chip toggle).
+      if (m.target && m.target.closest && m.target.closest('.quran-ext-panel')) continue;
+      // Ignore the body-level mutation that ADDS the sidebar itself.
+      let isOurOwnAdd = true;
+      for (const n of m.addedNodes) {
+        if (n.nodeType === 1 && (n.classList?.contains('quran-ext-panel') || n.closest?.('.quran-ext-panel'))) continue;
+        isOurOwnAdd = false; break;
+      }
+      if (isOurOwnAdd) continue;
+      roots.add(m.target);
     }
     if (roots.size === 0) return;
     clearTimeout(STATE.mutationDebounceTimer);
@@ -1241,8 +1276,17 @@ if (chrome?.runtime?.onMessage) {
     if (type === 'DATA_AVAILABLE') {
       return;
     }
-    // PREFS_CHANGED — content can re-render if needed (stub for now)
+    // PREFS_CHANGED — mount/unmount the sidebar to match the new surface pref.
     if (type === 'PREFS_CHANGED') {
+      const prefs = payload?.prefs;
+      if (!prefs || typeof QuranPanelSidebar === 'undefined') return;
+      if (prefs.panelSurface === 'sidebar' && STATE.findings.length > 0) {
+        QuranPanelSidebar.reset();
+        for (const f of STATE.findings) QuranPanelSidebar.upsert(f);
+        QuranPanelSidebar.mount().catch(() => {});
+      } else if (prefs.panelSurface !== 'sidebar' && QuranPanelSidebar.isMounted()) {
+        QuranPanelSidebar.unmount();
+      }
       return;
     }
   });

@@ -58,7 +58,44 @@
     </div>
   </div>
 
+  <!-- Filter chips + surface picker (T047) -->
+  <div id="panel-controls">
+    <div id="filter-chips" role="group" aria-label="تصفية حسب الفئة">
+      <label class="filter-chip filter-orange">
+        <input type="checkbox" data-color="orange"><span>⚠ مرجع خاطئ</span>
+      </label>
+      <label class="filter-chip filter-green">
+        <input type="checkbox" data-color="green"><span>✓ تطابق تام</span>
+      </label>
+      <label class="filter-chip filter-lightBlue">
+        <input type="checkbox" data-color="lightBlue"><span>✓ بدون مرجع</span>
+      </label>
+      <label class="filter-chip filter-yellow">
+        <input type="checkbox" data-color="yellow"><span>~ اختلاف لفظي</span>
+      </label>
+      <label class="filter-chip filter-red">
+        <input type="checkbox" data-color="red"><span>✗ لم يُتحقَّق</span>
+      </label>
+    </div>
+    <div id="surface-picker">
+      <label id="surface-label">سطح اللوحة:</label>
+      <label class="toggle-option">
+        <input type="radio" name="panelSurface" value="popup" id="surface-popup" checked>
+        <span>منبثقة</span>
+      </label>
+      <label class="toggle-option">
+        <input type="radio" name="panelSurface" value="sidebar" id="surface-sidebar">
+        <span>شريط جانبي</span>
+      </label>
+    </div>
+  </div>
+
+  <!-- Findings panel (T046) — populated by js/panel/popup-surface.js -->
+  <div id="panel-container" role="region" aria-label="نتائج التحقق"></div>
+
   <script src="../js/shared/messaging.js"></script>
+  <script src="../js/panel/model.js"></script>
+  <script src="../js/panel/popup-surface.js"></script>
   <script src="../js/popup.js"></script>
 </body>
 </html>

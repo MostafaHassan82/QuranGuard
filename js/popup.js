@@ -3,6 +3,21 @@
 
 // ── State ─────────────────────────────────────────────────────────────────────
 let activeScanId = null;
+let activePrefs = null; // cached so the panel can re-render on SCAN_PROGRESS without an extra RTT
+
+function urlKeyForTab(tab) {
+  // Mirror QuranPersisted.urlKey() semantics (origin + path, no query/hash)
+  // so PERSIST_READ returns this URL's records. Defined inline because storage
+  // modules aren't loaded in the popup; keeping the duplication tiny is fine.
+  try {
+    const u = new URL(tab.url);
+    return u.origin + u.pathname;
+  } catch (_) { return tab?.url || ''; }
+}
+
+function renderPanel() {
+  QuranPanelSurface.render({ filter: activePrefs?.panelFilter });
+}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -59,6 +74,16 @@ function applyPrefsToUI(prefs) {
   }
   // Gate scan button: always visible in manual; in autoscan, still allow manual trigger
   document.getElementById('btn-scan').hidden = false;
+
+  // T047 — sync filter chips and surface picker with prefs
+  const filter = prefs.panelFilter || {};
+  document.querySelectorAll('#filter-chips input[type=checkbox]').forEach(cb => {
+    cb.checked = filter[cb.dataset.color] === true;
+  });
+  const surface = prefs.panelSurface || 'popup';
+  const sPop = document.getElementById('surface-popup');
+  const sSide = document.getElementById('surface-sidebar');
+  if (sPop && sSide) (surface === 'sidebar' ? sSide : sPop).checked = true;
 }
 
 // ── Scan trigger (T021) ───────────────────────────────────────────────────────
@@ -71,6 +96,12 @@ async function onScanClick(liftCap = false) {
   document.getElementById('progress').hidden = false;
   document.getElementById('progress-count').textContent = '0';
   setStatus('جارٍ الفحص…');
+  // Fresh full scans clear the panel model so prior-scan findings don't bleed
+  // into the new view. `liftCap` continuations keep what we already have.
+  if (!liftCap) {
+    QuranPanelModel.reset();
+    renderPanel();
+  }
 
   try {
     const tab = await getActiveTab();
@@ -134,6 +165,11 @@ chrome.runtime.onMessage.addListener((msg) => {
   if (type === 'SCAN_PROGRESS') {
     if (activeScanId && payload.scanId !== activeScanId) return;
     document.getElementById('progress-count').textContent = payload.runningCount ?? 0;
+    // T045 — feed the panel model live as findings arrive
+    if (payload.finding) {
+      QuranPanelModel.upsert(payload.finding);
+      renderPanel();
+    }
   }
 
   if (type === 'SCAN_CAP_HIT') {
@@ -164,6 +200,18 @@ chrome.runtime.onMessage.addListener((msg) => {
 
     setStatus('اكتمل الفحص');
     displayStats(payload.perCategoryCount, payload.totalCount);
+
+    // T045 — tag panel findings with persistedBadge for this URL (FR-024).
+    getActiveTab().then(tab => {
+      if (!tab) return;
+      return QuranMsg.sendRequest('PERSIST_READ', { urlKey: urlKeyForTab(tab) });
+    }).then(resp => {
+      const entries = resp?.payload?.result?.entries;
+      if (entries) {
+        QuranPanelModel.tagPersisted(entries);
+        renderPanel();
+      }
+    }).catch(() => {});
   }
 });
 
@@ -200,6 +248,20 @@ async function hydrateFromActiveTab() {
         document.getElementById('btn-continue').hidden = false;
         document.getElementById('btn-continue').disabled = false;
       }
+      // Pull the existing Findings into the panel model. SCAN_PROGRESS events
+      // for this scan already fired before the popup opened, so the model is
+      // otherwise empty.
+      try {
+        const fr = await sendToContent(tab.id, { type: 'getFindings' });
+        if (fr?.findings) {
+          QuranPanelModel.reset();
+          for (const f of fr.findings) QuranPanelModel.upsert(f);
+          const persist = await QuranMsg.sendRequest('PERSIST_READ', { urlKey: urlKeyForTab(tab) }).catch(() => null);
+          const entries = persist?.payload?.result?.entries;
+          if (entries) QuranPanelModel.tagPersisted(entries);
+          renderPanel();
+        }
+      } catch (_) {}
     }
   } catch (_) {
     // Content script not present (e.g. chrome:// page) — leave UI in default state.
@@ -208,7 +270,9 @@ async function hydrateFromActiveTab() {
 
 document.addEventListener('DOMContentLoaded', async () => {
   const prefs = await loadPrefs();
+  activePrefs = prefs;
   applyPrefsToUI(prefs);
+  renderPanel();
 
   document.getElementById('btn-scan').addEventListener('click', () => onScanClick(false));
   document.getElementById('btn-continue').addEventListener('click', () => onScanClick(true));
@@ -218,6 +282,26 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.querySelectorAll('input[name="scanTrigger"]').forEach(radio => {
     radio.addEventListener('change', () => {
       if (radio.checked) savePrefs({ scanTrigger: radio.value });
+    });
+  });
+
+  // T047 — filter chip toggles
+  document.querySelectorAll('#filter-chips input[type=checkbox]').forEach(cb => {
+    cb.addEventListener('change', async () => {
+      activePrefs = activePrefs || {};
+      activePrefs.panelFilter = { ...(activePrefs.panelFilter || {}), [cb.dataset.color]: cb.checked };
+      renderPanel();
+      await savePrefs({ panelFilter: activePrefs.panelFilter });
+    });
+  });
+
+  // T047 — surface picker
+  document.querySelectorAll('input[name="panelSurface"]').forEach(radio => {
+    radio.addEventListener('change', async () => {
+      if (!radio.checked) return;
+      activePrefs = activePrefs || {};
+      activePrefs.panelSurface = radio.value;
+      await savePrefs({ panelSurface: radio.value });
     });
   });
 

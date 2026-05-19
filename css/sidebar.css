@@ -1,0 +1,182 @@
+/* T049 — Page-injected sidebar styles. Every selector is namespaced under
+   .quran-ext-panel so host-page rules can't accidentally match our DOM, and
+   the root element resets inherited values via `all: initial` so host styles
+   don't bleed in either (font-size, line-height, RTL direction, etc.). */
+
+/* When the sidebar is mounted, reserve gutter space on the host root so the
+   sidebar doesn't sit on top of the page's text. The actual margin width must
+   match the sidebar's width below. */
+html.quran-ext-sidebar-mounted { margin-right: 320px !important; }
+
+.quran-ext-panel {
+  /* Reset everything inherited from the host page. */
+  all: initial;
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 320px;
+  max-width: 90vw;
+  height: 100vh;
+  overflow-y: auto;
+  background: #fafafa;
+  color: #222;
+  font-family: Arial, sans-serif;
+  font-size: 13px;
+  direction: rtl;
+  z-index: 2147483647; /* sit above host overlays */
+  box-shadow: -2px 0 8px rgba(0, 0, 0, 0.15);
+  padding: 12px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.quran-ext-panel * { box-sizing: border-box; }
+
+.quran-ext-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #e0e0e0;
+  padding-bottom: 6px;
+}
+
+.quran-ext-panel-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+}
+
+.quran-ext-panel-close {
+  background: none;
+  border: none;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  color: #666;
+  padding: 0 4px;
+}
+
+.quran-ext-panel-close:hover { color: #222; }
+
+.quran-ext-filter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.quran-ext-filter-chip {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  padding: 3px 6px;
+  border: 1px solid #ccc;
+  border-radius: 10px;
+  cursor: pointer;
+  user-select: none;
+  background: #fff;
+  color: #666;
+}
+
+.quran-ext-filter-chip input { display: none; }
+.quran-ext-filter-chip:has(input:checked) { font-weight: 600; }
+.quran-ext-filter-chip.quran-ext-filter-orange:has(input:checked)    { background: #fff0d8; border-color: #ff8c00; color: #b25500; }
+.quran-ext-filter-chip.quran-ext-filter-green:has(input:checked)     { background: #dff0d8; border-color: #2d7a2d; color: #2d6e2d; }
+.quran-ext-filter-chip.quran-ext-filter-lightBlue:has(input:checked) { background: #d8ecf7; border-color: #4a9ad6; color: #21618c; }
+.quran-ext-filter-chip.quran-ext-filter-yellow:has(input:checked)    { background: #fbf3d8; border-color: #d4a017; color: #8a6d00; }
+.quran-ext-filter-chip.quran-ext-filter-red:has(input:checked)       { background: #f7d8dc; border-color: #b00020; color: #8a0017; }
+
+.quran-ext-panel-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.quran-ext-panel-empty {
+  font-size: 12px;
+  color: #888;
+  text-align: center;
+  padding: 8px 0;
+}
+
+.quran-ext-panel-section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.quran-ext-panel-section-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: #555;
+  margin: 4px 0 2px;
+}
+
+.quran-ext-panel-row {
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  padding: 6px 8px;
+  background: #fff;
+  cursor: pointer;
+  outline: none;
+}
+
+.quran-ext-panel-row:hover { background: #f5f5f5; }
+.quran-ext-panel-row:focus { box-shadow: 0 0 0 2px #4a90e2; }
+
+.quran-ext-panel-row-orange    { border-right: 3px solid #ff8c00; }
+.quran-ext-panel-row-green     { border-right: 3px solid #2d7a2d; }
+.quran-ext-panel-row-lightBlue { border-right: 3px solid #4a9ad6; }
+.quran-ext-panel-row-yellow    { border-right: 3px solid #d4a017; }
+.quran-ext-panel-row-red       { border-right: 3px solid #b00020; }
+
+.quran-ext-panel-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 2px;
+}
+
+.quran-ext-panel-glyph { font-weight: 700; }
+.quran-ext-panel-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  display: inline-block;
+}
+.quran-ext-panel-swatch-orange    { background: #ff8c00; }
+.quran-ext-panel-swatch-green     { background: #2d7a2d; }
+.quran-ext-panel-swatch-lightBlue { background: #4a9ad6; }
+.quran-ext-panel-swatch-yellow    { background: #d4a017; }
+.quran-ext-panel-swatch-red       { background: #b00020; }
+
+.quran-ext-panel-snippet {
+  font-size: 13px;
+  line-height: 1.5;
+  color: #222;
+  word-break: break-word;
+}
+
+.quran-ext-panel-refs {
+  margin-top: 3px;
+  font-size: 11px;
+  color: #555;
+  direction: ltr;
+  text-align: left;
+}
+
+.quran-ext-panel-persisted {
+  display: inline-block;
+  margin-top: 4px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 10px;
+  background: #f0e5d8;
+  color: #6b4a1f;
+}
+.quran-ext-panel-persisted-corrected { background: #dff0d8; color: #2d6e2d; }
