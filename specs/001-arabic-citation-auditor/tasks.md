@@ -443,49 +443,43 @@ matching logic.
 
 ### V1.1 UI polish (NEW, requested 2026-05-20)
 
-- [ ] T097 **Three-surface split + dedicated options page.** Reorganize the UI by
-  intent so each surface does one job (this is the umbrella task; T094 + T096 are
-  folded in as sub-points):
+Execution order: **T094 → T095 → T096** (split the surfaces, then style them,
+then the small dropdown refinement lands with the options page).
+
+- [ ] T094 **Three-surface split + dedicated options page.** Reorganize the UI by
+  intent so each surface does one job:
   - **Popup = action only.** Scan mode, Scan / Continue / Clear, the transient
     status line ("Scanning… / complete / not-Arabic / empty"), and a ⚙ Settings
     button that calls `chrome.runtime.openOptionsPage()`. No settings, no results.
   - **Options page (NEW).** Add `options_ui` to `manifest.json` + `html/options.html`
-    + `js/options.js`. Home for global/persistent settings: language (as a
-    **dropdown**, folds in T096), default swap behavior + per-color + font,
-    "clear remembered corrections and dismissals," and the initial panel state.
-    Reuses `PREFS_WRITE → PREFS_CHANGED` so the open sidebar updates live; fully
-    localized via `[data-i18n]` + RTL/LTR (T089).
+    + `js/options.js`. Home for global/persistent settings: language, default swap
+    behavior + per-color + font, "clear remembered corrections and dismissals,"
+    and the initial panel state. Reuses `PREFS_WRITE → PREFS_CHANGED` so the open
+    sidebar updates live; fully localized via `[data-i18n]` + RTL/LTR (T089).
   - **Sidebar = contextual, while-reading controls.** Findings list + details +
-    the **results summary/stats table** (folds in T094 — move it out of the popup;
-    the panel owns `perCategoryCount`), filter chips, and the per-session swap
-    toggle (kept here — toggling swap is done while looking at the page, not in a
-    settings tab). The global swap *defaults* live in the options page; the
-    sidebar toggle is the quick override.
+    the **results summary/stats table** (moved out of the popup; the panel owns
+    `perCategoryCount`), filter chips, and the per-session swap toggle (kept here —
+    toggling swap is done while looking at the page, not in a settings tab). The
+    global swap *defaults* live in the options page; the sidebar toggle is the
+    quick override.
   - Migration note: `prefs.v1` is unchanged; only which surface renders each
     control moves. Keep the sidebar's existing live-update wiring.
-- [ ] T094 (folded into T097) Move the results summary/stats table from the popup
-  into the sidebar panel; popup keeps controls + status only.
-- [ ] T096 (folded into T097) Language selector becomes a dropdown (`<select>`) on
-  the options page, wired to `prefs.lang` + the live `applyLang` switch (T089),
-  keyboard-accessible and RTL-aware.
 - [ ] T095 [P] Professional **Islamic visual design** for the popup, options page,
-  and panel.
-  Replace the current utilitarian look with a considered theme: a refined color
-  palette (deep green / gold accents that don't clash with the five-color
-  highlight taxonomy — keep the swatch colors intact and legible), tasteful
-  spacing/typography, a subtle geometric (arabesque) motif in headers, an
+  and panel. Replace the current utilitarian look with a considered theme: a
+  refined color palette (deep green / gold accents that don't clash with the
+  five-color highlight taxonomy — keep the swatch colors intact and legible),
+  tasteful spacing/typography, a subtle geometric (arabesque) motif in headers, an
   app icon/wordmark, and proper light/dark support. Constraints: pure CSS (no
   build step, no frameworks per Tech Constraints); the sidebar stays namespaced
   under `.quran-ext-panel` with `all: initial` so host pages can't bleed in;
   must not regress the five-color swatches, RTL/LTR flip (T089), or the
   collapse/resize affordances. Produce the palette + a mockup, get sign-off,
-  then implement popup.css + options.css + sidebar.css + content.css. (Best done
-  after T097 so the styling targets the final surface split.)
-- [ ] T096 [P] Make the language selector a **dropdown** (`<select>`) instead of
-  radio buttons, in both the popup and (if a language control is added there) the
-  panel. Keep it wired to `prefs.lang` + the live `applyLang` switch (T089) and
-  localized via `[data-i18n]`; ensure the dropdown itself is keyboard-accessible
-  and RTL-aware.
+  then implement popup.css + options.css + sidebar.css + content.css. (After T094
+  so the styling targets the final surface split.)
+- [ ] T096 [P] Make the language selector a **dropdown** (`<select>`) on the
+  options page, wired to `prefs.lang` + the live `applyLang` switch (T089),
+  localized via `[data-i18n]`, keyboard-accessible and RTL-aware. (Lands with the
+  options page in T094; listed separately for traceability.)
 
 ## Notes
 
