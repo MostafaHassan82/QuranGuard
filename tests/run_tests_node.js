@@ -239,6 +239,11 @@ function normalizeResult(raw, label) {
   };
 }
 
+function statLine(o) {
+  const s = o.stats || {};
+  return `g${s.greenMatches || 0} lb${s.lightBlueMatches || 0} y${s.yellowMatches || 0} o${s.orangeMatches || 0} r${s.redMatches || 0} (total ${s.totalFindings || 0})`;
+}
+
 function compare(observed, expected) {
   const diffs = [];
   const os = observed.stats || {}, es = expected.stats || {};
@@ -285,6 +290,7 @@ async function launchSystemChromium() {
 async function main() {
   const argv = process.argv.slice(2);
   const all = argv.includes('--all');
+  const writeObserved = argv.includes('--write-observed');
   const textIdx = argv.indexOf('--text');
   const textSnippet = textIdx !== -1 ? argv[textIdx + 1] : null;
   const fixtureArg = argv.find(a => !a.startsWith('--') && a !== textSnippet);
@@ -310,10 +316,16 @@ async function main() {
         const label = path.basename(fx, '.html');
         const html = fs.readFileSync(fx, 'utf-8');
         const observed = await runOne(context, html, label, {});
+        if (writeObserved) {
+          fs.writeFileSync(fx.replace(/\.html$/, '.observed.json'), JSON.stringify(observed, null, 2), 'utf-8');
+        }
         const expPath = fx.replace(/\.html$/, '.expected.json');
-        if (!fs.existsSync(expPath)) { console.log(`[${label}] REVIEW (no expected file)`); continue; }
+        if (!fs.existsSync(expPath)) {
+          console.log(`[${label}] REVIEW (no expected) — ${statLine(observed)}`);
+          continue;
+        }
         const expected = JSON.parse(fs.readFileSync(expPath, 'utf-8'));
-        if (expected._skip) { console.log(`[${label}] SKIP`); continue; }
+        if (expected._skip) { console.log(`[${label}] SKIP — ${statLine(observed)}`); continue; }
         total++;
         const cmp = compare(observed, expected);
         if (cmp.passed) { passed++; console.log(`[${label}] PASS`); }

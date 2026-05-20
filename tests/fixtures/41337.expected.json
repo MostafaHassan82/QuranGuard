@@ -1,4 +1,66 @@
 {
-  "_skip": true,
-  "_comment": "Stale MV2 expected. Run --write-observed, review observed.json, then --update-expected."
+  "stats": {
+    "greenMatches": 9,
+    "lightBlueMatches": 0,
+    "yellowMatches": 0,
+    "orangeMatches": 0,
+    "redMatches": 0,
+    "totalFindings": 9
+  },
+  "matches": [
+    {
+      "text": "أحل لكم صيد البحر وطعامه",
+      "color": "green",
+      "matchedRef": "المائدة:96",
+      "claimedRef": "(المائدة:96)"
+    },
+    {
+      "text": "حرمت عليكم الميتة",
+      "color": "green",
+      "matchedRef": "المائدة:3",
+      "claimedRef": "(المائدة:3)"
+    },
+    {
+      "text": "كتب عليكم الصيام",
+      "color": "green",
+      "matchedRef": "البقرة:183",
+      "claimedRef": "(البقرة:183)"
+    },
+    {
+      "text": "يا بني آدم خذوا زينتكم عند كل مسجد وكلوا واشربوا ولا تسرفوا إنه لا يحب المسرفين",
+      "color": "green",
+      "matchedRef": "الأعراف:31",
+      "claimedRef": "(الأعراف:31)"
+    },
+    {
+      "text": "وأحل الله البيع وحرم الربا فمن جاءه موعظة من ربه فانتهى فله ما سلف وأمره إلى الله",
+      "color": "green",
+      "matchedRef": "البقرة:275",
+      "claimedRef": "(البقرة:275)"
+    },
+    {
+      "text": "ولا يظلم ربك أحدا",
+      "color": "green",
+      "matchedRef": "الكهف:49",
+      "claimedRef": "(الكهف:49)"
+    },
+    {
+      "text": "هل تعلم له سميا",
+      "color": "green",
+      "matchedRef": "مريم:65",
+      "claimedRef": "(مريم:65)"
+    },
+    {
+      "text": "فإما ترين من البشر أحدا فقولي",
+      "color": "green",
+      "matchedRef": "مريم:26",
+      "claimedRef": "(مريم:26)"
+    },
+    {
+      "text": "ولا يلتفت منكم أحد",
+      "color": "green",
+      "matchedRef": "هود:81",
+      "claimedRef": "(هود:81)"
+    }
+  ]
 }

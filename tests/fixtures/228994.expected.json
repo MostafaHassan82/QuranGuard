@@ -1,0 +1,228 @@
+{
+  "stats": {
+    "greenMatches": 25,
+    "lightBlueMatches": 11,
+    "yellowMatches": 0,
+    "orangeMatches": 0,
+    "redMatches": 0,
+    "totalFindings": 36
+  },
+  "matches": [
+    {
+      "text": "واسأل القرية التي كنا فيها",
+      "color": "green",
+      "matchedRef": "يوسف:82",
+      "claimedRef": "(يوسف:82)"
+    },
+    {
+      "text": "واسأل القرية التي كنا فيها",
+      "color": "green",
+      "matchedRef": "يوسف:82",
+      "claimedRef": "(يوسف:82)"
+    },
+    {
+      "text": "وضرب الله مثلا قرية كانت آمنة مطمئنة يأتيها رزقها رغدا من كل مكان فكفرت بأنعم الله فأذاقها الله لباس الجوع والخوف بما كانوا يصنعون",
+      "color": "green",
+      "matchedRef": "النحل:112",
+      "claimedRef": "(النحل:112)"
+    },
+    {
+      "text": "بما كانوا يصنعون",
+      "color": "lightBlue",
+      "matchedRef": "المائدة:14",
+      "claimedRef": ""
+    },
+    {
+      "text": "بما كانوا يصنعون",
+      "color": "lightBlue",
+      "matchedRef": "المائدة:14",
+      "claimedRef": ""
+    },
+    {
+      "text": "وكم من قرية أهلكناها فجاءها بأسنا بياتا أو هم قائلون",
+      "color": "green",
+      "matchedRef": "الأعراف:4",
+      "claimedRef": "(الأعراف:4)"
+    },
+    {
+      "text": "فجاءها بأسنا",
+      "color": "lightBlue",
+      "matchedRef": "الأعراف:4",
+      "claimedRef": ""
+    },
+    {
+      "text": "كذلك زين لكثير من المشركين قتل أولادهم شركاؤهم",
+      "color": "green",
+      "matchedRef": "الأنعام:137",
+      "claimedRef": "(الأنعام:137)"
+    },
+    {
+      "text": "لا يسأم الإنسان من دعاء الخير",
+      "color": "lightBlue",
+      "matchedRef": "فصلت:49",
+      "claimedRef": ""
+    },
+    {
+      "text": "يومئذ يتذكر الإنسان وأنى له الذكرى",
+      "color": "green",
+      "matchedRef": "الفجر:23",
+      "claimedRef": "(الفجر:23)"
+    },
+    {
+      "text": "يومئذ يتذكر",
+      "color": "lightBlue",
+      "matchedRef": "الفجر:23",
+      "claimedRef": ""
+    },
+    {
+      "text": "والذين عملوا السيئات ثم تابوا من بعدها وآمنوا إن ربك من بعدها لغفور رحيم",
+      "color": "green",
+      "matchedRef": "الأعراف:153",
+      "claimedRef": "(الأعراف:153)"
+    },
+    {
+      "text": "من بعدها",
+      "color": "lightBlue",
+      "matchedRef": "الأعراف:153",
+      "claimedRef": ""
+    },
+    {
+      "text": "وإذ واعدنا موسى أربعين ليلة ثم اتخذتم العجل من بعده وأنتم ظالمون",
+      "color": "green",
+      "matchedRef": "البقرة:51",
+      "claimedRef": "(البقرة:51)"
+    },
+    {
+      "text": "قلتم لن يبعث الله من بعده رسولا",
+      "color": "green",
+      "matchedRef": "غافر:34",
+      "claimedRef": "(غافر:34)"
+    },
+    {
+      "text": "ألم تر إلى الملإ من بني إسرائيل من بعد موسى",
+      "color": "green",
+      "matchedRef": "البقرة:246",
+      "claimedRef": "(البقرة:246)"
+    },
+    {
+      "text": "ويسألونك عن ذي القرنين قل سأتلو عليكم منه ذكرا",
+      "color": "green",
+      "matchedRef": "الكهف:83",
+      "claimedRef": "(الكهف:83)"
+    },
+    {
+      "text": "منه ذكرا",
+      "color": "lightBlue",
+      "matchedRef": "الكهف:70",
+      "claimedRef": ""
+    },
+    {
+      "text": "يا أيها الذين آمنوا شهادة بينكم إذا حضر أحدكم الموت حين الوصية اثنان ذوا عدل منكم",
+      "color": "green",
+      "matchedRef": "المائدة:106",
+      "claimedRef": "(المائدة:106)"
+    },
+    {
+      "text": "شهادة بينكم",
+      "color": "lightBlue",
+      "matchedRef": "المائدة:106",
+      "claimedRef": ""
+    },
+    {
+      "text": "لا يحب الله الجهر بالسوء من القول إلا من ظلم",
+      "color": "green",
+      "matchedRef": "النساء:148",
+      "claimedRef": "(النساء:148)"
+    },
+    {
+      "text": "أن تقولوا ما جاءنا من بشير ولا نذير",
+      "color": "green",
+      "matchedRef": "المائدة:19",
+      "claimedRef": "(المائدة:19)"
+    },
+    {
+      "text": "لبئس ما قدمت لهم أنفسهم أن سخط الله عليهم",
+      "color": "green",
+      "matchedRef": "المائدة:80",
+      "claimedRef": "(المائدة:80)"
+    },
+    {
+      "text": "أن سخط الله عليهم",
+      "color": "lightBlue",
+      "matchedRef": "المائدة:80",
+      "claimedRef": ""
+    },
+    {
+      "text": "يبين الله لكم أن تضلوا",
+      "color": "green",
+      "matchedRef": "النساء:176",
+      "claimedRef": "(النساء:176)"
+    },
+    {
+      "text": "وقالت اليهود والنصارى نحن أبناء الله وأحباؤه",
+      "color": "green",
+      "matchedRef": "المائدة:18",
+      "claimedRef": "(المائدة:18)"
+    },
+    {
+      "text": "فلما عتوا عن ما نهوا عنه قلنا لهم كونوا قردة خاسئين",
+      "color": "green",
+      "matchedRef": "الأعراف:166",
+      "claimedRef": "(الأعراف:166)"
+    },
+    {
+      "text": "أم يقولون افتراه قل إن افتريته فعلي إجرامي وأنا بريء مما تجرمون",
+      "color": "green",
+      "matchedRef": "هود:35",
+      "claimedRef": "(هود:35)"
+    },
+    {
+      "text": "فعلي إجرامي",
+      "color": "lightBlue",
+      "matchedRef": "هود:35",
+      "claimedRef": ""
+    },
+    {
+      "text": "حتى إذا فتحت يأجوج ومأجوج",
+      "color": "green",
+      "matchedRef": "الأنبياء:96",
+      "claimedRef": "(الأنبياء:96)"
+    },
+    {
+      "text": "قال هل يسمعونكم إذ تدعون أو ينفعونكم أو يضرون",
+      "color": "green",
+      "matchedRef": "الشعراء:72-73",
+      "claimedRef": "(الشعراء:72-73)"
+    },
+    {
+      "text": "يسمعونكم",
+      "color": "lightBlue",
+      "matchedRef": "الشعراء:72",
+      "claimedRef": ""
+    },
+    {
+      "text": "قد سألها قوم من قبلكم ثم أصبحوا بها كافرين",
+      "color": "green",
+      "matchedRef": "المائدة:102",
+      "claimedRef": "(المائدة:102)"
+    },
+    {
+      "text": "قل من أنزل الكتاب الذي جاء به موسى نورا وهدى للناس تجعلونه قراطيس تبدونها وتخفون كثيرا",
+      "color": "green",
+      "matchedRef": "الأنعام:91",
+      "claimedRef": "(الأنعام:91)"
+    },
+    {
+      "text": "إن الذين يكتمون ما أنزلنا من البينات والهدى من بعد ما بيناه للناس في الكتاب",
+      "color": "green",
+      "matchedRef": "البقرة:159",
+      "claimedRef": "(البقرة:159)"
+    },
+    {
+      "text": "يا أهل الكتاب قد جاءكم رسولنا يبين لكم كثيرا مما كنتم تخفون من الكتاب",
+      "color": "green",
+      "matchedRef": "المائدة:15",
+      "claimedRef": "(المائدة:15)"
+    }
+  ]
+}

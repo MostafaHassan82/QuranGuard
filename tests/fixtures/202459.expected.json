@@ -1,4 +1,318 @@
 {
-  "_skip": true,
-  "_comment": "Stale MV2 expected. Run --write-observed, review observed.json, then --update-expected."
+  "stats": {
+    "greenMatches": 41,
+    "lightBlueMatches": 10,
+    "yellowMatches": 0,
+    "orangeMatches": 0,
+    "redMatches": 0,
+    "totalFindings": 51
+  },
+  "matches": [
+    {
+      "text": "فانظروا كيف كان عاقبة الذين من قبل كان أكثرهم مشركين",
+      "color": "green",
+      "matchedRef": "الروم:42",
+      "claimedRef": "(الروم:42)"
+    },
+    {
+      "text": "ولكن أكثر الناس لا يعلمون",
+      "color": "green",
+      "matchedRef": "الأعراف:187",
+      "claimedRef": "(الأعراف:187)"
+    },
+    {
+      "text": "ولكن أكثر الناس لا يشكرون",
+      "color": "green",
+      "matchedRef": "البقرة:243",
+      "claimedRef": "(البقرة:243)"
+    },
+    {
+      "text": "فأبى أكثر الناس إلا كفورا",
+      "color": "green",
+      "matchedRef": "الفرقان:50",
+      "claimedRef": "(الفرقان:50)"
+    },
+    {
+      "text": "قل الحمد لله بل أكثرهم لا يعقلون",
+      "color": "green",
+      "matchedRef": "العنكبوت:63",
+      "claimedRef": "(العنكبوت:63)"
+    },
+    {
+      "text": "وقليل من عبادي الشكور",
+      "color": "green",
+      "matchedRef": "سبأ:13",
+      "claimedRef": "(سبأ:13)"
+    },
+    {
+      "text": "وقليل من عبادي الشكور",
+      "color": "lightBlue",
+      "matchedRef": "سبإ:13",
+      "claimedRef": ""
+    },
+    {
+      "text": "وما يؤمن أكثرهم بالله إلا وهم مشركون",
+      "color": "green",
+      "matchedRef": "يوسف:106",
+      "claimedRef": "(يوسف:106)"
+    },
+    {
+      "text": "قل سيروا في الأرض فانظروا كيف كان عاقبة الذين من قبل كان أكثرهم مشركين",
+      "color": "green",
+      "matchedRef": "الروم:42",
+      "claimedRef": "(الروم:42)"
+    },
+    {
+      "text": "أكثر الناس لا يؤمنون",
+      "color": "lightBlue",
+      "matchedRef": "هود:17",
+      "claimedRef": ""
+    },
+    {
+      "text": "ومن قبله كتاب موسى إماما ورحمة أولئك يؤمنون به ومن يكفر به من الأحزاب فالنار موعده فلا تك في مرية منه إنه الحق من ربك ولكن أكثر الناس لا يؤمنون",
+      "color": "green",
+      "matchedRef": "هود:17",
+      "claimedRef": "(هود:17)"
+    },
+    {
+      "text": "وما أكثر الناس ولو حرصت بمؤمنين",
+      "color": "green",
+      "matchedRef": "يوسف:103",
+      "claimedRef": "(يوسف:103)"
+    },
+    {
+      "text": "المر تلك آيات الكتاب والذي أنزل إليك من ربك الحق ولكن أكثر الناس لا يؤمنون",
+      "color": "green",
+      "matchedRef": "الرعد:1",
+      "claimedRef": "(الرعد:1)"
+    },
+    {
+      "text": "إن في ذلك لآية وما كان أكثرهم مؤمنين",
+      "color": "green",
+      "matchedRef": "الشعراء:8",
+      "claimedRef": "(الشعراء:8)"
+    },
+    {
+      "text": "لقد حق القول على أكثرهم فهم لا يؤمنون",
+      "color": "green",
+      "matchedRef": "يس:7",
+      "claimedRef": "(يس:7)"
+    },
+    {
+      "text": "إن الساعة لآتية لا ريب فيها ولكن أكثر الناس لا يؤمنون",
+      "color": "green",
+      "matchedRef": "غافر:59",
+      "claimedRef": "(غافر:59)"
+    },
+    {
+      "text": "ولكن أكثر الناس لا يؤمنون",
+      "color": "lightBlue",
+      "matchedRef": "هود:17",
+      "claimedRef": ""
+    },
+    {
+      "text": "وإن تطع أكثر من في الأرض يضلوك عن سبيل الله إن يتبعون إلا الظن وإن هم إلا يخرصون",
+      "color": "green",
+      "matchedRef": "الأنعام:116",
+      "claimedRef": "(الأنعام:116)"
+    },
+    {
+      "text": "ولكن أكثر الناس لا يؤمنون",
+      "color": "lightBlue",
+      "matchedRef": "هود:17",
+      "claimedRef": ""
+    },
+    {
+      "text": "أكثر الناس لا يعلمون",
+      "color": "lightBlue",
+      "matchedRef": "الأعراف:187",
+      "claimedRef": ""
+    },
+    {
+      "text": "لا يعلمون",
+      "color": "lightBlue",
+      "matchedRef": "البقرة:13",
+      "claimedRef": ""
+    },
+    {
+      "text": "ولكن أكثر الناس لا يعلمون",
+      "color": "green",
+      "matchedRef": "الأعراف:187",
+      "claimedRef": "(الأعراف:187)"
+    },
+    {
+      "text": "ولكن أكثرهم لا يعلمون",
+      "color": "green",
+      "matchedRef": "الأنعام:37",
+      "claimedRef": "(الأنعام:37)"
+    },
+    {
+      "text": "بل أكثرهم لا يعلمون",
+      "color": "green",
+      "matchedRef": "النحل:75",
+      "claimedRef": "(النحل:75)"
+    },
+    {
+      "text": "ولكن أكثرهم يجهلون",
+      "color": "green",
+      "matchedRef": "الأنعام:111",
+      "claimedRef": "(الأنعام:111)"
+    },
+    {
+      "text": "فاذكروني أذكركم واشكروا لي ولا تكفرون",
+      "color": "green",
+      "matchedRef": "البقرة:152",
+      "claimedRef": "(البقرة:152)"
+    },
+    {
+      "text": "لئن شكرتم لأزيدنكم",
+      "color": "green",
+      "matchedRef": "ابراهيم:7",
+      "claimedRef": "(إبراهيم:7)"
+    },
+    {
+      "text": "ولكن أكثر الناس لا يشكرون",
+      "color": "green",
+      "matchedRef": "البقرة:243",
+      "claimedRef": "(البقرة:243)"
+    },
+    {
+      "text": "ولكن أكثرهم لا يشكرون",
+      "color": "green",
+      "matchedRef": "يونس:60",
+      "claimedRef": "(يونس:60)"
+    },
+    {
+      "text": "قليلا ما تشكرون",
+      "color": "green",
+      "matchedRef": "الأعراف:10",
+      "claimedRef": "(الأعراف:10)"
+    },
+    {
+      "text": "ولا تجد أكثرهم شاكرين",
+      "color": "green",
+      "matchedRef": "الأعراف:17",
+      "claimedRef": "(الأعراف:17)"
+    },
+    {
+      "text": "وقليل من عبادي الشكور",
+      "color": "green",
+      "matchedRef": "سبأ:13",
+      "claimedRef": "(سبأ:13)"
+    },
+    {
+      "text": "ولكن أكثر الناس لا يشكرون",
+      "color": "lightBlue",
+      "matchedRef": "البقرة:243",
+      "claimedRef": ""
+    },
+    {
+      "text": "ولقد صرفنا للناس في هذا القرآن من كل مثل فأبى أكثر الناس إلا كفورا",
+      "color": "green",
+      "matchedRef": "الإسراء:89",
+      "claimedRef": "(الإسراء:89)"
+    },
+    {
+      "text": "ولقد صرفناه بينهم ليذكروا فأبى أكثر الناس إلا كفورا",
+      "color": "green",
+      "matchedRef": "الفرقان:50",
+      "claimedRef": "(الفرقان:50)"
+    },
+    {
+      "text": "وهو الذي أحياكم ثم يميتكم ثم يحييكم إن الإنسان لكفور",
+      "color": "green",
+      "matchedRef": "الحج:66",
+      "claimedRef": "(الحج:66)"
+    },
+    {
+      "text": "وجعلوا له من عباده جزءا إن الإنسان لكفور مبين",
+      "color": "green",
+      "matchedRef": "الزخرف:15",
+      "claimedRef": "(الزخرف:15)"
+    },
+    {
+      "text": "وإن كثيرا من الناس بلقاء ربهم لكافرون",
+      "color": "green",
+      "matchedRef": "الروم:8",
+      "claimedRef": "(الروم:8)"
+    },
+    {
+      "text": "لا يعقلون",
+      "color": "lightBlue",
+      "matchedRef": "البقرة:170",
+      "claimedRef": ""
+    },
+    {
+      "text": "لا يعقلون",
+      "color": "lightBlue",
+      "matchedRef": "البقرة:170",
+      "claimedRef": ""
+    },
+    {
+      "text": "ولكن الذين كفروا يفترون على الله الكذب وأكثرهم لا يعقلون",
+      "color": "green",
+      "matchedRef": "المائدة:103",
+      "claimedRef": "(المائدة:103)"
+    },
+    {
+      "text": "ولئن سألتهم من نزل من السماء ماء فأحيا به الأرض من بعد موتها ليقولن الله قل الحمد لله بل أكثرهم لا يعقلون",
+      "color": "green",
+      "matchedRef": "العنكبوت:63",
+      "claimedRef": "(العنكبوت:63)"
+    },
+    {
+      "text": "إن الذين ينادونك من وراء الحجرات أكثرهم لا يعقلون",
+      "color": "green",
+      "matchedRef": "الحجرات:4",
+      "claimedRef": "(الحجرات:4)"
+    },
+    {
+      "text": "وما وجدنا لأكثرهم من عهد وإن وجدنا أكثرهم لفاسقين",
+      "color": "green",
+      "matchedRef": "الأعراف:102",
+      "claimedRef": "(الأعراف:101-102)"
+    },
+    {
+      "text": "كتاب فصلت آياته قرآنا عربيا لقوم يعلمون * بشيرا ونذيرا فأعرض أكثرهم فهم لا يسمعون",
+      "color": "green",
+      "matchedRef": "فصلت:3-4",
+      "claimedRef": "(فصلت:3-4)"
+    },
+    {
+      "text": "فاليوم ننجيك ببدنك لتكون لمن خلفك آية وإن كثيرا من الناس عن آياتنا لغافلون",
+      "color": "green",
+      "matchedRef": "يونس:92",
+      "claimedRef": "(يونس:92)"
+    },
+    {
+      "text": "ولقد صرفنا في هذا القرآن للناس من كل مثل وكان الإنسان أكثر شيء جدلا",
+      "color": "green",
+      "matchedRef": "الكهف:54",
+      "claimedRef": "(الكهف:54)"
+    },
+    {
+      "text": "ألم تر أن الله يسجد له من في السماوات ومن في الأرض والشمس والقمر والنجوم والجبال والشجر والدواب وكثير من الناس وكثير حق عليه العذاب ومن يهن الله فما له من مكرم إن الله يفعل ما يشاء",
+      "color": "green",
+      "matchedRef": "الحج:18",
+      "claimedRef": "(الحج:18)"
+    },
+    {
+      "text": "وقليل ما هم",
+      "color": "green",
+      "matchedRef": "ص:24",
+      "claimedRef": "(ص:24)"
+    },
+    {
+      "text": "ألم تر أن الله يسجد له من في السماوات ومن في الأرض والشمس والقمر والنجوم والجبال والشجر والدواب وكثير من الناس وكثير حق عليه العذاب",
+      "color": "green",
+      "matchedRef": "الحج:18",
+      "claimedRef": "(الحج:18)"
+    },
+    {
+      "text": "وكثير من الناس",
+      "color": "lightBlue",
+      "matchedRef": "الحج:18",
+      "claimedRef": ""
+    }
+  ]
 }

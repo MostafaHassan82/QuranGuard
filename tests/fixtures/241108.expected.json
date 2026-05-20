@@ -1,0 +1,198 @@
+{
+  "stats": {
+    "greenMatches": 23,
+    "lightBlueMatches": 8,
+    "yellowMatches": 0,
+    "orangeMatches": 0,
+    "redMatches": 0,
+    "totalFindings": 31
+  },
+  "matches": [
+    {
+      "text": "وإذ قال إبراهيم رب أرنى كيف تحي الموتى قال أولم تؤمن",
+      "color": "green",
+      "matchedRef": "البقرة:260",
+      "claimedRef": "(البقرة:260)"
+    },
+    {
+      "text": "أرني",
+      "color": "lightBlue",
+      "matchedRef": "البقرة:260",
+      "claimedRef": ""
+    },
+    {
+      "text": "يوم يجمع الله الرسل فيقول ماذا أجبتم",
+      "color": "green",
+      "matchedRef": "المائدة:109",
+      "claimedRef": "(المائدة:109)"
+    },
+    {
+      "text": "ماذا أجبتم",
+      "color": "lightBlue",
+      "matchedRef": "المائدة:109",
+      "claimedRef": ""
+    },
+    {
+      "text": "وإذ قال الله يا عيسى ابن مريم أأنت قلت للناس اتخذوني وأمي إلهين من دون الله",
+      "color": "green",
+      "matchedRef": "المائدة:116",
+      "claimedRef": "(المائدة:116)"
+    },
+    {
+      "text": "قل لمن ما في السماوات والأرض قل لله",
+      "color": "green",
+      "matchedRef": "الأنعام:12",
+      "claimedRef": "(الأنعام:12)"
+    },
+    {
+      "text": "قل أرأيتم إن أخذ الله سمعكم وأبصاركم وختم على قلوبكم من إله غير الله يأتيكم به",
+      "color": "green",
+      "matchedRef": "الأنعام:46",
+      "claimedRef": "(الأنعام:46)"
+    },
+    {
+      "text": "من إله",
+      "color": "lightBlue",
+      "matchedRef": "البقرة:138",
+      "claimedRef": ""
+    },
+    {
+      "text": "أفمن يخلق كمن لا يخلق أفلا تذكرون",
+      "color": "green",
+      "matchedRef": "النحل:17",
+      "claimedRef": "(النحل:17)"
+    },
+    {
+      "text": "قل من ينجيكم من ظلمات البر والبحر تدعونه تضرعا وخفية لئن أنجانا من هذه لنكونن من الشاكرين",
+      "color": "green",
+      "matchedRef": "الأنعام:63",
+      "claimedRef": "(الأنعام:63)"
+    },
+    {
+      "text": "ثمانية أزواج من الضأن اثنين ومن المعز اثنين قل آلذكرين حرَّم أم الأنثيين أما اشتملت عليه أرحام الأنثيين نبئوني بعلم إن كنتم صادقين * ومن الإبل اثنين ومن البقر اثنين قل آلذكرين حرَّم أم الأنثيين",
+      "color": "green",
+      "matchedRef": "الأنعام:143-144",
+      "claimedRef": "(الأنعام:143-144)"
+    },
+    {
+      "text": "آلذكرين حرَّم",
+      "color": "lightBlue",
+      "matchedRef": "الأنعام:143",
+      "claimedRef": ""
+    },
+    {
+      "text": "سيجزيهم وصفهم إنه حكيم عليم",
+      "color": "green",
+      "matchedRef": "الأنعام:139",
+      "claimedRef": "(الأنعام:139)"
+    },
+    {
+      "text": "أهؤلاء الذين أقسمتم لا ينالهم الله برحمة",
+      "color": "green",
+      "matchedRef": "الأعراف:49",
+      "claimedRef": "(الأعراف:49)"
+    },
+    {
+      "text": "أهؤلاء الذين أقسمتم",
+      "color": "lightBlue",
+      "matchedRef": "الأعراف:49",
+      "claimedRef": ""
+    },
+    {
+      "text": "أفمن يخلق كمن لا يخلق أفلا تذكرون",
+      "color": "green",
+      "matchedRef": "النحل:17",
+      "claimedRef": "(النحل:17)"
+    },
+    {
+      "text": "أفلا تذكرون",
+      "color": "lightBlue",
+      "matchedRef": "الصافات:155",
+      "claimedRef": ""
+    },
+    {
+      "text": "قل هل ننبئكم بالأخسرين أعمالا",
+      "color": "green",
+      "matchedRef": "الكهف:103",
+      "claimedRef": "(الكهف:103)"
+    },
+    {
+      "text": "أليس في جهنم مثوى للكافرين",
+      "color": "green",
+      "matchedRef": "العنكبوت:68",
+      "claimedRef": "(العنكبوت:68)"
+    },
+    {
+      "text": "أليس في جهنم مثوى",
+      "color": "lightBlue",
+      "matchedRef": "العنكبوت:68",
+      "claimedRef": ""
+    },
+    {
+      "text": "قل من يرزقكم من السماوات والأرض قل الله",
+      "color": "green",
+      "matchedRef": "سبأ:24",
+      "claimedRef": "(سبأ:24)"
+    },
+    {
+      "text": "ويوم يحشرهم جميعا ثم يقول للملائكة أهؤلاء إياكم كانوا يعبدون",
+      "color": "green",
+      "matchedRef": "سبأ:40",
+      "claimedRef": "(سبأ:40)"
+    },
+    {
+      "text": "يعلم خائنة الأعين وما تخفي الصدور",
+      "color": "green",
+      "matchedRef": "غافر:19",
+      "claimedRef": "(غافر:19)"
+    },
+    {
+      "text": "فكذبوا رسلي فكيف كان نكير",
+      "color": "green",
+      "matchedRef": "سبأ:45",
+      "claimedRef": "(سبأ:45)"
+    },
+    {
+      "text": "أفما نحن بميتين * إلا موتتنا الأولى وما نحن بمعذبين",
+      "color": "green",
+      "matchedRef": "الصافات:58-59",
+      "claimedRef": "(الصافات:58-59)"
+    },
+    {
+      "text": "ألم تر إلى الذين يجادلون في آيات الله أنى يصرفون",
+      "color": "green",
+      "matchedRef": "غافر:69",
+      "claimedRef": "(غافر:69)"
+    },
+    {
+      "text": "عم يتساءلون",
+      "color": "green",
+      "matchedRef": "النبأ:1",
+      "claimedRef": "(النبأ:1)"
+    },
+    {
+      "text": "عم يتساءلون",
+      "color": "lightBlue",
+      "matchedRef": "النبإ:1",
+      "claimedRef": ""
+    },
+    {
+      "text": "هل أنبئكم على من تنزل الشياطين",
+      "color": "green",
+      "matchedRef": "الشعراء:221",
+      "claimedRef": "(الشعراء:221)"
+    },
+    {
+      "text": "فلينظر الإنسان مم خلق",
+      "color": "green",
+      "matchedRef": "الطارق:5",
+      "claimedRef": "(الطارق:5)"
+    },
+    {
+      "text": "من أي شيء خلقه",
+      "color": "green",
+      "matchedRef": "عبس:18",
+      "claimedRef": "(عبس:18)"
+    }
+  ]
+}

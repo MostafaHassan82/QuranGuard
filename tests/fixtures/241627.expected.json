@@ -1,0 +1,174 @@
+{
+  "stats": {
+    "greenMatches": 13,
+    "lightBlueMatches": 13,
+    "yellowMatches": 1,
+    "orangeMatches": 0,
+    "redMatches": 0,
+    "totalFindings": 27
+  },
+  "matches": [
+    {
+      "text": "إنا زينا السماء الدنيا بزينة الكواكب",
+      "color": "green",
+      "matchedRef": "الصافات:6",
+      "claimedRef": "(الصافات:6)"
+    },
+    {
+      "text": "بزينةِ الكواكب",
+      "color": "lightBlue",
+      "matchedRef": "الصافات:6",
+      "claimedRef": ""
+    },
+    {
+      "text": "إن أرادني الله بضر هل هن كاشفات ضره أو أرادني برحمة هل هن ممسكات رحمته",
+      "color": "green",
+      "matchedRef": "الزمر:38",
+      "claimedRef": "(الزمر:38)"
+    },
+    {
+      "text": "لا الشمس ينبغي لها أن تدرك القمر ولا الليل سابق النهار",
+      "color": "green",
+      "matchedRef": "يس:40",
+      "claimedRef": "(يس:40)"
+    },
+    {
+      "text": "ولا الليل سابق النهار",
+      "color": "lightBlue",
+      "matchedRef": "يس:40",
+      "claimedRef": ""
+    },
+    {
+      "text": "ولا الليل سابق النهار",
+      "color": "lightBlue",
+      "matchedRef": "يس:40",
+      "claimedRef": ""
+    },
+    {
+      "text": "الحمد لله فاطر السماوات والأرض جاعل الملائكة رسلا",
+      "color": "green",
+      "matchedRef": "فاطر:1",
+      "claimedRef": "(فاطر:1)"
+    },
+    {
+      "text": "جاعلِ الملائكةِ",
+      "color": "lightBlue",
+      "matchedRef": "فاطر:1",
+      "claimedRef": ""
+    },
+    {
+      "text": "فمن تبع هداي فلا خوف عليهم ولا هم يحزنون",
+      "color": "green",
+      "matchedRef": "البقرة:38",
+      "claimedRef": "(البقرة:38)"
+    },
+    {
+      "text": "فلا خوفٌ",
+      "color": "lightBlue",
+      "matchedRef": "البقرة:38",
+      "claimedRef": ""
+    },
+    {
+      "text": "فلا خوفَ",
+      "color": "lightBlue",
+      "matchedRef": "البقرة:38",
+      "claimedRef": ""
+    },
+    {
+      "text": "وأما من آمن وعمل صالحا فله جزاء الحسنى",
+      "color": "green",
+      "matchedRef": "الكهف:88",
+      "claimedRef": "(الكهف:88)"
+    },
+    {
+      "text": "جزاءُ الحسنى",
+      "color": "lightBlue",
+      "matchedRef": "الكهف:88",
+      "claimedRef": ""
+    },
+    {
+      "text": "جزاءً الحسنى",
+      "color": "lightBlue",
+      "matchedRef": "الكهف:88",
+      "claimedRef": ""
+    },
+    {
+      "text": "إن الله جامع المنافقين والكافرين في جهنم جميعا",
+      "color": "green",
+      "matchedRef": "النساء:140",
+      "claimedRef": "(النساء:140)"
+    },
+    {
+      "text": "إنما أنت منذر من يخشاها",
+      "color": "green",
+      "matchedRef": "النازعات:45",
+      "claimedRef": "(النازعات:45)"
+    },
+    {
+      "text": "وهذا كتاب أنزلناه مبارك مصدق الذي بين يديه",
+      "color": "green",
+      "matchedRef": "الأنعام:92",
+      "claimedRef": "(الأنعام:92)"
+    },
+    {
+      "text": "مصدق الذي",
+      "color": "lightBlue",
+      "matchedRef": "الأنعام:92",
+      "claimedRef": ""
+    },
+    {
+      "text": "إن ولييَ الله الذي نزل الكتاب",
+      "color": "green",
+      "matchedRef": "الأعراف:196",
+      "claimedRef": "(الأعراف:196)"
+    },
+    {
+      "text": "أو كظلمات في بحر لجي يغشاه موج من فوقه موج من فوقه سحاب ظلمات",
+      "color": "green",
+      "matchedRef": "النور:40",
+      "claimedRef": "(النور:40)"
+    },
+    {
+      "text": "سحابٌ ظلماتٌ",
+      "color": "lightBlue",
+      "matchedRef": "النور:40",
+      "claimedRef": ""
+    },
+    {
+      "text": "سحابُ ظلماتٍ",
+      "color": "lightBlue",
+      "matchedRef": "النور:40",
+      "claimedRef": ""
+    },
+    {
+      "text": "قل هو الله أحد * الله الصمد",
+      "color": "green",
+      "matchedRef": "الإخلاص:1-2",
+      "claimedRef": "(الإخلاص:1-2)"
+    },
+    {
+      "text": "قل هو الله أحد",
+      "color": "lightBlue",
+      "matchedRef": "الإخلاص:1",
+      "claimedRef": ""
+    },
+    {
+      "text": "أحدُ * اللهُ",
+      "color": "yellow",
+      "matchedRef": "البقرة:102",
+      "claimedRef": ""
+    },
+    {
+      "text": "إن الله بالغ أمره",
+      "color": "green",
+      "matchedRef": "الطلاق:3",
+      "claimedRef": "(الطلاق:3)"
+    },
+    {
+      "text": "بالغُ أمرِه",
+      "color": "lightBlue",
+      "matchedRef": "الطلاق:3",
+      "claimedRef": ""
+    }
+  ]
+}

@@ -1,0 +1,150 @@
+{
+  "stats": {
+    "greenMatches": 12,
+    "lightBlueMatches": 11,
+    "yellowMatches": 0,
+    "orangeMatches": 0,
+    "redMatches": 0,
+    "totalFindings": 23
+  },
+  "matches": [
+    {
+      "text": "فكلوا مما ذكر اسم الله عليه",
+      "color": "green",
+      "matchedRef": "الأنعام:118",
+      "claimedRef": "(الأنعام:118)"
+    },
+    {
+      "text": "ولا تأكلوا مما لم يذكر اسم الله عليه",
+      "color": "lightBlue",
+      "matchedRef": "الأنعام:121",
+      "claimedRef": ""
+    },
+    {
+      "text": "ليحق الحق ويبطل الباطل ولو كره المجرمون",
+      "color": "green",
+      "matchedRef": "الأنفال:8",
+      "claimedRef": "(الأنفال:8)"
+    },
+    {
+      "text": "ليحق الحق",
+      "color": "lightBlue",
+      "matchedRef": "الأنفال:8",
+      "claimedRef": ""
+    },
+    {
+      "text": "ويريد الله أن يحق الحق بكلماته",
+      "color": "green",
+      "matchedRef": "الأنفال:7",
+      "claimedRef": "(الأنفال:7)"
+    },
+    {
+      "text": "ويريد الله أن يحق الحق بكلماته",
+      "color": "lightBlue",
+      "matchedRef": "الأنفال:7",
+      "claimedRef": ""
+    },
+    {
+      "text": "فكلوا مما ذكر اسم الله عليه إن كنتم بآياته مؤمنين",
+      "color": "green",
+      "matchedRef": "الأنعام:118",
+      "claimedRef": "(الأنعام:118)"
+    },
+    {
+      "text": "فكلوا مما ذكر اسم الله عليه",
+      "color": "lightBlue",
+      "matchedRef": "الأنعام:118",
+      "claimedRef": ""
+    },
+    {
+      "text": "كلا سوف تعلمون * ثم كلا سوف تعلمون",
+      "color": "green",
+      "matchedRef": "التكاثر:3-4",
+      "claimedRef": "(التكاثر:3-4)"
+    },
+    {
+      "text": "كلا سوف تعلمون",
+      "color": "lightBlue",
+      "matchedRef": "التكاثر:3",
+      "claimedRef": ""
+    },
+    {
+      "text": "ثم كلا سوف تعلمون",
+      "color": "lightBlue",
+      "matchedRef": "التكاثر:4",
+      "claimedRef": ""
+    },
+    {
+      "text": "والسابقون السابقون * أولئك المقربون * ثلة من الأولين",
+      "color": "lightBlue",
+      "matchedRef": "الواقعة:10-13",
+      "claimedRef": ""
+    },
+    {
+      "text": "لا يسمعون فيها لغوا ولا تأثيما * إلا قيلا سلاما سلاما",
+      "color": "green",
+      "matchedRef": "الواقعة:25-26",
+      "claimedRef": "(الواقعة:10-26)"
+    },
+    {
+      "text": "وأصحاب اليمين ما أصحاب اليمين * في سدر مخضود * وطلح منضود",
+      "color": "lightBlue",
+      "matchedRef": "الواقعة:27-29",
+      "claimedRef": ""
+    },
+    {
+      "text": "ثلة من الأولين * وثلة من الآخرين",
+      "color": "green",
+      "matchedRef": "الواقعة:39-40",
+      "claimedRef": "(الواقعة:27-40)"
+    },
+    {
+      "text": "غافر الذنب وقابل التوب شديد العقاب ذي الطول",
+      "color": "green",
+      "matchedRef": "غافر:3",
+      "claimedRef": "(غافر:3)"
+    },
+    {
+      "text": "شديد العقاب",
+      "color": "lightBlue",
+      "matchedRef": "البقرة:196",
+      "claimedRef": ""
+    },
+    {
+      "text": "تنزيل الكتاب من الله العزيز العليم",
+      "color": "green",
+      "matchedRef": "غافر:2",
+      "claimedRef": "(غافر:2)"
+    },
+    {
+      "text": "إذا جاء نصر الله والفتح * ورأيت الناس يدخلون في دين الله أفواجا * فسبح بحمد ربك واستغفرهإنه كان توابا",
+      "color": "green",
+      "matchedRef": "النصر:1-3",
+      "claimedRef": "(النصر:1-3)"
+    },
+    {
+      "text": "إنه كان توابا",
+      "color": "lightBlue",
+      "matchedRef": "النصر:3",
+      "claimedRef": ""
+    },
+    {
+      "text": "واستغفره",
+      "color": "lightBlue",
+      "matchedRef": "النصر:3",
+      "claimedRef": ""
+    },
+    {
+      "text": "وتجعلون رزقكم أنكم تكذبون",
+      "color": "green",
+      "matchedRef": "الواقعة:82",
+      "claimedRef": " الواقعة:82)"
+    },
+    {
+      "text": "لقد كنت في غفلة من هذا فكشفنا عنك غطاءك",
+      "color": "green",
+      "matchedRef": "ق:22",
+      "claimedRef": "(ق:22)"
+    }
+  ]
+}

@@ -1,0 +1,294 @@
+{
+  "stats": {
+    "greenMatches": 29,
+    "lightBlueMatches": 16,
+    "yellowMatches": 0,
+    "orangeMatches": 2,
+    "redMatches": 0,
+    "totalFindings": 47
+  },
+  "matches": [
+    {
+      "text": "بل بدا لهم ما كانوا يخفون من قبل ولو ردوا لعادوا لما نهوا عنه وإنهم لكاذبون",
+      "color": "green",
+      "matchedRef": "الأنعام:28",
+      "claimedRef": "(الأنعام:28)"
+    },
+    {
+      "text": "ربما يود الذين كفروا لو كانوا مسلمين",
+      "color": "green",
+      "matchedRef": "الحجر:2",
+      "claimedRef": "(الحجر:2)"
+    },
+    {
+      "text": "وما كان الله ليضيع إيمانكم",
+      "color": "green",
+      "matchedRef": "البقرة:143",
+      "claimedRef": "(البقرة:143)"
+    },
+    {
+      "text": "ولا تطع الكافرين والمنافقين ودع أذاهم",
+      "color": "orange",
+      "matchedRef": "الأحزاب:48",
+      "claimedRef": "(الأحزاب:1)"
+    },
+    {
+      "text": "ودع أذاهم",
+      "color": "lightBlue",
+      "matchedRef": "الأحزاب:48",
+      "claimedRef": ""
+    },
+    {
+      "text": "ودع أذاهم",
+      "color": "lightBlue",
+      "matchedRef": "الأحزاب:48",
+      "claimedRef": ""
+    },
+    {
+      "text": "في قلوبهم مرض",
+      "color": "green",
+      "matchedRef": "البقرة:10",
+      "claimedRef": "(البقرة:10)"
+    },
+    {
+      "text": "فادع لنا ربك يخرج لنا مما تنبت الأرض من بقلها وقثائها وفومها",
+      "color": "green",
+      "matchedRef": "البقرة:61",
+      "claimedRef": "(البقرة:61)"
+    },
+    {
+      "text": "كتب عليكم إذا حضر أحدكم الموت إن ترك خيرا الوصية للوالدين والأقربين بالمعروف حقا على المتقين",
+      "color": "green",
+      "matchedRef": "البقرة:180",
+      "claimedRef": "(البقرة:180)"
+    },
+    {
+      "text": "إن الذين آمنوا والذين هادوا والنصارى والصابئين من آمن بالله واليوم الآخر",
+      "color": "green",
+      "matchedRef": "البقرة:62",
+      "claimedRef": "(البقرة:62)"
+    },
+    {
+      "text": "من آمن بالله واليوم الآخر",
+      "color": "lightBlue",
+      "matchedRef": "البقرة:62",
+      "claimedRef": ""
+    },
+    {
+      "text": "إن الذين آمنوا",
+      "color": "lightBlue",
+      "matchedRef": "البقرة:62",
+      "claimedRef": ""
+    },
+    {
+      "text": "من آمن",
+      "color": "lightBlue",
+      "matchedRef": "البقرة:62",
+      "claimedRef": ""
+    },
+    {
+      "text": "ومن يبتغ غير الإسلام دينا فلن يقبل منه",
+      "color": "lightBlue",
+      "matchedRef": "آل عمران:85",
+      "claimedRef": ""
+    },
+    {
+      "text": "وقاتلوا في سبيل الله الذين يقاتلونكم ولا تعتدوا إن الله لا يحب المعتدين",
+      "color": "green",
+      "matchedRef": "البقرة:190",
+      "claimedRef": "(البقرة:190)"
+    },
+    {
+      "text": "وقاتلوا المشركين كافة كما يقاتلونكم كافة",
+      "color": "green",
+      "matchedRef": "التوبة:36",
+      "claimedRef": "(التوبة:36)"
+    },
+    {
+      "text": "وعلى الذين يطيقونه فدية طعام مسكين",
+      "color": "green",
+      "matchedRef": "البقرة:184",
+      "claimedRef": "(البقرة:184)"
+    },
+    {
+      "text": "فمن شهد منكم الشهر فليصمه",
+      "color": "orange",
+      "matchedRef": "البقرة:185",
+      "claimedRef": "(البقرة:184)"
+    },
+    {
+      "text": "يا أيها الذين آمنوا اتقوا الله حق تقاته ولا تموتن إلا وأنتم مسلمون",
+      "color": "green",
+      "matchedRef": "آل عمران:102",
+      "claimedRef": "(آل عمران:102)"
+    },
+    {
+      "text": "فاتقوا الله ما استطعتم",
+      "color": "green",
+      "matchedRef": "التغابن:16",
+      "claimedRef": "(التغابن:16)"
+    },
+    {
+      "text": "فاتقوا الله ما استطعتم",
+      "color": "lightBlue",
+      "matchedRef": "التغابن:16",
+      "claimedRef": ""
+    },
+    {
+      "text": "لا تحسبن الذين كفروا معجزين في الأرض",
+      "color": "green",
+      "matchedRef": "النور:57",
+      "claimedRef": "(النور:57)"
+    },
+    {
+      "text": "لا تحسبن",
+      "color": "lightBlue",
+      "matchedRef": "آل عمران:188",
+      "claimedRef": ""
+    },
+    {
+      "text": "لا تحسبن",
+      "color": "lightBlue",
+      "matchedRef": "آل عمران:188",
+      "claimedRef": ""
+    },
+    {
+      "text": "لا يحسبن",
+      "color": "lightBlue",
+      "matchedRef": "الأنفال:59",
+      "claimedRef": ""
+    },
+    {
+      "text": "الذين كفروا",
+      "color": "lightBlue",
+      "matchedRef": "البقرة:6",
+      "claimedRef": ""
+    },
+    {
+      "text": "أو لامستم النساء",
+      "color": "green",
+      "matchedRef": "النساء:43",
+      "claimedRef": "(النساء:43)"
+    },
+    {
+      "text": "وما الله بغافل عما يعملون",
+      "color": "green",
+      "matchedRef": "البقرة:144",
+      "claimedRef": "(البقرة:144)"
+    },
+    {
+      "text": "الذين أوتوا الكتاب",
+      "color": "lightBlue",
+      "matchedRef": "البقرة:101",
+      "claimedRef": ""
+    },
+    {
+      "text": "تبارك الذي إن شاء جعل لك خيرا من ذلك جنات تجري من تحتها الأنهار ويجعل لك قصورا",
+      "color": "green",
+      "matchedRef": "الفرقان:10",
+      "claimedRef": "(الفرقان:10)"
+    },
+    {
+      "text": "ويجعل لك قصورا",
+      "color": "lightBlue",
+      "matchedRef": "الفرقان:10",
+      "claimedRef": ""
+    },
+    {
+      "text": "سنقرئك فلا تنسى",
+      "color": "green",
+      "matchedRef": "الأعلى:6",
+      "claimedRef": "(الأعلى:6)"
+    },
+    {
+      "text": "فلا تنسى",
+      "color": "lightBlue",
+      "matchedRef": "الأعلى:6",
+      "claimedRef": ""
+    },
+    {
+      "text": "فلا تنسى",
+      "color": "lightBlue",
+      "matchedRef": "الأعلى:6",
+      "claimedRef": ""
+    },
+    {
+      "text": "أحل لكم صيد البحر وطعامه",
+      "color": "green",
+      "matchedRef": "المائدة:96",
+      "claimedRef": "(المائدة:96)"
+    },
+    {
+      "text": "وجعلوا لله شركاء الجن وخلقهم وخرقوا له بنين وبنات بغير علم",
+      "color": "green",
+      "matchedRef": "الأنعام:100",
+      "claimedRef": "(الأنعام:100)"
+    },
+    {
+      "text": "عزير ابن الله",
+      "color": "green",
+      "matchedRef": "التوبة:30",
+      "claimedRef": "(التوبة:30)"
+    },
+    {
+      "text": "المسيح ابن الله",
+      "color": "green",
+      "matchedRef": "التوبة:30",
+      "claimedRef": "(التوبة:30)"
+    },
+    {
+      "text": "هذا يوم لا ينطقون * ولا يؤذن لهم فيعتذرون",
+      "color": "green",
+      "matchedRef": "المرسلات:35-36",
+      "claimedRef": "(المرسلات:35-36)"
+    },
+    {
+      "text": "ثم لم تكن فتنتهم إلا أن قالوا والله ربنا ما كنا مشركين",
+      "color": "green",
+      "matchedRef": "الأنعام:23",
+      "claimedRef": "(الأنعام:23)"
+    },
+    {
+      "text": "فألقوا السلم ما كنا نعمل من سوء",
+      "color": "green",
+      "matchedRef": "النحل:28",
+      "claimedRef": "(النحل:28)"
+    },
+    {
+      "text": "قالوا ضلوا عنا بل لم نكن ندعو من قبل شيئا كذلك يضل الله الكافرين",
+      "color": "green",
+      "matchedRef": "غافر:74",
+      "claimedRef": "(غافر:74)"
+    },
+    {
+      "text": "قالوا ربنا أمتنا اثنتين وأحييتنا اثنتين فاعترفنا بذنوبنا فهل إلى خروج من سبيل",
+      "color": "green",
+      "matchedRef": "غافر:11",
+      "claimedRef": "(غافر:11)"
+    },
+    {
+      "text": "ربنا أمتنا اثنتين",
+      "color": "lightBlue",
+      "matchedRef": "غافر:11",
+      "claimedRef": ""
+    },
+    {
+      "text": "وكف أيدي الناس عنكم",
+      "color": "green",
+      "matchedRef": "الفتح:20",
+      "claimedRef": "(الفتح:20)"
+    },
+    {
+      "text": "ولو أن لكل نفس ظلمت ما في الأرض لافتدت به",
+      "color": "green",
+      "matchedRef": "يونس:54",
+      "claimedRef": "(يونس:54)"
+    },
+    {
+      "text": "ومن الأنعام حمولة وفرشا",
+      "color": "green",
+      "matchedRef": "الأنعام:142",
+      "claimedRef": "(الأنعام:142)"
+    }
+  ]
+}

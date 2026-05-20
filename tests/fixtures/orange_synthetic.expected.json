@@ -1,15 +1,11 @@
 {
-  "source_label": "orange_synthetic",
-  "_comment": "Synthetic fixture — known ground truth. Strategy: leadInBraced (high confidence) for all 7 citations.",
   "stats": {
     "greenMatches": 1,
     "lightBlueMatches": 0,
     "yellowMatches": 0,
     "orangeMatches": 5,
     "redMatches": 1,
-    "totalFindings": 7,
-    "refsSeen": 7,
-    "refCandidates": 0
+    "totalFindings": 7
   },
   "matches": [
     {
@@ -51,7 +47,7 @@
     {
       "text": "طلب العلم فريضة على كل مسلم",
       "color": "red",
-      "matchedRef": null,
+      "matchedRef": "",
       "claimedRef": "(مريم:15)"
     }
   ]

@@ -1,4 +1,114 @@
 {
-  "_skip": true,
-  "_comment": "Stale MV2 expected. Run --write-observed, review observed.json, then --update-expected."
+  "stats": {
+    "greenMatches": 17,
+    "lightBlueMatches": 0,
+    "yellowMatches": 0,
+    "orangeMatches": 0,
+    "redMatches": 0,
+    "totalFindings": 17
+  },
+  "matches": [
+    {
+      "text": "ما ننسخ من آية",
+      "color": "green",
+      "matchedRef": "البقرة:106",
+      "claimedRef": "(البقرة:106)"
+    },
+    {
+      "text": "وجعلنا الليل والنهار آيتين",
+      "color": "green",
+      "matchedRef": "الإسراء:12",
+      "claimedRef": "(الإسراء:12)"
+    },
+    {
+      "text": "ويريكم آياته لعلكم تعقلون",
+      "color": "green",
+      "matchedRef": "البقرة:73",
+      "claimedRef": "(البقرة:73)"
+    },
+    {
+      "text": "ومن آياته منامكم بالليل والنهار",
+      "color": "green",
+      "matchedRef": "الروم:23",
+      "claimedRef": "(الروم:23)"
+    },
+    {
+      "text": "ومن آياته أنك ترى الأرض خاشعة",
+      "color": "green",
+      "matchedRef": "فصلت:39",
+      "claimedRef": "(فصلت:39)"
+    },
+    {
+      "text": "ما ننسخ من آية أو ننسها",
+      "color": "green",
+      "matchedRef": "البقرة:106",
+      "claimedRef": "(البقر:106)"
+    },
+    {
+      "text": "وإذا بدلنا آية مكان آية",
+      "color": "green",
+      "matchedRef": "النحل:101",
+      "claimedRef": "(النحل:101)"
+    },
+    {
+      "text": "فلما جاءهم موسى بآياتنا بينات",
+      "color": "green",
+      "matchedRef": "القصص:36",
+      "claimedRef": "(القصص:36)"
+    },
+    {
+      "text": "وإن يروا آية يعرضوا",
+      "color": "green",
+      "matchedRef": "القمر:2",
+      "claimedRef": "(القمر:2)"
+    },
+    {
+      "text": "ولنجعله آية للناس",
+      "color": "green",
+      "matchedRef": "مريم:21",
+      "claimedRef": "(مريم:21)"
+    },
+    {
+      "text": "وقوم نوح لما كذبوا الرسل أغرقناهم وجعلناهم للناس آية",
+      "color": "green",
+      "matchedRef": "الفرقان:37",
+      "claimedRef": "(الفرقان:37)"
+    },
+    {
+      "text": "يسمع آيات الله تتلى عليه",
+      "color": "green",
+      "matchedRef": "الجاثية:8",
+      "claimedRef": "(الجاثية:8)"
+    },
+    {
+      "text": "قد كانت آياتي تتلى عليكم",
+      "color": "green",
+      "matchedRef": "المؤمنون:66",
+      "claimedRef": "(المؤمنون:66)"
+    },
+    {
+      "text": "كذلك يبين الله لكم آياته",
+      "color": "green",
+      "matchedRef": "البقرة:242",
+      "claimedRef": "(البقرة:242)"
+    },
+    {
+      "text": "كذلك يبين الله لكم الآيات",
+      "color": "green",
+      "matchedRef": "البقرة:266",
+      "claimedRef": "(البقرة:266)"
+    },
+    {
+      "text": "لقد كان لسبإ في مسكنهم آية",
+      "color": "green",
+      "matchedRef": "سبأ:15",
+      "claimedRef": "(سبأ:15)"
+    },
+    {
+      "text": "قد كان لكم آية في فئتين التقتا",
+      "color": "green",
+      "matchedRef": "آل عمران:13",
+      "claimedRef": "(آل عمران:13)"
+    }
+  ]
 }

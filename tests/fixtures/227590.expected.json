@@ -1,0 +1,264 @@
+{
+  "stats": {
+    "greenMatches": 26,
+    "lightBlueMatches": 15,
+    "yellowMatches": 0,
+    "orangeMatches": 1,
+    "redMatches": 0,
+    "totalFindings": 42
+  },
+  "matches": [
+    {
+      "text": "كل نفس بما كسبت رهينة * إلا أصحاب اليمين * في جنات يتساءلون * عن المجرمين ما سلككم في سقر",
+      "color": "green",
+      "matchedRef": "المدثر:38-42",
+      "claimedRef": "(المدثر:38-42)"
+    },
+    {
+      "text": "ما سلككم في سقر",
+      "color": "lightBlue",
+      "matchedRef": "المدثر:42",
+      "claimedRef": ""
+    },
+    {
+      "text": "ما سلككم في سقر * قالوا لم نك من المصلين",
+      "color": "green",
+      "matchedRef": "المدثر:42-43",
+      "claimedRef": "(المدثر:42-43)"
+    },
+    {
+      "text": "قد جاءكم بصائر من ربكم فمن أبصر فلنفسه ومن عمي فعليها وما أنا عليكم بحفيظ",
+      "color": "green",
+      "matchedRef": "الأنعام:104",
+      "claimedRef": "(الأنعام:104)"
+    },
+    {
+      "text": "وما أنا عليكم بحفيظ",
+      "color": "green",
+      "matchedRef": "الأنعام:104",
+      "claimedRef": "(الأنعام:104)"
+    },
+    {
+      "text": "قد جاءكم بصائر",
+      "color": "lightBlue",
+      "matchedRef": "الأنعام:104",
+      "claimedRef": ""
+    },
+    {
+      "text": "قل من ينجيكم من ظلمات البر والبحر تدعونه تضرعا وخفية لئن أنجانا من هذه لنكونن من الشاكرين",
+      "color": "green",
+      "matchedRef": "الأنعام:63",
+      "claimedRef": "(الأنعام:63)"
+    },
+    {
+      "text": "لئن أنجانا",
+      "color": "lightBlue",
+      "matchedRef": "الأنعام:63",
+      "claimedRef": ""
+    },
+    {
+      "text": "لئن أنجانا",
+      "color": "lightBlue",
+      "matchedRef": "الأنعام:63",
+      "claimedRef": ""
+    },
+    {
+      "text": "ولو ترى إذ الظالمون في غمرات الموت والملائكة باسطو أيديهم أخرجوا أنفسكم اليوم تجزون عذاب الهون",
+      "color": "orange",
+      "matchedRef": "الأنعام:93",
+      "claimedRef": "(الأنعام:97)"
+    },
+    {
+      "text": "أخرجوا أنفسكم",
+      "color": "lightBlue",
+      "matchedRef": "الأنعام:93",
+      "claimedRef": ""
+    },
+    {
+      "text": "أخرجوا أنفسكم",
+      "color": "lightBlue",
+      "matchedRef": "الأنعام:93",
+      "claimedRef": ""
+    },
+    {
+      "text": "وإذ أخذنا ميثاقكم ورفعنا فوقكم الطور خذوا ما آتيناكم بقوة",
+      "color": "green",
+      "matchedRef": "البقرة:63",
+      "claimedRef": "(البقرة:63)"
+    },
+    {
+      "text": "خذوا ما آتيناكم",
+      "color": "lightBlue",
+      "matchedRef": "البقرة:63",
+      "claimedRef": ""
+    },
+    {
+      "text": "احشروا الذين ظلموا وأزواجهم وما كانوا يعبدون",
+      "color": "green",
+      "matchedRef": "الصافات:22",
+      "claimedRef": "(الصافات:22)"
+    },
+    {
+      "text": "ويوم يناديهم أين شركائي قالوا آذناك ما منا من شهيد",
+      "color": "green",
+      "matchedRef": "فصلت:47",
+      "claimedRef": "(فصلت:47)"
+    },
+    {
+      "text": "أين شركائي",
+      "color": "lightBlue",
+      "matchedRef": "النحل:27",
+      "claimedRef": ""
+    },
+    {
+      "text": "ويوم يناديهم فيقول ماذا أجبتم المرسلين",
+      "color": "green",
+      "matchedRef": "القصص:65",
+      "claimedRef": "(القصص:65)"
+    },
+    {
+      "text": "ويوم يناديهم فيقول أين شركائي الذين كنتم تزعمون",
+      "color": "green",
+      "matchedRef": "القصص:74",
+      "claimedRef": "(القصص:74)"
+    },
+    {
+      "text": "وما اختلفتم فيه من شيء فحكمه إلى الله",
+      "color": "green",
+      "matchedRef": "الشورى:10",
+      "claimedRef": "(الشورى:10)"
+    },
+    {
+      "text": "ففروا إلى الله إني لكم منه نذير مبين",
+      "color": "green",
+      "matchedRef": "الذاريات:50",
+      "claimedRef": "(الذاريات:50)"
+    },
+    {
+      "text": "إني لكم منه نذير مبين",
+      "color": "lightBlue",
+      "matchedRef": "الذاريات:50",
+      "claimedRef": ""
+    },
+    {
+      "text": "والملائكة يدخلون عليهم من كل باب * سلام عليكم بما صبرتم",
+      "color": "green",
+      "matchedRef": "الرعد:23-24",
+      "claimedRef": "(الرعد:23-24)"
+    },
+    {
+      "text": "سلام عليكم",
+      "color": "lightBlue",
+      "matchedRef": "الأنعام:54",
+      "claimedRef": ""
+    },
+    {
+      "text": "ربنا ما خلقت هذا باطلا",
+      "color": "green",
+      "matchedRef": "آل عمران:191",
+      "claimedRef": "(آل عمران:191)"
+    },
+    {
+      "text": "لاهية قلوبهم وأسروا النجوى الذين ظلموا",
+      "color": "green",
+      "matchedRef": "الأنبياء:3",
+      "claimedRef": "(الأنبياء:3)"
+    },
+    {
+      "text": "الذين ظلموا",
+      "color": "lightBlue",
+      "matchedRef": "البقرة:59",
+      "claimedRef": ""
+    },
+    {
+      "text": "هل هذا إلا بشر مثلكم",
+      "color": "green",
+      "matchedRef": "الأنبياء:3",
+      "claimedRef": "(الأنبياء:3)"
+    },
+    {
+      "text": "واقترب الوعد الحق فإذا هي شاخصة أبصار الذين كفروا يا ويلنا قد كنا في غفلة من هذا",
+      "color": "green",
+      "matchedRef": "الأنبياء:97",
+      "claimedRef": "(الأنبياء:97)"
+    },
+    {
+      "text": "يا ويلنا",
+      "color": "lightBlue",
+      "matchedRef": "الأنبياء:14",
+      "claimedRef": ""
+    },
+    {
+      "text": "وإذ يرفع إبراهيم القواعد من البيت وإسماعيل ربنا تقبل منا",
+      "color": "green",
+      "matchedRef": "البقرة:127",
+      "claimedRef": "(البقرة:127)"
+    },
+    {
+      "text": "ربنا تقبل منا إنك أنت السميع العليم",
+      "color": "lightBlue",
+      "matchedRef": "البقرة:127",
+      "claimedRef": ""
+    },
+    {
+      "text": "أهؤلاء الذين أقسمتم لا ينالهم الله برحمة ادخلوا الجنة لا خوف عليكم ولا أنتم تحزنون",
+      "color": "green",
+      "matchedRef": "الأعراف:49",
+      "claimedRef": "(الأعراف:49)"
+    },
+    {
+      "text": "ادخلوا الجنة لا خوف عليكم",
+      "color": "lightBlue",
+      "matchedRef": "الأعراف:49",
+      "claimedRef": ""
+    },
+    {
+      "text": "ولا أنتم تحزنون",
+      "color": "lightBlue",
+      "matchedRef": "الأعراف:49",
+      "claimedRef": ""
+    },
+    {
+      "text": "يوم تبيض وجوه وتسود وجوه فأما الذين اسودت وجوههم أكفرتم بعد إيمانكم",
+      "color": "green",
+      "matchedRef": "آل عمران:106",
+      "claimedRef": "(آل عمران:106)"
+    },
+    {
+      "text": "والذين اتخذوا من دونه أولياء ما نعبدهم إلا ليقربونا إلى الله زلفى",
+      "color": "green",
+      "matchedRef": "الزمر:3",
+      "claimedRef": "(الزمر:3)"
+    },
+    {
+      "text": "وعندهم قاصرات الطرف أتراب * هذا ما توعدون ليوم الحساب",
+      "color": "green",
+      "matchedRef": "ص:52-53",
+      "claimedRef": "(ص:52-53)"
+    },
+    {
+      "text": "لا يحزنهم الفزع الأكبر وتتلقاهم الملائكة هذا يومكم الذي كنتم توعدون",
+      "color": "green",
+      "matchedRef": "الأنبياء:103",
+      "claimedRef": "(الأنبياء:103)"
+    },
+    {
+      "text": "لو نشاء لجعلناه حطاما فظلتم تفكهون * إنا لمغرمون",
+      "color": "green",
+      "matchedRef": "الواقعة:65-66",
+      "claimedRef": "(الواقعة:65-66)"
+    },
+    {
+      "text": "ولو ترى إذ المجرمون ناكسو رءوسهم عند ربهم ربنا أبصرنا وسمعنا فارجعنا نعمل صالحا إنا موقنون",
+      "color": "green",
+      "matchedRef": "السجدة:12",
+      "claimedRef": "(السجدة:12)"
+    },
+    {
+      "text": "حتى إذا فزع عن قلوبهم قالوا ماذا قال ربكم قالوا الحق",
+      "color": "green",
+      "matchedRef": "سبأ:23",
+      "claimedRef": "(سبأ:23)"
+    }
+  ]
+}

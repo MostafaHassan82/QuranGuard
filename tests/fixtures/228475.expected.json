@@ -1,4 +1,66 @@
 {
-  "_skip": true,
-  "_comment": "Stale MV2 expected. Run --write-observed, review observed.json, then --update-expected."
+  "stats": {
+    "greenMatches": 9,
+    "lightBlueMatches": 0,
+    "yellowMatches": 0,
+    "orangeMatches": 0,
+    "redMatches": 0,
+    "totalFindings": 9
+  },
+  "matches": [
+    {
+      "text": "فلما استيأسوا منه خلصوا نجيا",
+      "color": "green",
+      "matchedRef": "يوسف:80",
+      "claimedRef": "(يوسف:80)"
+    },
+    {
+      "text": "وناديناه من جانب الطور الأيمن وقربناه نجيا",
+      "color": "green",
+      "matchedRef": "مريم:52",
+      "claimedRef": "(مريم:52)"
+    },
+    {
+      "text": "ومن يكن الشيطان له قرينا فساء قرينا",
+      "color": "green",
+      "matchedRef": "النساء:38",
+      "claimedRef": "(النساء:38)"
+    },
+    {
+      "text": "وكان الكافر على ربه ظهيرا",
+      "color": "green",
+      "matchedRef": "الفرقان:55",
+      "claimedRef": "(الفرقان:55)"
+    },
+    {
+      "text": "ولا تكن للخائنين خصيما",
+      "color": "green",
+      "matchedRef": "النساء:105",
+      "claimedRef": "(النساء:105)"
+    },
+    {
+      "text": "ولم يكن له شريك في الملك",
+      "color": "green",
+      "matchedRef": "الإسراء:111",
+      "claimedRef": "(الإسراء:111)"
+    },
+    {
+      "text": "واستفتحوا وخاب كل جبار عنيد",
+      "color": "green",
+      "matchedRef": "ابراهيم:15",
+      "claimedRef": "(إبراهيم:15)"
+    },
+    {
+      "text": "واجعل لي وزيرا من أهلي",
+      "color": "green",
+      "matchedRef": "طه:29",
+      "claimedRef": "(طه:29)"
+    },
+    {
+      "text": "رب السماوات والأرض وما بينهما فاعبده واصطبر لعبادته هل تعلم له سميا",
+      "color": "green",
+      "matchedRef": "مريم:65",
+      "claimedRef": "(مريم:65)"
+    }
+  ]
 }
