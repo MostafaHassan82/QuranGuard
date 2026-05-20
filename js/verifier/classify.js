@@ -41,6 +41,10 @@ const QuranClassify = (() => {
       matchedRefs: o.matchedRefs ?? [],
       claimedRef: o.claimedRef ?? null,
       authenticText: o.authenticText ?? null,
+      // T058a — the authentic wording for ONLY the cited span (excerpt shape
+      // preserved: contiguous slice, ellipsis-joined segments, or multi-ayah
+      // span). Falls back to null; swap.js then uses the full authenticText.
+      authenticExcerpt: o.authenticExcerpt ?? null,
       deviation: o.deviation ?? null,
       candidateConfidence: o.candidateConfidence ?? 'medium',
       matchType: o.matchType ?? 'none',

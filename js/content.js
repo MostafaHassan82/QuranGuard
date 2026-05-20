@@ -828,6 +828,9 @@ function applyHighlight(candidate, result, { hidden = false } = {}) {
       matchedRef: result.matchedRef || null,
       matchedRefs: result.matchedRefs || [],
       authenticText: result.authenticText || null,
+      // T058a — authentic wording for just the cited span (excerpt shape
+      // preserved); swap.js prefers this over the full ayah.
+      authenticExcerpt: result.authenticExcerpt || null,
       deviation: result.deviation,
       strategy: candidate.strategy,
     };

@@ -60,7 +60,16 @@ const QuranIndexes = (() => {
         const skelWords = skeleton.split(' ').filter(w => w.length > 0);
         const ref = `${surahName}:${ayahNum}`;
 
-        const record = { text: aya.text, tier1: t1, skeleton, tier1Words, skelWords, ref, surahName, surahNum, ayahNum };
+        // Uthmani words, aligned 1:1 with tier1Words by index. Used by the
+        // excerpt-preserving swap (T058a) to slice the authentic wording for
+        // just the cited span. Standalone Quranic annotation tokens (waqf/pause
+        // marks like ۛ ۚ) are their own space-delimited tokens that tier1()
+        // strips to empty — so we drop any token that normalizes to empty,
+        // keeping uthmaniWords aligned 1:1 with tier1Words. (Without this,
+        // ~44% of ayahs misaligned and the swap fell back to the whole ayah.)
+        const uthmaniWords = ayaText.split(' ').filter(w => w.length > 0 && tier1(w).length > 0);
+
+        const record = { text: aya.text, tier1: t1, skeleton, tier1Words, uthmaniWords, skelWords, ref, surahName, surahNum, ayahNum };
 
         byRef[surahNum][ayahNum] = record;
 

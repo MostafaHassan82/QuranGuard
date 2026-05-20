@@ -218,6 +218,62 @@ function isContiguousSoftSubsequence(haystackWords, needleWords) {
   return false;
 }
 
+// ── T058a — excerpt-preserving swap support ──────────────────────────────────
+// Build parallel tier1 + Uthmani word arrays across one or more records, with a
+// map back to the source ayah. Uthmani words align 1:1 with tier1 words per
+// record (see indexes.js); when a record's alignment is off (a token normalized
+// to empty), we fall back to null Uthmani entries for that record so callers
+// can detect the gap and decline rather than emit a misaligned excerpt.
+function buildParallelWords(records) {
+  const t1 = [], uth = [];
+  for (const rec of records) {
+    const aligned = Array.isArray(rec.uthmaniWords) && rec.uthmaniWords.length === rec.tier1Words.length;
+    for (let i = 0; i < rec.tier1Words.length; i++) {
+      t1.push(rec.tier1Words[i]);
+      uth.push(aligned ? rec.uthmaniWords[i] : null);
+    }
+  }
+  return { t1, uth };
+}
+
+// Find the contiguous span in `records` that aligns with candidateWords and
+// return the authentic Uthmani wording for just that span (FR-008 excerpt
+// shape). Returns null if no alignment or if Uthmani words are unavailable.
+function authenticExcerptForCandidate(records, candidateWords) {
+  if (!records || records.length === 0 || !candidateWords || candidateWords.length === 0) return null;
+  const { t1, uth } = buildParallelWords(records);
+  for (let i = 0; i < t1.length; i++) {
+    const endHi = alignSoftWithMerge(t1, candidateWords, i, 0);
+    if (endHi >= 0) {
+      const span = uth.slice(i, endHi);
+      if (span.length === 0 || span.some(w => w == null)) return null;
+      return span.join(' ');
+    }
+  }
+  return null;
+}
+
+// Ellipsis variant: align each segment in order and join the authentic spans
+// with the same ellipsis marker so the swap preserves the "first … last" shape.
+function authenticEllipsisExcerptForSegments(records, segWordsList) {
+  if (!records || records.length === 0 || !segWordsList || segWordsList.length === 0) return null;
+  const { t1, uth } = buildParallelWords(records);
+  const parts = [];
+  let cursor = 0;
+  for (const seg of segWordsList) {
+    let placed = -1, end = -1;
+    for (let i = cursor; i < t1.length; i++) {
+      const endHi = alignSoftWithMerge(t1, seg, i, 0);
+      if (endHi >= 0) { placed = i; end = endHi; cursor = endHi; break; }
+    }
+    if (placed === -1) return null;
+    const span = uth.slice(placed, end);
+    if (span.length === 0 || span.some(w => w == null)) return null;
+    parts.push(span.join(' '));
+  }
+  return parts.join(' … ');
+}
+
 // Multi-segment match for `*`-separated citations that span multiple verses
 // (and may skip verses). Each `*` is the page's verse-end marker; the segments
 // must each match a verse in the same surah in strictly ascending ayah order,
@@ -605,7 +661,7 @@ function verifyFragment(candidateText, candidateConfidence = 'medium') {
   const exactRecs = findExactGlobal(t1);
   if (exactRecs.length > 0) {
     const sorted = exactRecs.slice().sort((a, b) => a.surahNum - b.surahNum || a.ayahNum - b.ayahNum);
-    return makeResult({ color: 'lightBlue', matchedRef: sorted[0].ref, matchedRefs: sorted.map(r => r.ref), authenticText: sorted[0].text, deviation: classifyDeviation(sorted[0].text, candidateText), candidateConfidence, matchType: 'exact' });
+    return makeResult({ color: 'lightBlue', matchedRef: sorted[0].ref, matchedRefs: sorted.map(r => r.ref), authenticText: sorted[0].text, authenticExcerpt: authenticExcerptForCandidate([sorted[0]], words), deviation: classifyDeviation(sorted[0].text, candidateText), candidateConfidence, matchType: 'exact' });
   }
 
   // Strict first (matchedRef is the cleaner spelling); fall back to soft (handles
@@ -615,7 +671,7 @@ function verifyFragment(candidateText, candidateConfidence = 'medium') {
   if (orderedRecs.length === 0) orderedRecs = findOrderedContiguousSoftGlobal(words);
   if (orderedRecs.length > 0) {
     const sorted = orderedRecs.slice().sort((a, b) => a.surahNum - b.surahNum || a.ayahNum - b.ayahNum);
-    return makeResult({ color: 'lightBlue', matchedRef: sorted[0].ref, matchedRefs: sorted.map(r => r.ref), authenticText: sorted[0].text, deviation: 'spellingDrift', candidateConfidence, matchType: 'orderedContiguous' });
+    return makeResult({ color: 'lightBlue', matchedRef: sorted[0].ref, matchedRefs: sorted.map(r => r.ref), authenticText: sorted[0].text, authenticExcerpt: authenticExcerptForCandidate([sorted[0]], words), deviation: 'spellingDrift', candidateConfidence, matchType: 'orderedContiguous' });
   }
 
   // Multi-segment fallback for `*`-separated multi-verse citations (often used
@@ -643,7 +699,7 @@ function verifyFragment(candidateText, candidateConfidence = 'medium') {
   const wlRecs = wordLevelMatchGlobal(words);
   if (wlRecs.length > 0) {
     const sorted = wlRecs.slice().sort((a, b) => a.diffs - b.diffs || a.rec.surahNum - b.rec.surahNum);
-    return makeResult({ color: 'yellow', matchedRef: sorted[0].rec.ref, matchedRefs: sorted.slice(0, 3).map(r => r.rec.ref), authenticText: sorted[0].rec.text, deviation: 'wordLevel', candidateConfidence, matchType: 'partial' });
+    return makeResult({ color: 'yellow', matchedRef: sorted[0].rec.ref, matchedRefs: sorted.slice(0, 3).map(r => r.rec.ref), authenticText: sorted[0].rec.text, authenticExcerpt: authenticExcerptForCandidate([sorted[0].rec], words), deviation: 'wordLevel', candidateConfidence, matchType: 'partial' });
   }
 
   if (candidateConfidence === 'high') return makeResult({ color: 'red', candidateConfidence, matchType: 'none' });
@@ -690,11 +746,25 @@ function verifyFragmentByRef(candidateText, refString, candidateConfidence = 'me
   if (words.length === 0) return wrap(makeResult({ color: null, candidateConfidence, claimedRef: refString }));
   if (!resolved) return verifyFragment(candidateText, candidateConfidence);
 
+  // T058a — records for the resolved ayah(s); used to slice the authentic
+  // wording for just the cited span (excerpt-preserving swap).
+  const recordsFor = (r) => (r.ayahNums || []).map(n => indexes.byRef[r.surahNum]?.[n]).filter(Boolean);
+  // Ellipsis segment words (mirrors ellipsisMatchInClaimedAyahs' split) so we
+  // can build the authentic excerpt with the ellipsis shape preserved.
+  const ellSegWords = () => {
+    if (!/\.{3,}|…/.test(candidateText)) return null;
+    const segs = candidateText.split(/\s*(?:\.{3,}|…+)\s*/u).map(s => s.trim()).filter(Boolean);
+    if (segs.length < 2) return null;
+    const sw = segs.map(s => tier1Normalize(s).split(' ').filter(Boolean));
+    return sw.some(w => w.length === 0) ? null : sw;
+  };
+
   const t1InClaimed = tier1MatchInClaimedAyahs(candidateText, words, resolved, tr);
   if (t1InClaimed) {
     tr(`tier1MatchInClaimed: HIT (${t1InClaimed.displayRef}, deviation=${t1InClaimed.deviation}) → green`);
     const { allExactRefs, allPartialRefs } = findAllGlobalMatches(t1, words);
-    return wrap(makeResult({ color: 'green', matchedRef: preferClaimedSpelling(t1InClaimed.displayRef, refString), claimedRef: refString, authenticText: t1InClaimed.rec.text, deviation: t1InClaimed.deviation, candidateConfidence, matchType: 'exact', allExactRefs, allPartialRefs }));
+    const authenticExcerpt = authenticExcerptForCandidate(recordsFor(resolved), words);
+    return wrap(makeResult({ color: 'green', matchedRef: preferClaimedSpelling(t1InClaimed.displayRef, refString), claimedRef: refString, authenticText: t1InClaimed.rec.text, authenticExcerpt, deviation: t1InClaimed.deviation, candidateConfidence, matchType: 'exact', allExactRefs, allPartialRefs }));
   }
   tr(`tier1MatchInClaimed: MISS`);
 
@@ -706,7 +776,8 @@ function verifyFragmentByRef(candidateText, refString, candidateConfidence = 'me
     if (t1InRange) {
       tr(`tier1MatchInRange: HIT → green`);
       const { allExactRefs, allPartialRefs } = findAllGlobalMatches(t1, words);
-      return wrap(makeResult({ color: 'green', matchedRef: preferClaimedSpelling(t1InRange.displayRef, refString), claimedRef: refString, authenticText: t1InRange.rec.text, deviation: t1InRange.deviation, candidateConfidence, matchType: 'exact', allExactRefs, allPartialRefs }));
+      const authenticExcerpt = authenticExcerptForCandidate(recordsFor(rangeResolved), words);
+      return wrap(makeResult({ color: 'green', matchedRef: preferClaimedSpelling(t1InRange.displayRef, refString), claimedRef: refString, authenticText: t1InRange.rec.text, authenticExcerpt, deviation: t1InRange.deviation, candidateConfidence, matchType: 'exact', allExactRefs, allPartialRefs }));
     }
   }
 
@@ -717,7 +788,8 @@ function verifyFragmentByRef(candidateText, refString, candidateConfidence = 'me
   if (ellInClaimed) {
     tr(`ellipsisMatchInClaimed: HIT (${ellInClaimed.displayRef}) → green`);
     const { allExactRefs, allPartialRefs } = findAllGlobalMatches(t1, words);
-    return wrap(makeResult({ color: 'green', matchedRef: preferClaimedSpelling(ellInClaimed.displayRef, refString), claimedRef: refString, authenticText: ellInClaimed.rec.text, deviation: 'spellingDrift', candidateConfidence, matchType: 'exact', allExactRefs, allPartialRefs }));
+    const authenticExcerpt = authenticEllipsisExcerptForSegments(recordsFor(resolved), ellSegWords());
+    return wrap(makeResult({ color: 'green', matchedRef: preferClaimedSpelling(ellInClaimed.displayRef, refString), claimedRef: refString, authenticText: ellInClaimed.rec.text, authenticExcerpt, deviation: 'spellingDrift', candidateConfidence, matchType: 'exact', allExactRefs, allPartialRefs }));
   }
   if (resolved.rangeAyahNums) {
     const rangeResolved = { surahNum: resolved.surahNum, ayahNums: resolved.rangeAyahNums, isRange: true };
@@ -725,18 +797,19 @@ function verifyFragmentByRef(candidateText, refString, candidateConfidence = 'me
     if (ellInRange) {
       tr(`ellipsisMatchInRange: HIT → green`);
       const { allExactRefs, allPartialRefs } = findAllGlobalMatches(t1, words);
-      return wrap(makeResult({ color: 'green', matchedRef: preferClaimedSpelling(ellInRange.displayRef, refString), claimedRef: refString, authenticText: ellInRange.rec.text, deviation: 'spellingDrift', candidateConfidence, matchType: 'exact', allExactRefs, allPartialRefs }));
+      const authenticExcerpt = authenticEllipsisExcerptForSegments(recordsFor(rangeResolved), ellSegWords());
+      return wrap(makeResult({ color: 'green', matchedRef: preferClaimedSpelling(ellInRange.displayRef, refString), claimedRef: refString, authenticText: ellInRange.rec.text, authenticExcerpt, deviation: 'spellingDrift', candidateConfidence, matchType: 'exact', allExactRefs, allPartialRefs }));
     }
   }
 
   const wlInClaimed = wordLevelMatchInClaimedAyahs(words, resolved);
-  if (wlInClaimed) { tr(`wordLevelInClaimed: HIT (${wlInClaimed.rec.ref}, diffs=${wlInClaimed.diffs}) → yellow`); return wrap(makeResult({ color: 'yellow', matchedRef: preferClaimedSpelling(wlInClaimed.rec.ref, refString), claimedRef: refString, authenticText: wlInClaimed.rec.text, deviation: 'wordLevel', candidateConfidence, matchType: 'partial' })); }
+  if (wlInClaimed) { tr(`wordLevelInClaimed: HIT (${wlInClaimed.rec.ref}, diffs=${wlInClaimed.diffs}) → yellow`); const authenticExcerpt = authenticExcerptForCandidate(recordsFor(resolved), words); return wrap(makeResult({ color: 'yellow', matchedRef: preferClaimedSpelling(wlInClaimed.rec.ref, refString), claimedRef: refString, authenticText: wlInClaimed.rec.text, authenticExcerpt, deviation: 'wordLevel', candidateConfidence, matchType: 'partial' })); }
   tr(`wordLevelInClaimed: MISS`);
 
   if (resolved.rangeAyahNums) {
     const rangeResolved = { surahNum: resolved.surahNum, ayahNums: resolved.rangeAyahNums, isRange: true };
     const wlInRange = wordLevelMatchInClaimedAyahs(words, rangeResolved);
-    if (wlInRange) { tr(`wordLevelInRange: HIT → yellow`); return wrap(makeResult({ color: 'yellow', matchedRef: wlInRange.rec.ref, claimedRef: refString, authenticText: wlInRange.rec.text, deviation: 'wordLevel', candidateConfidence, matchType: 'partial' })); }
+    if (wlInRange) { tr(`wordLevelInRange: HIT → yellow`); const authenticExcerpt = authenticExcerptForCandidate(recordsFor(rangeResolved), words); return wrap(makeResult({ color: 'yellow', matchedRef: wlInRange.rec.ref, claimedRef: refString, authenticText: wlInRange.rec.text, authenticExcerpt, deviation: 'wordLevel', candidateConfidence, matchType: 'partial' })); }
   }
 
   // Single-word orange: text is a single word that doesn't appear in the claimed
@@ -754,6 +827,7 @@ function verifyFragmentByRef(candidateText, refString, candidateConfidence = 'me
         matchedRefs: elsewhere.map(r => r.ref),
         claimedRef: refString,
         authenticText: elsewhere[0].text,
+        authenticExcerpt: authenticExcerptForCandidate([elsewhere[0]], words),
         deviation: 'none',
         candidateConfidence,
         matchType: 'exact',
@@ -778,6 +852,7 @@ function verifyFragmentByRef(candidateText, refString, candidateConfidence = 'me
       matchedRefs: orangeHits.map(r => r.ref),
       claimedRef: refString,
       authenticText: orangeHits[0].text,
+      authenticExcerpt: authenticExcerptForCandidate([orangeHits[0]], words),
       deviation: 'none',
       candidateConfidence,
       matchType: 'exact',
@@ -789,7 +864,7 @@ function verifyFragmentByRef(candidateText, refString, candidateConfidence = 'me
   if (wlGlobal.length > 0) {
     const sorted = wlGlobal.slice().sort((a, b) => a.diffs - b.diffs || a.rec.surahNum - b.rec.surahNum);
     tr(`wordLevelGlobal: HIT (${wlGlobal.length} verses, best=${sorted[0].rec.ref} diffs=${sorted[0].diffs}) → yellow`);
-    return wrap(makeResult({ color: 'yellow', matchedRef: sorted[0].rec.ref, matchedRefs: sorted.slice(0, 3).map(r => r.rec.ref), claimedRef: refString, authenticText: sorted[0].rec.text, deviation: 'wordLevel', candidateConfidence, matchType: 'partial' }));
+    return wrap(makeResult({ color: 'yellow', matchedRef: sorted[0].rec.ref, matchedRefs: sorted.slice(0, 3).map(r => r.rec.ref), claimedRef: refString, authenticText: sorted[0].rec.text, authenticExcerpt: authenticExcerptForCandidate([sorted[0].rec], words), deviation: 'wordLevel', candidateConfidence, matchType: 'partial' }));
   }
   tr(`wordLevelGlobal: MISS`);
 

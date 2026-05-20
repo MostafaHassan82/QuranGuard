@@ -16,11 +16,19 @@ const QuranSwap = (() => {
   const ATTR_ORIG_LH    = 'data-quran-orig-line-height';
   const CSS_CLASS       = 'quran-swap';
 
+  // T058a — the text we actually paint into the page: the authentic wording
+  // for ONLY the cited span (excerpt shape preserved). Falls back to the full
+  // ayah if the verifier couldn't produce an aligned excerpt. The full ayah
+  // continues to live in finding.authenticText for the panel + copy/share.
+  function swapTextFor(finding) {
+    return finding.authenticExcerpt || finding.authenticText || '';
+  }
+
   function isEligible(finding, prefs) {
     if (!finding || finding.color === 'red') return false; // FR-015
     if (!prefs?.master?.authenticTextReplacement) return false; // FR-009 master
     if (prefs.perColor?.[finding.color] !== true) return false; // FR-009 per-color
-    if (!finding.authenticText || finding.authenticText.length === 0) return false;
+    if (!swapTextFor(finding)) return false;
     return true;
   }
 
@@ -63,7 +71,7 @@ const QuranSwap = (() => {
     span.setAttribute(ATTR_ORIG_SIZE, span.style.fontSize || '');
     span.setAttribute(ATTR_ORIG_LH,   span.style.lineHeight || '');
 
-    span.textContent = finding.authenticText;
+    span.textContent = swapTextFor(finding);
     span.classList.add(CSS_CLASS);
     span.style.fontFamily = QuranFonts.familyFor(prefs.font);
     applyBoundedSizing(span);
