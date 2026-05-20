@@ -70,7 +70,20 @@ async function saveSidebarCollapsed(collapsed) {
   } catch (_) {}
 }
 
+// Apply a UI language: switch the catalog, flip dir/lang on <html>, refill all
+// [data-i18n] nodes. Dynamic strings (status) read QuranI18n.t() at call time.
+function applyLang(lang) {
+  QuranI18n.setLang(lang);
+  document.documentElement.lang = lang;
+  document.documentElement.dir = QuranI18n.dir(lang);
+  QuranI18n.applyDom(document);
+}
+
 async function applyPrefsToUI(prefs) {
+  applyLang(QuranI18n.detect(prefs.lang));
+  const elLang = document.getElementById(QuranI18n.getLang() === 'en' ? 'lang-en' : 'lang-ar');
+  if (elLang) elLang.checked = true;
+
   const trigger = prefs.scanTrigger || 'manual';
   (trigger === 'autoscan'
     ? document.getElementById('trigger-auto')
@@ -91,17 +104,17 @@ async function onScanClick(liftCap = false) {
   btnContinue.disabled = true;
   document.getElementById('progress').hidden = false;
   document.getElementById('progress-count').textContent = '0';
-  setStatus('جارٍ الفحص…');
+  setStatus(QuranI18n.t('status_scanning'));
 
   try {
     const tab = await getActiveTab();
-    if (!tab) { setStatus('لم يتم العثور على صفحة نشطة'); return; }
+    if (!tab) { setStatus(QuranI18n.t('status_no_tab')); return; }
 
     activeScanId = null;
     QuranMsg.sendRequest('SCAN_START', { tabId: tab.id, mode: liftCap ? 'rescanAll' : 'manual', liftCap })
       .then(resp => {
         if (resp?.payload?.ok === false) {
-          setStatus('خطأ: ' + (resp.payload.error?.message || 'تعذّر بدء الفحص'));
+          setStatus(QuranI18n.t('status_error', { msg: resp.payload.error?.message || QuranI18n.t('status_start_error') }));
           btnScan.disabled = false;
           document.getElementById('progress').hidden = true;
           return;
@@ -114,34 +127,34 @@ async function onScanClick(liftCap = false) {
           .then(resp => {
             if (resp?.perCategoryCount) {
               displayStats(resp.perCategoryCount, resp.totalCount);
-              setStatus('اكتمل الفحص');
+              setStatus(QuranI18n.t('status_done'));
             }
           })
-          .catch(err => setStatus('خطأ: ' + err.message))
+          .catch(err => setStatus(QuranI18n.t('status_error', { msg: err.message })))
           .finally(() => {
             btnScan.disabled = false;
             document.getElementById('progress').hidden = true;
           });
       });
   } catch (e) {
-    setStatus('خطأ: ' + e.message);
+    setStatus(QuranI18n.t('status_error', { msg: e.message }));
     btnScan.disabled = false;
     document.getElementById('progress').hidden = true;
   }
 }
 
 async function onClearClick() {
-  setStatus('جارٍ المسح…');
+  setStatus(QuranI18n.t('status_clearing'));
   try {
     const tab = await getActiveTab();
-    if (!tab) { setStatus('لم يتم العثور على صفحة نشطة'); return; }
+    if (!tab) { setStatus(QuranI18n.t('status_no_tab')); return; }
     await sendToContent(tab.id, { type: 'clear' });
     document.getElementById('stats').hidden = true;
     document.getElementById('progress').hidden = true;
     document.getElementById('btn-continue').hidden = true;
-    setStatus('تم مسح التمييز');
+    setStatus(QuranI18n.t('status_cleared'));
   } catch (e) {
-    setStatus('خطأ: ' + e.message);
+    setStatus(QuranI18n.t('status_error', { msg: e.message }));
   }
 }
 
@@ -157,7 +170,7 @@ chrome.runtime.onMessage.addListener((msg) => {
 
   if (type === 'SCAN_CAP_HIT') {
     if (activeScanId && payload.scanId !== activeScanId) return;
-    setStatus(`توقّف عند ${payload.cap} نتيجة — الصفحة كبيرة`);
+    setStatus(QuranI18n.t('status_cap', { n: payload.cap }));
     document.getElementById('progress').hidden = true;
     document.getElementById('btn-continue').hidden = false;
     document.getElementById('btn-continue').disabled = false;
@@ -171,17 +184,17 @@ chrome.runtime.onMessage.addListener((msg) => {
     document.getElementById('progress').hidden = true;
 
     if (payload.finalState === 'notArabic') {
-      setStatus('الصفحة ليست بالعربية — لم يُعثر على آيات قرآنية');
+      setStatus(QuranI18n.t('status_not_arabic'));
       document.getElementById('stats').hidden = true;
       return;
     }
     if (payload.finalState === 'empty') {
-      setStatus('لم يُعثر على آيات قرآنية في هذه الصفحة');
+      setStatus(QuranI18n.t('status_empty'));
       document.getElementById('stats').hidden = true;
       return;
     }
 
-    setStatus('اكتمل الفحص');
+    setStatus(QuranI18n.t('status_done'));
     displayStats(payload.perCategoryCount, payload.totalCount);
   }
 });
@@ -199,21 +212,21 @@ async function hydrateFromActiveTab() {
     if (!state) return;
     activeScanId = state.scanId || null;
     if (state.scanning) {
-      setStatus('جارٍ الفحص…');
+      setStatus(QuranI18n.t('status_scanning'));
       document.getElementById('progress').hidden = false;
       document.getElementById('progress-count').textContent = state.totalCount ?? 0;
       return;
     }
     if (state.scanComplete) {
       if (state.languageDetected && state.languageDetected !== 'ar') {
-        setStatus('الصفحة ليست بالعربية — لم يُعثر على آيات قرآنية');
+        setStatus(QuranI18n.t('status_not_arabic'));
         return;
       }
       if (state.totalCount === 0) {
-        setStatus('لم يُعثر على آيات قرآنية في هذه الصفحة');
+        setStatus(QuranI18n.t('status_empty'));
         return;
       }
-      setStatus('اكتمل الفحص');
+      setStatus(QuranI18n.t('status_done'));
       displayStats(state.perCategoryCount, state.totalCount);
       if (state.capHit) {
         document.getElementById('btn-continue').hidden = false;
@@ -244,6 +257,16 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.querySelectorAll('input[name="panelInitialState"]').forEach(radio => {
     radio.addEventListener('change', () => {
       if (radio.checked) saveSidebarCollapsed(radio.value === 'collapsed');
+    });
+  });
+
+  // UI language (ar/en). Persist via prefs.lang → PREFS_CHANGED re-localizes the
+  // open sidebar; the popup re-localizes itself immediately.
+  document.querySelectorAll('input[name="uiLang"]').forEach(radio => {
+    radio.addEventListener('change', () => {
+      if (!radio.checked) return;
+      applyLang(radio.value);
+      savePrefs({ lang: radio.value });
     });
   });
 

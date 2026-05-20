@@ -2,58 +2,71 @@
 <html dir="rtl" lang="ar">
 <head>
   <meta charset="UTF-8">
-  <title>تدقيق آيات القرآن</title>
+  <title data-i18n="popup_title">تدقيق آيات القرآن</title>
   <link rel="stylesheet" href="../css/popup.css">
 </head>
 <body>
+  <!-- Language picker -->
+  <div id="lang-picker">
+    <label id="lang-label" data-i18n="lang_label">اللغة:</label>
+    <label class="toggle-option">
+      <input type="radio" name="uiLang" value="ar" id="lang-ar" checked>
+      <span>العربية</span>
+    </label>
+    <label class="toggle-option">
+      <input type="radio" name="uiLang" value="en" id="lang-en">
+      <span>English</span>
+    </label>
+  </div>
+
   <!-- Scan trigger toggle (T020) -->
   <div id="trigger-row">
-    <label id="trigger-label">وضع الفحص:</label>
+    <label id="trigger-label" data-i18n="scan_mode">وضع الفحص:</label>
     <label class="toggle-option">
       <input type="radio" name="scanTrigger" value="manual" id="trigger-manual" checked>
-      <span>يدوي</span>
+      <span data-i18n="manual">يدوي</span>
     </label>
     <label class="toggle-option">
       <input type="radio" name="scanTrigger" value="autoscan" id="trigger-auto">
-      <span>تلقائي</span>
+      <span data-i18n="auto">تلقائي</span>
     </label>
   </div>
 
   <div id="controls">
-    <button id="btn-scan">فحص الصفحة</button>
-    <button id="btn-continue" hidden>متابعة الفحص</button>
-    <button id="btn-clear">مسح التمييز</button>
+    <button id="btn-scan" data-i18n="scan_page">فحص الصفحة</button>
+    <button id="btn-continue" hidden data-i18n="continue_scan">متابعة الفحص</button>
+    <button id="btn-clear" data-i18n="clear_highlights">مسح التمييز</button>
   </div>
 
   <!-- Progressive reveal status (T029) -->
   <div id="status" role="status" aria-live="polite"></div>
   <div id="progress" hidden>
-    <span id="progress-count">0</span> نتيجة حتى الآن…
+    <span id="progress-count">0</span> <span id="progress-suffix" data-i18n="progress_suffix">نتيجة حتى الآن…</span>
   </div>
 
   <div id="stats" hidden>
     <div class="stat-row">
-      <span class="stat-label">إجمالي النتائج</span>
+      <span class="stat-label" data-i18n="stat_total">إجمالي النتائج</span>
       <span id="s-total" class="stat-value">0</span>
     </div>
     <div class="stat-row stat-orange">
-      <span class="stat-label">⚠ مرجع خاطئ</span>
+      <span class="stat-label" data-i18n="stat_orange">⚠ مرجع خاطئ</span>
       <span id="s-orange" class="stat-value">0</span>
     </div>
     <div class="stat-row">
-      <span class="stat-label">✓ تطابق تام</span>
+      <span class="stat-label" data-i18n="stat_green">✓ تطابق تام</span>
       <span id="s-green" class="stat-value">0</span>
     </div>
     <div class="stat-row">
-      <span class="stat-label">✓ تطابق بدون مرجع</span>
+      <span class="stat-label" data-i18n="stat_lightblue">✓ تطابق بدون مرجع</span>
       <span id="s-lightblue" class="stat-value">0</span>
     </div>
     <div class="stat-row">
-      <span class="stat-label">~ اختلاف لفظي</span>
+      <span class="stat-label" data-i18n="stat_yellow">~ اختلاف لفظي</span>
       <span id="s-yellow" class="stat-value">0</span>
     </div>
     <div class="stat-row">
-      <span class="stat-label">✗ لم يُتحقَّق</span>
+      <span class="stat-label" data-i18n="stat_red">✗ لم يُتحقَّق</span>
       <span id="s-red" class="stat-value">0</span>
     </div>
   </div>
@@ -61,18 +74,19 @@
   <!-- Initial sidebar panel state. The findings panel, filters, swap controls,
        and saved-corrections settings all live in the page-injected sidebar. -->
   <div id="panel-state-picker">
-    <label id="panel-state-label">لوحة النتائج تبدأ:</label>
+    <label id="panel-state-label" data-i18n="panel_start">لوحة النتائج تبدأ:</label>
     <label class="toggle-option">
       <input type="radio" name="panelInitialState" value="expanded" id="state-expanded" checked>
-      <span>مفتوحة</span>
+      <span data-i18n="expanded">مفتوحة</span>
     </label>
     <label class="toggle-option">
       <input type="radio" name="panelInitialState" value="collapsed" id="state-collapsed">
-      <span>مطوية</span>
+      <span data-i18n="collapsed">مطوية</span>
     </label>
   </div>
 
   <script src="../js/shared/messaging.js"></script>
+  <script src="../js/shared/i18n.js"></script>
   <script src="../js/popup.js"></script>
 </body>
 </html>

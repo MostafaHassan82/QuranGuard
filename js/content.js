@@ -25,6 +25,8 @@ const STATE = {
   try {
     const resp = await QuranMsg.sendRequest('PREFS_READ', {});
     STATE.prefs = resp?.payload?.result || null;
+    // T088 — set the tooltip/aria language from prefs (sidebar sets its own).
+    if (typeof QuranI18n !== 'undefined') QuranI18n.setLang(QuranI18n.detect(STATE.prefs?.lang));
   } catch (_) { /* keep STATE.prefs null; gates will short-circuit safely */ }
 })();
 
@@ -636,32 +638,34 @@ function canonicalRef(refString) {
   return refString.replace(/^[\s({«\[﴿]+|[\s)}»\]﴾]+$/g, '').replace(/\s+/g, ' ').trim();
 }
 
+function tt(key, vars) { return (typeof QuranI18n !== 'undefined') ? QuranI18n.t(key, vars) : key; }
+
 function buildTooltip(color, result) {
   switch (color) {
     case 'green': {
-      let tip = result.matchedRef || '(تطابق)';
+      let tip = result.matchedRef || tt('tip_match');
       const exact = result.allExactRefs || [];
       const partial = result.allPartialRefs || [];
       const otherExact = exact.filter(r => r !== result.matchedRef);
-      if (otherExact.length > 0) tip += '\nيُوجد أيضاً في: ' + otherExact.join(' • ');
-      if (partial.length > 0) tip += '\n(جزئي في: ' + partial.join(' • ') + ')';
+      if (otherExact.length > 0) tip += '\n' + tt('tip_also_in', { refs: otherExact.join(' • ') });
+      if (partial.length > 0) tip += '\n' + tt('tip_partial_in', { refs: partial.join(' • ') });
       return tip;
     }
     case 'lightBlue': {
       const refs = result.matchedRefs && result.matchedRefs.length > 1 ? result.matchedRefs.join(' • ') : (result.matchedRef || '');
-      return refs + '\n(لم يُذكر المرجع في الصفحة)';
+      return refs + '\n' + tt('tip_no_ref');
     }
     case 'yellow': {
       const matched = result.matchedRef || '';
       const claimed = result.claimedRef || '';
       const refsDiffer = claimed && canonicalRef(claimed) !== canonicalRef(matched);
-      const note = refsDiffer ? `\nمذكور كـ: ${claimed}\n(اختلاف لفظي + مرجع غير مطابق)` : '\n(اختلاف لفظي)';
+      const note = refsDiffer ? '\n' + tt('tip_word_level_and_ref', { cited: claimed }) : '\n' + tt('tip_word_level');
       return matched + note;
     }
-    case 'orange': return `مذكور كـ: ${result.claimedRef || '?'}\nالصواب: ${result.matchedRef || '?'}`;
+    case 'orange': return tt('tip_orange', { cited: result.claimedRef || '?', matched: result.matchedRef || '?' });
     case 'red': return result.claimedRef
-      ? `لم يُعثر على هذا النص في القرآن\nالمرجع المذكور: ${result.claimedRef}`
-      : 'لم يُعثر على هذا النص في القرآن';
+      ? tt('tip_red_with_ref', { ref: result.claimedRef })
+      : tt('tip_red');
     default: return '';
   }
 }
@@ -738,7 +742,7 @@ function wrapTextNodes(nodes, startOffset, endOffset, cssClass, dataAttrs) {
     const color = dataAttrs.color;
     if (color && CATEGORY_LABEL_AR[color]) {
       const tooltip = dataAttrs.tooltip || '';
-      span.setAttribute('aria-label', CATEGORY_LABEL_AR[color] + (tooltip ? '. ' + tooltip : ''));
+      span.setAttribute('aria-label', tt('cat_' + color) + (tooltip ? '. ' + tooltip : ''));
     }
     if (nodes.length === 1) {
       const node = nodes[0];
@@ -1437,7 +1441,7 @@ async function correctInPlace(findingId) {
         ayahSpan.dataset.matchedRef = successorMatchedRef;
         ayahSpan.dataset.tooltip = tip;
         if (CATEGORY_LABEL_AR[successorColor]) {
-          ayahSpan.setAttribute('aria-label', CATEGORY_LABEL_AR[successorColor] + (tip ? '. ' + tip : ''));
+          ayahSpan.setAttribute('aria-label', tt('cat_' + successorColor) + (tip ? '. ' + tip : ''));
         }
       }
     } else {
@@ -1585,6 +1589,11 @@ if (chrome?.runtime?.onMessage) {
       const prefs = payload?.prefs;
       if (!prefs) return;
       STATE.prefs = prefs;
+      // T089 — language switch: update tooltip language + re-localize the sidebar.
+      if (typeof QuranI18n !== 'undefined') QuranI18n.setLang(QuranI18n.detect(prefs.lang));
+      if (typeof QuranPanelSidebar !== 'undefined' && QuranPanelSidebar.isMounted()) {
+        try { QuranPanelSidebar.applyLang(prefs.lang); } catch (_) {}
+      }
       // T060 — reapply / revert authentic-text swaps to match the new master,
       // per-color, and font selections (FR-008, FR-009, FR-015). Gate the
       // mutation observer so the swap's own DOM writes don't trigger a

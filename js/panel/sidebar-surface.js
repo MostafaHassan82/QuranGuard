@@ -5,14 +5,10 @@
 // the findings list, filters, swap controls, and saved-corrections settings
 // (FR-010, FR-027, FR-029).
 const QuranPanelSidebar = (() => {
-  const CATEGORY_LABEL_AR = {
-    green:     'مطابق للقرآن مع المرجع',
-    lightBlue: 'مطابق للقرآن — لم يُذكر المرجع',
-    yellow:    'اختلاف لفظي',
-    orange:    'مرجع غير مطابق',
-    red:       'لم يُعثر عليه في القرآن',
-  };
   const CATEGORY_GLYPH = { green: '✓', lightBlue: '✓', yellow: '~', orange: '⚠', red: '✗' };
+  // i18n helpers (fall back to the key if QuranI18n isn't loaded for some reason).
+  const T = (k, v) => (typeof QuranI18n !== 'undefined') ? QuranI18n.t(k, v) : k;
+  const catLabel = (color) => T('cat_' + color);
 
   let rootEl = null;
   // Local filter mirrors prefs.panelFilter. Updated from chip toggles and
@@ -66,9 +62,9 @@ const QuranPanelSidebar = (() => {
     tabEl.className = 'quran-ext-panel-tab';
     tabEl.setAttribute('role', 'button');
     tabEl.setAttribute('tabindex', '0');
-    tabEl.setAttribute('aria-label', 'فتح اللوحة');
-    tabEl.title = 'فتح لوحة النتائج';
-    tabEl.textContent = 'النتائج ⟨';
+    tabEl.setAttribute('aria-label', T('tab_open_aria'));
+    tabEl.title = T('tab_open_aria');
+    tabEl.textContent = T('tab_text');
     const open = () => expand();
     tabEl.addEventListener('click', open);
     tabEl.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
@@ -140,7 +136,7 @@ const QuranPanelSidebar = (() => {
     swatch.className = `quran-ext-panel-swatch quran-ext-panel-swatch-${finding.color}`;
     swatch.setAttribute('aria-hidden', 'true');
     const label = document.createElement('span');
-    label.textContent = CATEGORY_LABEL_AR[finding.color] || finding.color;
+    label.textContent = catLabel(finding.color);
     head.append(glyph, swatch, label);
 
     const snippet = document.createElement('div');
@@ -155,7 +151,7 @@ const QuranPanelSidebar = (() => {
     else refs.textContent = matched || cited || '';
 
     row.setAttribute('aria-label',
-      `${CATEGORY_LABEL_AR[finding.color] || finding.color}. ${finding.text || ''}${refs.textContent ? '. ' + refs.textContent : ''}`);
+      `${catLabel(finding.color)}. ${finding.text || ''}${refs.textContent ? '. ' + refs.textContent : ''}`);
 
     row.append(head, snippet);
     if (refs.textContent) row.append(refs);
@@ -164,19 +160,19 @@ const QuranPanelSidebar = (() => {
     const actions = document.createElement('div');
     actions.className = 'quran-ext-panel-actions';
     if (finding.color === 'orange') {
-      actions.append(makeActionBtn('تصحيح', () => runAction('correctInPlace', finding)));
+      actions.append(makeActionBtn(T('act_correct'), () => runAction('correctInPlace', finding)));
     }
     actions.append(
-      makeActionBtn('نسخ',    () => runAction('copy',   finding)),
-      makeActionBtn('مشاركة', () => runAction('share',  finding)),
-      makeActionBtn('تقرير',  () => runAction('report', finding)),
-      makeActionBtn('JSON',   () => runAction('json',   finding)),
+      makeActionBtn(T('act_copy'),   () => runAction('copy',   finding)),
+      makeActionBtn(T('act_share'),  () => runAction('share',  finding)),
+      makeActionBtn(T('act_report'), () => runAction('report', finding)),
+      makeActionBtn(T('act_json'),   () => runAction('json',   finding)),
     );
     const isDismissed = finding.panelState?.dismissedThisSession === true ||
                         finding.panelState?.persistedBadge?.kind === 'dismissed';
     actions.append(isDismissed
-      ? makeActionBtn('استرجاع', () => runAction('restore', finding))
-      : makeActionBtn('تجاهل',   () => runAction('dismiss', finding)));
+      ? makeActionBtn(T('act_restore'), () => runAction('restore', finding))
+      : makeActionBtn(T('act_dismiss'), () => runAction('dismiss', finding)));
     row.append(actions);
     row.addEventListener('click', (e) => {
       if (e.target.closest('.quran-ext-panel-action-btn')) return;
@@ -187,7 +183,7 @@ const QuranPanelSidebar = (() => {
     if (persist) {
       const badge = document.createElement('span');
       badge.className = `quran-ext-panel-persisted quran-ext-panel-persisted-${persist.kind}`;
-      badge.textContent = (persist.kind === 'corrected' ? 'صُحِّح سابقًا' : 'مرفوض سابقًا') +
+      badge.textContent = T(persist.kind === 'corrected' ? 'badge_corrected' : 'badge_dismissed') +
                           (persist.when ? ` — ${persist.when}` : '');
       row.append(badge);
     }
@@ -257,16 +253,16 @@ const QuranPanelSidebar = (() => {
       const empty = document.createElement('div');
       empty.className = 'quran-ext-panel-empty';
       empty.textContent = QuranPanelModel.size() === 0
-        ? 'لا توجد نتائج بعد'
-        : 'لا توجد نتائج تطابق المرشّحات الحالية';
+        ? T('empty_no_results')
+        : T('empty_no_match_filter');
       container.append(empty);
       return;
     }
     // FR-022 — "Recently corrected" pinned at the top, regardless of filter.
-    if (recent.length)    container.append(makeSection('صُحِّحت مؤخرًا', recent));
-    if (active.length)    container.append(makeSection('النتائج', active));
-    if (dismissed.length) container.append(makeSection('مرفوضة (هذه الجلسة)', dismissed));
-    if (prior.length)     container.append(makeSection('مرفوضة سابقًا', prior));
+    if (recent.length)    container.append(makeSection(T('section_recent'), recent));
+    if (active.length)    container.append(makeSection(T('section_results'), active));
+    if (dismissed.length) container.append(makeSection(T('section_dismissed'), dismissed));
+    if (prior.length)     container.append(makeSection(T('section_prior_dismissed'), prior));
   }
 
   function syncChips() {
@@ -330,15 +326,32 @@ const QuranPanelSidebar = (() => {
       try {
         const resp = await QuranMsg.sendRequest('CLEAR_PERSISTED', {});
         const pruned = resp?.payload?.result?.prunedCount ?? 0;
-        if (status) status.textContent = `تم المسح — لا توجد عناصر محفوظة (أُزيلت ${pruned}).`;
+        if (status) status.textContent = T('persist_cleared', { n: pruned });
         QuranPanelModel.all().forEach(f => { if (f.panelState) f.panelState.persistedBadge = null; });
         render();
       } catch (_) {
-        if (status) status.textContent = 'تعذّر المسح. حاول مرة أخرى.';
+        if (status) status.textContent = T('persist_clear_failed');
       } finally {
         clearBtn.disabled = false;
       }
     });
+  }
+
+  // Localize the static markup + set dir/lang on the panel root (T088/T089).
+  function setLangDom(lang) {
+    if (typeof QuranI18n === 'undefined' || !rootEl) return;
+    QuranI18n.setLang(QuranI18n.detect(lang));
+    rootEl.setAttribute('lang', QuranI18n.getLang());
+    rootEl.setAttribute('dir', QuranI18n.dir());
+    QuranI18n.applyDom(rootEl);
+  }
+
+  // Called by content.js on PREFS_CHANGED so a language switch re-localizes the
+  // open sidebar (static markup + dynamic rows) without a reload.
+  function applyLang(lang) {
+    if (!rootEl) return;
+    setLangDom(lang);
+    render();
   }
 
   // Mount the sidebar into the host page if not already present. Reads filter
@@ -365,6 +378,7 @@ const QuranPanelSidebar = (() => {
       activeFilter = prefs.panelFilter || { orange: true };
     } catch (_) { activeFilter = { orange: true }; }
 
+    setLangDom(prefs.lang); // localize static markup + set dir/lang on the panel
     syncChips();
     wireEvents();
     syncSwapControls(prefs);
@@ -456,5 +470,5 @@ const QuranPanelSidebar = (() => {
     return true;
   }
 
-  return { mount, unmount, upsert, ingest, reset, tagPersisted, isMounted, clearUserClosed, focusRow };
+  return { mount, unmount, upsert, ingest, reset, tagPersisted, isMounted, clearUserClosed, focusRow, applyLang };
 })();

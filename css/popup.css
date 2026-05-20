@@ -160,7 +160,8 @@ button:disabled {
 .filter-chip.filter-red:has(input:checked)       { background: #f7d8dc; border-color: #b00020; color: #8a0017; }
 
 #surface-picker,
-#panel-state-picker {
+#panel-state-picker,
+#lang-picker {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -170,12 +171,15 @@ button:disabled {
   border-top: 1px solid #e0e0e0;
   padding-top: 8px;
 }
+#lang-picker { margin-top: 0; border-top: none; padding-top: 0; margin-bottom: 4px; }
 
 #surface-label,
-#panel-state-label { font-weight: 600; }
+#panel-state-label,
+#lang-label { font-weight: 600; }
 
 #surface-picker .toggle-option,
-#panel-state-picker .toggle-option {
+#panel-state-picker .toggle-option,
+#lang-picker .toggle-option {
   display: inline-flex;
   align-items: center;
   gap: 3px;

@@ -10,12 +10,14 @@ const QuranPrefs = (() => {
     font: 'uthmaniHafs',
     scanTrigger: 'manual',
     panelSurface: 'popup',
+    lang: 'ar',
     panelFilter: { orange: true, green: false, lightBlue: false, yellow: false, red: false },
   };
 
   const VALID_FONTS = new Set(['uthmaniHafs', 'indoPak', 'simplified']);
   const VALID_SCAN_TRIGGERS = new Set(['manual', 'autoscan']);
   const VALID_PANEL_SURFACES = new Set(['popup', 'sidebar']);
+  const VALID_LANGS = new Set(['ar', 'en']);
 
   function applyDefaults(raw) {
     const p = raw ? JSON.parse(JSON.stringify(raw)) : {};
@@ -32,6 +34,7 @@ const QuranPrefs = (() => {
     if (!VALID_FONTS.has(p.font)) p.font = DEFAULTS.font;
     if (!VALID_SCAN_TRIGGERS.has(p.scanTrigger)) p.scanTrigger = DEFAULTS.scanTrigger;
     if (!VALID_PANEL_SURFACES.has(p.panelSurface)) p.panelSurface = DEFAULTS.panelSurface;
+    if (!VALID_LANGS.has(p.lang)) p.lang = DEFAULTS.lang;
 
     if (!p.panelFilter || typeof p.panelFilter !== 'object') p.panelFilter = {};
     for (const color of ['orange', 'green', 'lightBlue', 'yellow', 'red']) {

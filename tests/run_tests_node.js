@@ -73,6 +73,7 @@ const BACKGROUND_DEPS = [
   'js/badge/badge.js',
 ];
 const CONTENT_BUNDLE = [
+  'js/shared/i18n.js',
   'js/panel/model.js',
   'js/panel/actions.js',
   'js/panel/keyboard.js',

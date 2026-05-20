@@ -1,65 +1,66 @@
 <!-- T048 — page-injected sidebar surface (FR-010).
      Markup is fetched at runtime by js/panel/sidebar-surface.js and inserted
      into the host page's <body>. All styles live in css/sidebar.css and are
-     namespaced under .quran-ext-panel to prevent host-page CSS bleed. -->
-<aside class="quran-ext-panel" role="region" aria-label="نتائج التحقق من الاقتباسات" aria-keyshortcuts="Alt+Shift+Q">
+     namespaced under .quran-ext-panel to prevent host-page CSS bleed.
+     [data-i18n*] attributes are filled by QuranI18n.applyDom after mount. -->
+<aside class="quran-ext-panel" role="region" data-i18n-aria="panel_region_aria" aria-label="نتائج التحقق من الاقتباسات" aria-keyshortcuts="Alt+Shift+Q">
   <!-- Drag this left edge to widen/narrow the sidebar. -->
-  <div class="quran-ext-panel-resize" role="separator" aria-orientation="vertical" aria-label="تغيير العرض"></div>
+  <div class="quran-ext-panel-resize" role="separator" aria-orientation="vertical" data-i18n-aria="resize_aria" aria-label="تغيير العرض"></div>
   <header class="quran-ext-panel-header">
-    <h2 class="quran-ext-panel-title">نتائج التحقق</h2>
-    <button class="quran-ext-panel-collapse" type="button" aria-label="طيّ اللوحة" title="طيّ">⟨</button>
+    <h2 class="quran-ext-panel-title" data-i18n="sidebar_title">نتائج التحقق</h2>
+    <button class="quran-ext-panel-collapse" type="button" data-i18n-aria="collapse_aria" data-i18n-title="collapse" aria-label="طيّ اللوحة" title="طيّ">⟨</button>
   </header>
-  <div class="quran-ext-panel-hint" title="اضغط Alt+Shift+Q من أي مكان في الصفحة للعودة إلى اللوحة">
+  <div class="quran-ext-panel-hint" data-i18n-title="hint_title" data-i18n="hint" title="اضغط Alt+Shift+Q من أي مكان في الصفحة للعودة إلى اللوحة">
     Alt+Shift+Q ← اللوحة
   </div>
 
   <div class="quran-ext-filter-chips" role="group" aria-label="تصفية حسب الفئة">
     <label class="quran-ext-filter-chip quran-ext-filter-orange" tabindex="0">
-      <input type="checkbox" data-color="orange"><span>⚠ مرجع خاطئ</span>
+      <input type="checkbox" data-color="orange"><span data-i18n="chip_orange">⚠ مرجع خاطئ</span>
     </label>
     <label class="quran-ext-filter-chip quran-ext-filter-green" tabindex="0">
-      <input type="checkbox" data-color="green"><span>✓ تطابق تام</span>
+      <input type="checkbox" data-color="green"><span data-i18n="chip_green">✓ تطابق تام</span>
     </label>
     <label class="quran-ext-filter-chip quran-ext-filter-lightBlue" tabindex="0">
-      <input type="checkbox" data-color="lightBlue"><span>✓ بدون مرجع</span>
+      <input type="checkbox" data-color="lightBlue"><span data-i18n="chip_lightBlue">✓ بدون مرجع</span>
     </label>
     <label class="quran-ext-filter-chip quran-ext-filter-yellow" tabindex="0">
-      <input type="checkbox" data-color="yellow"><span>~ اختلاف لفظي</span>
+      <input type="checkbox" data-color="yellow"><span data-i18n="chip_yellow">~ اختلاف لفظي</span>
     </label>
     <label class="quran-ext-filter-chip quran-ext-filter-red" tabindex="0">
-      <input type="checkbox" data-color="red"><span>✗ لم يُتحقَّق</span>
+      <input type="checkbox" data-color="red"><span data-i18n="chip_red">✗ لم يُتحقَّق</span>
     </label>
   </div>
 
   <!-- Authentic-text swap controls (moved from popup; T061, FR-009) -->
   <details class="quran-ext-swap">
-    <summary>عرض النص القرآني الأصلي</summary>
+    <summary data-i18n="swap_summary">عرض النص القرآني الأصلي</summary>
     <label class="quran-ext-swap-row">
-      <input type="checkbox" class="quran-ext-swap-master"><span>تفعيل (رئيسي)</span>
+      <input type="checkbox" class="quran-ext-swap-master"><span data-i18n="swap_master">تفعيل (رئيسي)</span>
     </label>
     <div class="quran-ext-swap-per-color">
-      <label class="quran-ext-swap-row"><input type="checkbox" data-swap-color="green"><span>تطابق تام</span></label>
-      <label class="quran-ext-swap-row"><input type="checkbox" data-swap-color="lightBlue"><span>تطابق بدون مرجع</span></label>
-      <label class="quran-ext-swap-row"><input type="checkbox" data-swap-color="yellow"><span>اختلاف لفظي</span></label>
-      <label class="quran-ext-swap-row"><input type="checkbox" data-swap-color="orange"><span>مرجع غير مطابق</span></label>
-      <label class="quran-ext-swap-row" title="الأحمر دائمًا معطّل (FR-015)">
-        <input type="checkbox" data-swap-color="red" disabled><span>لم يُتحقَّق — دائمًا معطّل</span>
+      <label class="quran-ext-swap-row"><input type="checkbox" data-swap-color="green"><span data-i18n="swap_green">تطابق تام</span></label>
+      <label class="quran-ext-swap-row"><input type="checkbox" data-swap-color="lightBlue"><span data-i18n="swap_lightBlue">تطابق بدون مرجع</span></label>
+      <label class="quran-ext-swap-row"><input type="checkbox" data-swap-color="yellow"><span data-i18n="swap_yellow">اختلاف لفظي</span></label>
+      <label class="quran-ext-swap-row"><input type="checkbox" data-swap-color="orange"><span data-i18n="swap_orange">مرجع غير مطابق</span></label>
+      <label class="quran-ext-swap-row" data-i18n-title="swap_red_title" title="الأحمر دائمًا معطّل">
+        <input type="checkbox" data-swap-color="red" disabled><span data-i18n="swap_red">لم يُتحقَّق — دائمًا معطّل</span>
       </label>
     </div>
     <div class="quran-ext-swap-font">
-      <label>الخط:</label>
+      <label data-i18n="font_label">الخط:</label>
       <select class="quran-ext-font-select">
-        <option value="uthmaniHafs">عثماني — حفص</option>
-        <option value="indoPak">هندي / باكستاني</option>
-        <option value="simplified">مبسّط</option>
+        <option value="uthmaniHafs" data-i18n="font_uthmani">عثماني — حفص</option>
+        <option value="indoPak" data-i18n="font_indoPak">هندي / باكستاني</option>
+        <option value="simplified" data-i18n="font_simplified">مبسّط</option>
       </select>
     </div>
   </details>
 
   <!-- Saved corrections/dismissals (moved from popup; T072, FR-024) -->
   <details class="quran-ext-persist">
-    <summary>التصحيحات والتجاهلات المحفوظة</summary>
-    <button type="button" class="quran-ext-clear-persisted">مسح التصحيحات والتجاهلات المحفوظة</button>
+    <summary data-i18n="persist_summary">التصحيحات والتجاهلات المحفوظة</summary>
+    <button type="button" class="quran-ext-clear-persisted" data-i18n="clear_persisted">مسح التصحيحات والتجاهلات المحفوظة</button>
     <div class="quran-ext-persist-status" role="status" aria-live="polite"></div>
   </details>
 

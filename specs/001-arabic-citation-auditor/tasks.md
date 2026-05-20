@@ -392,24 +392,24 @@ matching logic.
 
 ### Multilingual UI (Arabic + English to start)
 
-- [ ] T087 Add an i18n layer. Create a `QuranI18n` module (`js/shared/i18n.js`)
+- [X] T087 Add an i18n layer. Create a `QuranI18n` module (`js/shared/i18n.js`)
   with `ar` + `en` message catalogs (key → string) and `t(key, vars)` +
   `dir(lang)` (rtl/ar, ltr/en). Source the active language from a new
   `prefs.lang` (default: browser UI language if ar/en, else `en`); fall back to
   `ar`. Decision: roll our own tiny catalog rather than `chrome.i18n`/`_locales`
   so the page-injected sidebar (content world) and popup share one runtime
   switch without a reload. Document the contract inline.
-- [ ] T088 Replace hardcoded Arabic strings with `t(...)` across: `html/popup.html`
+- [X] T088 Replace hardcoded Arabic strings with `t(...)` across: `html/popup.html`
   + `js/popup.js`, `html/sidebar.html` + `js/panel/sidebar-surface.js`,
   `js/panel/actions.js` (record labels), tooltips in `js/content.js`
   (`buildTooltip`, `CATEGORY_LABEL_AR` → keyed), and `aria-label`s. Keep the
   category *meanings* fixed (Principle II) — only their display strings localize.
-- [ ] T089 Wire a language switch in the popup (and reflect in the sidebar):
+- [X] T089 Wire a language switch in the popup (and reflect in the sidebar):
   set `dir`/`lang` on the panel root and popup `<html>` from `dir(lang)` so the
   English UI renders LTR while the Quran/Arabic citation content stays RTL.
   Persist via `prefs.lang`; broadcast `PREFS_CHANGED` so the open sidebar
   re-renders in the new language without a reload.
-- [ ] T090 [P] i18n fixtures/checks: assert every `t()` key exists in both
+- [X] T090 [P] i18n fixtures/checks: assert every `t()` key exists in both
   catalogs (no missing-translation fallback in shipped UI); spot-check RTL/LTR
   flip in the harness.
 
