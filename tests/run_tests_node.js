@@ -217,6 +217,10 @@ async function runOne(context, htmlSource, label, seedSettings) {
 function normalizeResult(raw, label) {
   if (!raw || raw.error) return { source_label: label, error: raw && raw.error, stats: {}, matches: [] };
   const pcc = (raw.scan && raw.scan.perCategoryCount) || {};
+  // Capture from findings (the ORIGINAL page text in `text`), not from the
+  // highlight span's textContent — the authentic-text swap rewrites the span's
+  // text to Uthmani+tashkeel, but expected.json records the page's wording.
+  const src = (raw.findings && raw.findings.length) ? raw.findings : (raw.matches || []);
   return {
     source_label: label,
     stats: {
@@ -225,11 +229,12 @@ function normalizeResult(raw, label) {
       yellowMatches: pcc.yellow || 0,
       orangeMatches: pcc.orange || 0,
       redMatches: pcc.red || 0,
-      totalFindings: (raw.scan && raw.scan.totalCount) || (raw.matches ? raw.matches.length : 0),
+      totalFindings: (raw.scan && raw.scan.totalCount) || src.length,
     },
-    matches: (raw.matches || []).map(m => ({
-      text: m.text || '', color: m.color || '',
-      matchedRef: m.matchedRef || '', claimedRef: m.claimedRef || '',
+    matches: src.map(m => ({
+      text: m.text || m.rawText || '', color: m.color || m.category || '',
+      matchedRef: m.matchedRef || m.matchedReference || '',
+      claimedRef: m.claimedRef || m.citedReference || '',
     })),
   };
 }
@@ -247,6 +252,36 @@ function compare(observed, expected) {
   return { passed: diffs.length === 0, diffs };
 }
 
+// Launch a system Chromium-based browser. Set QURAN_TEST_BROWSER to an
+// executable path to override detection (any Chromium build works: Chrome,
+// Brave, Edge, Chromium).
+async function launchSystemChromium() {
+  const opts = { headless: true };
+  const env = process.env.QURAN_TEST_BROWSER;
+  if (env && fs.existsSync(env)) return chromium.launch({ ...opts, executablePath: env });
+
+  const home = process.env.LOCALAPPDATA || '';
+  const candidates = [
+    'C:/Program Files/Google/Chrome/Application/chrome.exe',
+    'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe',
+    'C:/Program Files/BraveSoftware/Brave-Browser/Application/brave.exe',
+    'C:/Program Files (x86)/BraveSoftware/Brave-Browser/Application/brave.exe',
+    'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',
+    'C:/Program Files/Microsoft/Edge/Application/msedge.exe',
+    home && `${home}/Google/Chrome/Application/chrome.exe`,
+    home && `${home}/BraveSoftware/Brave-Browser/Application/brave.exe`,
+    '/usr/bin/google-chrome',
+    '/usr/bin/chromium',
+    '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+    '/Applications/Brave Browser.app/Contents/MacOS/Brave Browser',
+  ].filter(Boolean);
+  for (const p of candidates) {
+    if (fs.existsSync(p)) return chromium.launch({ ...opts, executablePath: p });
+  }
+  // Last resort: Playwright's bundled Chromium (needs `npx playwright install`).
+  return chromium.launch(opts);
+}
+
 async function main() {
   const argv = process.argv.slice(2);
   const all = argv.includes('--all');
@@ -254,12 +289,11 @@ async function main() {
   const textSnippet = textIdx !== -1 ? argv[textIdx + 1] : null;
   const fixtureArg = argv.find(a => !a.startsWith('--') && a !== textSnippet);
 
-  // Prefer the system Chrome (T084: "headless Playwright + system Chrome") so we
-  // don't need Playwright's bundled Chromium download (which fails behind TLS
-  // intercepting proxies). Fall back to bundled Chromium if Chrome isn't found.
-  let browser;
-  try { browser = await chromium.launch({ headless: true, channel: 'chrome' }); }
-  catch (_) { browser = await chromium.launch({ headless: true }); }
+  // Use a system Chromium-based browser (T084: "headless Playwright + system
+  // Chrome") so we don't need Playwright's bundled Chromium download (which
+  // fails behind TLS-intercepting proxies). Order: explicit env override →
+  // first detected install (Chrome / Brave / Edge — all Chromium) → bundled.
+  const browser = await launchSystemChromium();
   const context = await browser.newContext({ ignoreHTTPSErrors: true });
   let passed = 0, total = 0;
   try {
