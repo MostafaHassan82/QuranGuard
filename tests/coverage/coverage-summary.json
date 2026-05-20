@@ -1,0 +1,116 @@
+{
+  "generatedAt": "2026-05-20T21:49:52.878Z",
+  "overallLinePct": 84.7,
+  "totalLines": 4057,
+  "coveredLines": 3438,
+  "files": [
+    {
+      "file": "js/background.js",
+      "lines": 986,
+      "coveredLines": 792,
+      "linePct": 80.3
+    },
+    {
+      "file": "js/badge/badge.js",
+      "lines": 59,
+      "coveredLines": 56,
+      "linePct": 94.9
+    },
+    {
+      "file": "js/content.js",
+      "lines": 1502,
+      "coveredLines": 1248,
+      "linePct": 83.1
+    },
+    {
+      "file": "js/debug-bridge.js",
+      "lines": 7,
+      "coveredLines": 5,
+      "linePct": 71.4
+    },
+    {
+      "file": "js/panel/actions.js",
+      "lines": 183,
+      "coveredLines": 153,
+      "linePct": 83.6
+    },
+    {
+      "file": "js/panel/keyboard.js",
+      "lines": 111,
+      "coveredLines": 107,
+      "linePct": 96.4
+    },
+    {
+      "file": "js/panel/model.js",
+      "lines": 136,
+      "coveredLines": 113,
+      "linePct": 83.1
+    },
+    {
+      "file": "js/panel/sidebar-surface.js",
+      "lines": 417,
+      "coveredLines": 355,
+      "linePct": 85.1
+    },
+    {
+      "file": "js/render/fonts.js",
+      "lines": 34,
+      "coveredLines": 34,
+      "linePct": 100
+    },
+    {
+      "file": "js/render/swap.js",
+      "lines": 99,
+      "coveredLines": 97,
+      "linePct": 98
+    },
+    {
+      "file": "js/shared/messaging.js",
+      "lines": 52,
+      "coveredLines": 36,
+      "linePct": 69.2
+    },
+    {
+      "file": "js/storage/persisted.js",
+      "lines": 87,
+      "coveredLines": 72,
+      "linePct": 82.8
+    },
+    {
+      "file": "js/storage/prefs.js",
+      "lines": 63,
+      "coveredLines": 57,
+      "linePct": 90.5
+    },
+    {
+      "file": "js/verifier/classify.js",
+      "lines": 58,
+      "coveredLines": 51,
+      "linePct": 87.9
+    },
+    {
+      "file": "js/verifier/indexes.js",
+      "lines": 83,
+      "coveredLines": 83,
+      "linePct": 100
+    },
+    {
+      "file": "js/verifier/normalize.js",
+      "lines": 77,
+      "coveredLines": 77,
+      "linePct": 100
+    },
+    {
+      "file": "js/verifier/orange.js",
+      "lines": 49,
+      "coveredLines": 48,
+      "linePct": 98
+    },
+    {
+      "file": "js/verifier/references.js",
+      "lines": 54,
+      "coveredLines": 54,
+      "linePct": 100
+    }
+  ]
+}
