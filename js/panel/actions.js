@@ -52,16 +52,29 @@ const QuranActions = (() => {
 
   function toJson(record) { return JSON.stringify(record, null, 2); }
 
-  // Build the share URL with a Chrome text fragment (#:~:text=). T092 extends
-  // this to highlight BOTH the ayah and the cited reference.
+  function encodeFragment(s) {
+    const t = (s || '').trim();
+    return encodeURIComponent(t.length > 300 ? t.slice(0, 300) : t);
+  }
+
+  // T092 — build the share URL with Chrome text fragments. Highlight BOTH the
+  // ayah AND the cited reference (multiple directives joined by `&`), so an
+  // orange finding's wrong reference is highlighted alongside the verse — that
+  // mismatch is usually the reason for sharing. Falls back to ayah-only (or the
+  // bare URL) when a piece is missing or the URL can't be parsed.
   function buildShareUrl(finding, opts = {}) {
     const base = opts.pageUrl || (typeof location !== 'undefined' ? location.href : '');
-    const snippet = (finding.text || finding.rawText || '').trim();
-    if (!snippet || !base) return base;
-    const trimmed = snippet.length > 300 ? snippet.slice(0, 300) : snippet;
+    if (!base) return base;
+    const directives = [];
+    const ayah = (finding.text || finding.rawText || '').trim();
+    if (ayah) directives.push('text=' + encodeFragment(ayah));
+    const ref = (finding.refText || finding.claimedRef || finding.citedReference || '').trim();
+    // Only add the ref directive when it isn't already part of the ayah snippet.
+    if (ref && !ayah.includes(ref)) directives.push('text=' + encodeFragment(ref));
+    if (!directives.length) return base;
     try {
       const u = new URL(base);
-      u.hash = `:~:text=${encodeURIComponent(trimmed)}`;
+      u.hash = ':~:' + directives.join('&');
       return u.toString();
     } catch (_) { return base; }
   }

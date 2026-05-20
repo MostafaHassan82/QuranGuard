@@ -421,7 +421,7 @@ matching logic.
   attributes “{snippet}” to {citedRef}, but it actually appears at {trueRef} in
   the Quran."*; green/lightBlue/yellow get their own friendly templates. Keep a
   separate machine-readable record only behind "Copy as JSON" (FR-011).
-- [ ] T092 Highlight BOTH the ayah and the reference in the shared link. Text
+- [X] T092 Highlight BOTH the ayah and the reference in the shared link. Text
   fragments support multiple directives joined by `&`, so emit
   `#:~:text=<ayah>&text=<citedRef>` (and, for orange, optionally a second
   fragment for the true ref if it appears on the page). Guard total URL length;
@@ -437,7 +437,7 @@ matching logic.
     the finding then scrolls, or (b) appending a human-readable caption to the
     copied *body* (T091) rather than the URL. Recommend (b) for V1.1; (a) is a
     bigger, hosted-infra change — defer unless wanted.
-- [ ] T093 [P] Share fixtures: assert the generated URL contains both the ayah
+- [X] T093 [P] Share fixtures: assert the generated URL contains both the ayah
   and the cited-ref directives for an orange finding, and that the body matches
   the localized friendly template for each color.
 
