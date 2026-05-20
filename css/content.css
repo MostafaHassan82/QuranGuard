@@ -157,3 +157,11 @@
      away from the visible glyphs when the swap text length differed from
      the original (T058c). */
 }
+
+/* T065 — corrected-in-place reference. The marker itself is invisible until a
+   correction lands, then the new reference is shown with a subtle confirm. */
+.quran-ref-corrected {
+  background-color: rgba(46, 160, 67, 0.18);
+  border-radius: 2px;
+  transition: background-color 0.4s ease-out;
+}

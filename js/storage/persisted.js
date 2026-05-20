@@ -70,6 +70,26 @@ const QuranPersisted = (() => {
     });
   }
 
+  // Remove a single entry (urlKey, compositeKey, kind). Used by FR-025 restore.
+  // Drops the byUrl key + index entry when the last record is removed.
+  async function remove({ urlKey: key, compositeKey, kind }) {
+    const storageKey = byUrlStorageKey(key);
+    const result = await chrome.storage.local.get([storageKey, INDEX_KEY]);
+    const stored = result[storageKey];
+    if (!stored || !Array.isArray(stored.entries)) return;
+
+    const entries = stored.entries.filter(e =>
+      !isExpired(e) && !(e.compositeKey === compositeKey && e.kind === kind)
+    );
+    const index = Array.isArray(result[INDEX_KEY]) ? result[INDEX_KEY] : [];
+    if (entries.length === 0) {
+      await chrome.storage.local.remove(storageKey);
+      await chrome.storage.local.set({ [INDEX_KEY]: index.filter(k => k !== key) });
+    } else {
+      await chrome.storage.local.set({ [storageKey]: { v: 1, entries } });
+    }
+  }
+
   // Remove all persisted.v1.byUrl.* keys and reset the index.
   async function clearAll() {
     const result = await chrome.storage.local.get(INDEX_KEY);
@@ -80,5 +100,5 @@ const QuranPersisted = (() => {
     return { prunedCount: keysToRemove.length };
   }
 
-  return { urlKey, read, write, clearAll };
+  return { urlKey, read, write, remove, clearAll };
 })();

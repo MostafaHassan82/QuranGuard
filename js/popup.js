@@ -6,12 +6,15 @@ let activeScanId = null;
 let activePrefs = null; // cached so the panel can re-render on SCAN_PROGRESS without an extra RTT
 
 function urlKeyForTab(tab) {
-  // Mirror QuranPersisted.urlKey() semantics (origin + path, no query/hash)
-  // so PERSIST_READ returns this URL's records. Defined inline because storage
-  // modules aren't loaded in the popup; keeping the duplication tiny is fine.
+  // Mirror QuranPersisted.urlKey() EXACTLY (drop hash, sort query, keep it) so
+  // PERSIST_READ matches what content.js wrote via pageUrlKey(). Dropping the
+  // query here previously broke the badge on any page with a query string.
   try {
     const u = new URL(tab.url);
-    return u.origin + u.pathname;
+    u.hash = '';
+    const params = [...u.searchParams].sort(([a], [b]) => a.localeCompare(b));
+    u.search = new URLSearchParams(params).toString();
+    return u.toString();
   } catch (_) { return tab?.url || ''; }
 }
 
@@ -177,9 +180,11 @@ chrome.runtime.onMessage.addListener((msg) => {
   if (type === 'SCAN_PROGRESS') {
     if (activeScanId && payload.scanId !== activeScanId) return;
     document.getElementById('progress-count').textContent = payload.runningCount ?? 0;
-    // T045 — feed the panel model live as findings arrive
+    // T045 — feed the panel model live as findings arrive.
+    // T066 — a correct-in-place successor carries priorFindingId; ingestProgress
+    // discards the prior and pins the successor to "Recently corrected".
     if (payload.finding) {
-      QuranPanelModel.upsert(payload.finding);
+      QuranPanelModel.ingestProgress(payload.finding, payload.priorFindingId || null);
       renderPanel();
     }
   }
@@ -347,6 +352,27 @@ document.addEventListener('DOMContentLoaded', async () => {
       activePrefs = activePrefs || {};
       activePrefs.font = fontSel.value;
       await savePrefs({ font: fontSel.value });
+    });
+  }
+
+  // T072 — clear all remembered corrections + dismissals (FR-024).
+  const btnClearPersisted = document.getElementById('btn-clear-persisted');
+  if (btnClearPersisted) {
+    btnClearPersisted.addEventListener('click', async () => {
+      const status = document.getElementById('persist-status');
+      btnClearPersisted.disabled = true;
+      try {
+        const resp = await QuranMsg.sendRequest('CLEAR_PERSISTED', {});
+        const pruned = resp?.payload?.result?.prunedCount ?? 0;
+        if (status) status.textContent = `تم المسح — لا توجد عناصر محفوظة (أُزيلت ${pruned}).`;
+        // Drop the badges from the live panel so the change is visible at once.
+        QuranPanelModel.all().forEach(f => { if (f.panelState) f.panelState.persistedBadge = null; });
+        renderPanel();
+      } catch (_) {
+        if (status) status.textContent = 'تعذّر المسح. حاول مرة أخرى.';
+      } finally {
+        btnClearPersisted.disabled = false;
+      }
     });
   }
 

@@ -293,7 +293,8 @@ button:disabled {
 .panel-action-btn:focus { outline: 2px solid #4a90e2; outline-offset: 1px; }
 
 /* ── Authentic-text swap controls (T061, FR-009) ───────────────────────── */
-#swap-controls {
+#swap-controls,
+#persist-settings {
   margin-top: 8px;
   padding: 6px 8px;
   border: 1px solid #e0e0e0;
@@ -301,12 +302,23 @@ button:disabled {
   background: #fff;
   font-size: 12px;
 }
-#swap-controls summary {
+#swap-controls summary,
+#persist-settings summary {
   cursor: pointer;
   font-weight: 600;
   color: #444;
   padding: 2px 0;
   user-select: none;
+}
+#btn-clear-persisted {
+  margin-top: 6px;
+  border-color: #c0392b;
+  color: #c0392b;
+}
+#persist-status {
+  margin-top: 6px;
+  color: #2e7d32;
+  font-size: 11px;
 }
 .swap-row {
   display: flex;

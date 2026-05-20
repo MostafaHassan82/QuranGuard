@@ -45,14 +45,23 @@ const QuranPanelModel = (() => {
   function tagPersisted(entries) {
     if (!Array.isArray(entries)) return;
     for (const e of entries) {
+      // Stored entries use {kind: 'correction'|'dismissal', at: ISO8601} per
+      // contracts/messaging.md (PERSIST_WRITE) + storage/persisted.js. Map to
+      // the badge vocabulary the surfaces render ('corrected'/'dismissed') and
+      // derive the YYYY-MM-DD shown in the badge from the ISO timestamp.
+      const rawKind = e.kind || e.action || '';
+      const isDismissal = rawKind === 'dismissal' || rawKind === 'dismiss';
+      const badgeKind = isDismissal ? 'dismissed' : 'corrected';
+      const when = (e.at || e.when || '').slice(0, 10);
+
       const finding = findings.get(e.compositeKey);
       if (!finding) {
         // Carry forward dismissed-on-a-prior-visit entries so the
         // "Previously dismissed" section can render even without a live match.
-        if (e.action === 'dismiss') previouslyDismissedKeys.add(e.compositeKey);
+        if (isDismissal) previouslyDismissedKeys.add(e.compositeKey);
         continue;
       }
-      finding.panelState.persistedBadge = { kind: e.action, when: e.when };
+      finding.panelState.persistedBadge = { kind: badgeKind, when };
     }
   }
 
@@ -60,6 +69,17 @@ const QuranPanelModel = (() => {
   function markDismissedThisSession(id) {
     const f = findings.get(id);
     if (f) f.panelState.dismissedThisSession = true;
+  }
+
+  // FR-025 restore: un-hide a dismissed finding and forget any prior-session
+  // dismissal so it returns to the active filter view.
+  function unmarkDismissed(id) {
+    const f = findings.get(id);
+    if (f) {
+      f.panelState.dismissedThisSession = false;
+      if (f.panelState.persistedBadge?.kind === 'dismissed') f.panelState.persistedBadge = null;
+    }
+    previouslyDismissedKeys.delete(id);
   }
 
   // FR-022: panel-level "recently corrected" pin.
@@ -71,6 +91,24 @@ const QuranPanelModel = (() => {
   function setInFlightAction(id, action) {
     const f = findings.get(id);
     if (f) f.panelState.inFlightAction = action;
+  }
+
+  // Remove a Finding entirely (used when a correct-in-place successor replaces
+  // its prior, per FR-021 — the prior must not linger in any section).
+  function remove(id) {
+    if (findings.delete(id)) {
+      const i = order.indexOf(id);
+      if (i !== -1) order.splice(i, 1);
+    }
+  }
+
+  // FR-021 + FR-022: ingest a SCAN_PROGRESS finding. When priorFindingId is set
+  // (a correct-in-place successor), discard the prior Finding from every view
+  // and pin the successor to the "Recently corrected" section.
+  function ingestProgress(finding, priorFindingId) {
+    if (priorFindingId && priorFindingId !== finding?.id) remove(priorFindingId);
+    upsert(finding);
+    if (priorFindingId) markRecentlyCorrected(finding.id);
   }
 
   function get(id) { return findings.get(id) ?? null; }
@@ -105,8 +143,8 @@ const QuranPanelModel = (() => {
   }
 
   return {
-    reset, upsert, tagPersisted,
-    markDismissedThisSession, markRecentlyCorrected, setInFlightAction,
+    reset, upsert, ingestProgress, remove, tagPersisted,
+    markDismissedThisSession, unmarkDismissed, markRecentlyCorrected, setInFlightAction,
     get, all, size,
     activeView, recentlyCorrected, dismissedThisSession, previouslyDismissed,
   };

@@ -11,6 +11,8 @@ const QuranPanelSurface = (() => {
   // URL for the record builders. Set via setContext({tabId, pageUrl}).
   let _ctx = { tabId: null, pageUrl: '' };
   function setContext(ctx) { _ctx = { ..._ctx, ...ctx }; }
+  // Last filter passed to render(), so dismiss/restore can re-render in place.
+  let _lastFilter = {};
 
   // FR-005 category-name-in-words. Mirrors content.js CATEGORY_LABEL_AR; kept
   // in sync by hand (the popup loads no content scripts so we can't import it).
@@ -87,15 +89,25 @@ const QuranPanelSurface = (() => {
     row.append(head, snippet);
     if (refs.textContent) row.append(refs);
 
-    // Action buttons (T052). F + D ship with US4 — omit until then.
+    // Action buttons. Correct-in-place (T067) only applies to wrong-reference
+    // (orange) findings; the other actions apply to every category.
     const actions = document.createElement('div');
     actions.className = 'panel-actions';
+    if (finding.color === 'orange') {
+      actions.append(makeActionBtn('تصحيح', 'correct', () => doAction('correctInPlace', finding)));
+    }
     actions.append(
       makeActionBtn('نسخ',     'copy',    () => doAction('copy', finding)),
       makeActionBtn('مشاركة',  'share',   () => doAction('share', finding)),
       makeActionBtn('تقرير',   'report',  () => doAction('report', finding)),
       makeActionBtn('JSON',    'json',    () => doAction('json', finding)),
     );
+    // Dismiss / Restore (T069/T071). A dismissed row offers Restore instead.
+    const isDismissed = finding.panelState?.dismissedThisSession === true ||
+                        finding.panelState?.persistedBadge?.kind === 'dismissed';
+    actions.append(isDismissed
+      ? makeActionBtn('استرجاع', 'restore', () => doAction('restore', finding))
+      : makeActionBtn('تجاهل',   'dismiss', () => doAction('dismiss', finding)));
     row.append(actions);
 
     // Primary action: click on row body = jump-to-highlight (FR-011a).
@@ -127,6 +139,20 @@ const QuranPanelSurface = (() => {
         case 'share':  await QuranActions.copyShareArtifact(finding, opts); break;
         case 'report': await QuranActions.copyReport(finding, opts); break;
         case 'json':   await QuranActions.copyRecordJson(finding, opts); break;
+        // T067 — successor row arrives via SCAN_PROGRESS and re-renders the panel.
+        case 'correctInPlace': await QuranActions.correctFromPopup(_ctx.tabId, finding.id); break;
+        // T069/T070 — dismiss hides the row into "Dismissed (this session)".
+        case 'dismiss':
+          QuranPanelModel.markDismissedThisSession(finding.id);
+          await QuranActions.dismiss(finding, opts);
+          render({ filter: _lastFilter });
+          break;
+        // T071 — restore un-hides and forgets the persisted dismissal.
+        case 'restore':
+          QuranPanelModel.unmarkDismissed(finding.id);
+          await QuranActions.restore(finding, opts);
+          render({ filter: _lastFilter });
+          break;
       }
     } catch (_) { /* clipboard or messaging errors are non-fatal */ }
   }
@@ -148,6 +174,7 @@ const QuranPanelSurface = (() => {
   function render({ filter } = {}) {
     const root = $('panel-container');
     if (!root) return;
+    _lastFilter = filter || {};
     root.replaceChildren();
 
     const active = QuranPanelModel.activeView(filter || {});
@@ -165,8 +192,10 @@ const QuranPanelSurface = (() => {
       return;
     }
 
-    if (active.length > 0)    root.append(makeSection('النتائج', active));
+    // FR-022 — "Recently corrected" is pinned at the top, visible regardless of
+    // the active filter.
     if (recent.length > 0)    root.append(makeSection('صُحِّحت مؤخرًا', recent));
+    if (active.length > 0)    root.append(makeSection('النتائج', active));
     if (dismissed.length > 0) root.append(makeSection('مرفوضة (هذه الجلسة)', dismissed));
     if (prior.length > 0)     root.append(makeSection('مرفوضة سابقًا', prior));
   }

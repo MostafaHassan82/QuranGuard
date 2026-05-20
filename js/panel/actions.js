@@ -137,9 +137,62 @@ const QuranActions = (() => {
     });
   }
 
+  // FR-012 correct-in-place from the CONTENT world (sidebar). content.js defines
+  // a top-level correctInPlace() in the shared content-script scope.
+  async function correctInContent(findingId) {
+    if (!findingId || typeof correctInPlace !== 'function') return { ok: false };
+    try { return await correctInPlace(findingId); } catch (_) { return { ok: false }; }
+  }
+
+  // FR-012 from the POPUP world: ask the active tab's content script to perform
+  // the correction. Resolves with the response payload {ok, result}.
+  async function correctFromPopup(tabId, findingId) {
+    if (!tabId || !findingId) return { ok: false };
+    return new Promise(resolve => {
+      try {
+        chrome.tabs.sendMessage(tabId, { type: 'CORRECT_IN_PLACE', findingId }, resp => {
+          if (chrome.runtime.lastError) resolve({ ok: false });
+          else resolve(resp?.payload || resp || { ok: false });
+        });
+      } catch (_) { resolve({ ok: false }); }
+    });
+  }
+
+  // Canonical URL key (mirrors QuranPersisted.urlKey): drop hash, sort query.
+  // Both surfaces use this so dismiss/restore persistence matches what
+  // content.js writes via pageUrlKey() and what the popup reads (FR-024/025).
+  function urlKey(rawUrl) {
+    try {
+      const u = new URL(rawUrl);
+      u.hash = '';
+      const params = [...u.searchParams].sort(([a], [b]) => a.localeCompare(b));
+      u.search = new URLSearchParams(params).toString();
+      return u.toString();
+    } catch (_) { return rawUrl || ''; }
+  }
+
+  // FR-025 dismiss: persist a dismissal keyed by the finding's composite id.
+  async function dismiss(finding, { pageUrl } = {}) {
+    if (!finding?.id) return false;
+    try {
+      await QuranMsg.sendRequest('PERSIST_WRITE', { urlKey: urlKey(pageUrl || (typeof location !== 'undefined' ? location.href : '')), compositeKey: finding.id, kind: 'dismissal', at: new Date().toISOString() });
+      return true;
+    } catch (_) { return false; }
+  }
+
+  // FR-025 restore: remove the persisted dismissal for this finding.
+  async function restore(finding, { pageUrl } = {}) {
+    if (!finding?.id) return false;
+    try {
+      await QuranMsg.sendRequest('PERSIST_REMOVE', { urlKey: urlKey(pageUrl || (typeof location !== 'undefined' ? location.href : '')), compositeKey: finding.id, kind: 'dismissal' });
+      return true;
+    } catch (_) { return false; }
+  }
+
   return {
     buildRecord, toPlainText, toJson, buildShareArtifact,
     copy, copyRecord, copyRecordJson, copyShareArtifact, copyReport,
-    jumpInContent, jumpFromPopup,
+    jumpInContent, jumpFromPopup, correctInContent, correctFromPopup,
+    urlKey, dismiss, restore,
   };
 })();

@@ -242,20 +242,20 @@ Repo is a flat Chromium MV3 extension at the repo root. See [plan.md](./plan.md)
 
 ### Correct-in-place + successor Finding (FR-012 + FR-022)
 
-- [ ] T065 [US4] Add `correctInPlace(findingId)` handler in `js/content.js`: attempt DOM-level cited-reference text replacement on the page; on success, emit a `SCAN_PROGRESS` event for the successor Finding under the new composite key with `priorFindingId = <original findingId>` (per data-model.md and Decision 7.8); on DOM-edit failure (shadow DOM, contenteditable disabled, sandboxed iframe), fall back to copying the corrected citation to the clipboard and emit a user-visible explanation per FR-012
-- [ ] T066 [US4] In `js/panel/model.js`, on receiving a `SCAN_PROGRESS` envelope where `priorFindingId !== null`: discard the prior Finding from the active filter view (per FR-021), add the successor to a "Recently corrected" section pinned at the top of the panel visible regardless of the active filter (FR-022); section is cleared on "Re-scan all" or page reload
-- [ ] T067 [US4] Wire `js/panel/actions.js` "F" shortcut (FR-030) and the panel-row "correct-in-place" button to `CORRECT_IN_PLACE` envelopes (depends on T053, T065)
-- [ ] T068 [US4] After every successful correct-in-place, `js/content.js` MUST emit a `PERSIST_WRITE` envelope with `{urlKey, compositeKey: <new compositeKey>, kind: "correction", at: <now-ISO8601>}` so future visits get the FR-024 badge (depends on T010)
+- [X] T065 [US4] Add `correctInPlace(findingId)` handler in `js/content.js`: attempt DOM-level cited-reference text replacement on the page; on success, emit a `SCAN_PROGRESS` event for the successor Finding under the new composite key with `priorFindingId = <original findingId>` (per data-model.md and Decision 7.8); on DOM-edit failure (shadow DOM, contenteditable disabled, sandboxed iframe), fall back to copying the corrected citation to the clipboard and emit a user-visible explanation per FR-012
+- [X] T066 [US4] In `js/panel/model.js`, on receiving a `SCAN_PROGRESS` envelope where `priorFindingId !== null`: discard the prior Finding from the active filter view (per FR-021), add the successor to a "Recently corrected" section pinned at the top of the panel visible regardless of the active filter (FR-022); section is cleared on "Re-scan all" or page reload
+- [X] T067 [US4] Wire `js/panel/actions.js` "F" shortcut (FR-030) and the panel-row "correct-in-place" button to `CORRECT_IN_PLACE` envelopes (depends on T053, T065)
+- [X] T068 [US4] After every successful correct-in-place, `js/content.js` MUST emit a `PERSIST_WRITE` envelope with `{urlKey, compositeKey: <new compositeKey>, kind: "correction", at: <now-ISO8601>}` so future visits get the FR-024 badge (depends on T010)
 
 ### Dismiss action (FR-025)
 
-- [ ] T069 [US4] Add a per-finding Dismiss button to panel rows in `js/panel/popup-surface.js` and `js/panel/sidebar-surface.js`; wire the "D" keyboard shortcut (FR-030)
-- [ ] T070 [US4] In `js/panel/model.js`, on Dismiss: hide the finding from the active filter view; move it to a collapsed "Dismissed (this session)" section; emit `PERSIST_WRITE` with `kind: "dismissal"` (FR-024 + FR-025)
-- [ ] T071 [US4] Add a "Restore" affordance on rows inside "Dismissed (this session)" that emits `RESTORE_DISMISSED`, removes the persisted dismissal entry for the current URL, and un-hides the row (FR-025)
+- [X] T069 [US4] Add a per-finding Dismiss button to panel rows in `js/panel/popup-surface.js` and `js/panel/sidebar-surface.js`; wire the "D" keyboard shortcut (FR-030)
+- [X] T070 [US4] In `js/panel/model.js`, on Dismiss: hide the finding from the active filter view; move it to a collapsed "Dismissed (this session)" section; emit `PERSIST_WRITE` with `kind: "dismissal"` (FR-024 + FR-025)
+- [X] T071 [US4] Add a "Restore" affordance on rows inside "Dismissed (this session)" that emits `RESTORE_DISMISSED`, removes the persisted dismissal entry for the current URL, and un-hides the row (FR-025)
 
 ### Clear remembered corrections + dismissals (FR-024 popup settings)
 
-- [ ] T072 [US4] Extend `html/popup.html` + `js/popup.js` settings area with a "Clear remembered corrections and dismissals" button that emits `CLEAR_PERSISTED` and surfaces a confirmation that the store is empty (FR-024)
+- [X] T072 [US4] Extend `html/popup.html` + `js/popup.js` settings area with a "Clear remembered corrections and dismissals" button that emits `CLEAR_PERSISTED` and surfaces a confirmation that the store is empty (FR-024)
 
 ### Fixtures for US4
 

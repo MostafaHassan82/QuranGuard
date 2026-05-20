@@ -943,6 +943,14 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     return true;
   }
 
+  // PERSIST_REMOVE (T071) — remove a single correction/dismissal entry.
+  if (type === 'PERSIST_REMOVE') {
+    QuranPersisted.remove(payload)
+      .then(() => sendResponse(QuranMsg.okResponse(requestId, {})))
+      .catch(e => sendResponse(QuranMsg.errResponse(requestId, 'INTERNAL', e.message)));
+    return true;
+  }
+
   // CLEAR_PERSISTED (T010)
   if (type === 'CLEAR_PERSISTED') {
     QuranPersisted.clearAll()

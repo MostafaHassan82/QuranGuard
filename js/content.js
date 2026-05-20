@@ -59,6 +59,9 @@ const CSS_BY_COLOR = {
 const PENDING_CLASS = 'quran-pending';
 const ALL_HIGHLIGHT_CLASSES = [...Object.values(CSS_BY_COLOR), PENDING_CLASS];
 const HIGHLIGHT_SELECTOR = ALL_HIGHLIGHT_CLASSES.map(c => '.' + c).join(', ');
+// T065 — wrapper placed around the cited reference's on-page text so
+// correct-in-place can find and replace it. Distinct from the highlight span.
+const REF_MARKER_CLASS = 'quran-ref-marker';
 
 // ── Window globals (T019) — per contracts/window-globals.md ──────────────────
 window.__quranScan = null;      // set on SCAN_COMPLETE, null on SCAN_START
@@ -833,6 +836,10 @@ function applyHighlight(candidate, result, { hidden = false } = {}) {
       authenticExcerpt: result.authenticExcerpt || null,
       deviation: result.deviation,
       strategy: candidate.strategy,
+      // T065 — exact on-page text of the cited reference (e.g. "(البقرة:3)").
+      // Used to place the correct-in-place marker span by forward-search from
+      // the ayah highlight, since the reference always follows the ayah text.
+      refText: candidate.ref || null,
     };
     STATE.findings.push(finding);
     // T060 — authentic-text swap is DEFERRED to emitComplete (T058z). Running
@@ -844,6 +851,9 @@ function applyHighlight(candidate, result, { hidden = false } = {}) {
 }
 
 function clearHighlights({ normalize = true } = {}) {
+  // T065 — unwrap reference markers first so a re-scan starts from clean text
+  // (otherwise the marker spans accumulate and fragment the reference text).
+  for (const m of document.querySelectorAll('.' + REF_MARKER_CLASS)) m.replaceWith(...m.childNodes);
   const spans = document.querySelectorAll(HIGHLIGHT_SELECTOR);
   for (const span of spans) span.replaceWith(...span.childNodes);
   // normalize=true (default, used for explicit user clear and before pass 1):
@@ -1073,20 +1083,23 @@ function emitComplete(scanId, startedAt, startTime) {
   // the scan loop corrupts subsequent passes because they re-walk swapped
   // text instead of the page's original wording. The observer is briefly
   // gated so the swap mutations don't trigger a phantom rescan.
-  if (typeof QuranSwap !== 'undefined' && STATE.prefs) {
-    STATE.swapInProgress = true;
-    try {
+  // The marker placement (T065) and swap both mutate the DOM; gate the observer
+  // for the whole block so neither triggers a phantom rescan.
+  STATE.swapInProgress = true;
+  try {
+    placeRefMarkers();
+    if (typeof QuranSwap !== 'undefined' && STATE.prefs) {
       for (const f of STATE.findings) {
         try {
           if (QuranSwap.applySwap(f, STATE.prefs)) STATS.swapApplied++;
           else if (f.color === 'red') STATS.swapSkippedRed++;
         } catch (_) {}
       }
-    } finally {
-      // Clear the flag on the next microtask so any synchronously-queued
-      // mutation records from the swap are still filtered out.
-      setTimeout(() => { STATE.swapInProgress = false; }, 50);
     }
+  } finally {
+    // Clear the flag on the next microtask so any synchronously-queued
+    // mutation records from our own writes are still filtered out.
+    setTimeout(() => { STATE.swapInProgress = false; }, 50);
   }
 
   // T050 — Mount the sidebar surface if the user opted into it and the scan
@@ -1106,6 +1119,13 @@ async function maybeMountSidebar(finalState) {
 
   QuranPanelSidebar.reset();
   for (const f of STATE.findings) QuranPanelSidebar.upsert(f);
+  // FR-024 — tag findings the user corrected/dismissed on a prior visit so the
+  // sidebar shows the "صُحِّح سابقًا" badge (matched by the original finding id).
+  try {
+    const resp = await QuranMsg.sendRequest('PERSIST_READ', { urlKey: pageUrlKey() });
+    const entries = resp?.payload?.result?.entries;
+    if (entries) QuranPanelSidebar.tagPersisted(entries);
+  } catch (_) {}
   await QuranPanelSidebar.mount();
 }
 
@@ -1266,6 +1286,191 @@ document.addEventListener('__quranBridgeScan', async () => {
 
 // ── Popup message listener (T017) ─────────────────────────────────────────────
 
+// ── Correct-in-place (T065, FR-012 + FR-022) ─────────────────────────────────
+
+function cssEscapeId(s) {
+  if (typeof CSS !== 'undefined' && CSS.escape) return CSS.escape(s);
+  return String(s).replace(/[^a-zA-Z0-9_-]/g, '\\$&');
+}
+
+// Mirror of QuranPersisted.urlKey (which lives in the service worker) so the
+// content script can compute the same key it uses for PERSIST_WRITE (FR-024).
+function pageUrlKey() {
+  try {
+    const u = new URL(location.href);
+    u.hash = '';
+    const params = [...u.searchParams].sort(([a], [b]) => a.localeCompare(b));
+    u.search = new URLSearchParams(params).toString();
+    return u.toString();
+  } catch (_) {
+    return location.href;
+  }
+}
+
+// Wrap the true reference in the same bracket characters the page used for the
+// cited reference, so "(البقرة:3)" → "(البقرة:2)" rather than a bare ref.
+function buildCorrectedRefText(markerText, trueRef) {
+  const open = (markerText || '').match(/^\s*([([«{﴿])/);
+  const close = (markerText || '').match(/([)\]»}﴾])\s*$/);
+  if (open && close) return open[1] + trueRef + close[1];
+  return trueRef;
+}
+
+// Wrap chars [start,end) of a text node in a ref-marker span tied to findingId.
+function wrapSubstringInNode(node, start, end, findingId) {
+  const parent = node.parentNode;
+  if (!parent) return false;
+  const text = node.textContent;
+  const before = text.slice(0, start);
+  const middle = text.slice(start, end);
+  const after = text.slice(end);
+  if (!middle) return false;
+  const span = document.createElement('span');
+  span.className = REF_MARKER_CLASS;
+  span.dataset.quranRefFor = findingId;
+  span.textContent = middle;
+  if (before) parent.insertBefore(document.createTextNode(before), node);
+  parent.insertBefore(span, node);
+  if (after) parent.insertBefore(document.createTextNode(after), node);
+  parent.removeChild(node);
+  return true;
+}
+
+// Forward-search from the ayah highlight span for the exact cited-reference
+// text and wrap its first occurrence. The reference always follows the ayah
+// for every ref-bearing extractor, so a bounded document-order walk after the
+// span finds it without relying on stale char offsets from the scan buffer.
+function wrapRefAfter(ayahSpan, refText, findingId) {
+  if (!refText) return false;
+  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+  walker.currentNode = ayahSpan;
+  let scanned = 0;
+  let node;
+  while ((node = walker.nextNode())) {
+    if (ayahSpan.contains(node)) continue; // skip the ayah's own text nodes
+    const idx = node.textContent.indexOf(refText);
+    if (idx !== -1) return wrapSubstringInNode(node, idx, idx + refText.length, findingId);
+    scanned += node.textContent.length;
+    if (scanned > 400) break; // the reference sits right after the ayah
+  }
+  return false;
+}
+
+// Place reference markers for orange findings (the correct-in-place targets:
+// real verse, wrong reference). Idempotent — skips findings already marked.
+function placeRefMarkers() {
+  for (const f of STATE.findings) {
+    if (f.category !== 'orange' || !f.refText || !f.matchedRef) continue;
+    if (document.querySelector(`[data-quran-ref-for="${cssEscapeId(f.id)}"]`)) continue;
+    const ayahSpan = document.querySelector(`[data-finding-id="${cssEscapeId(f.id)}"]`);
+    if (!ayahSpan) continue;
+    try { wrapRefAfter(ayahSpan, f.refText, f.id); } catch (_) {}
+  }
+}
+
+// FR-012 + FR-022: replace the cited reference in the page with the true one,
+// flip the highlight to the re-verified successor, and emit the successor
+// Finding (priorFindingId set). Falls back to clipboard when the reference
+// can't be edited in place (no marker — e.g. shadow DOM / cross-node ref).
+async function correctInPlace(findingId) {
+  const f = STATE.findings.find(x => x.id === findingId);
+  if (!f) return { ok: false, error: { code: 'NOT_FOUND', message: 'finding not found' } };
+  const trueRef = f.matchedRef || f.matchedReference || null;
+  if (!trueRef) return { ok: false, error: { code: 'INVALID_REQUEST', message: 'no true reference' } };
+
+  const marker = document.querySelector(`[data-quran-ref-for="${cssEscapeId(findingId)}"]`);
+  const corrected = marker ? buildCorrectedRefText(marker.textContent, trueRef) : null;
+
+  // Re-verify the now-correct citation to produce the successor verdict.
+  let vres = null;
+  try {
+    vres = await sendToBackground({ type: 'verifyFragmentByRef', text: f.text, ref: trueRef, candidateConfidence: 'high' });
+  } catch (_) {}
+  const successorColor = (vres && vres.color) || 'green';
+  const successorMatchedRef = (vres && vres.matchedRef) || trueRef;
+  const successorId = computeCompositeFindingId(f.text, trueRef, successorMatchedRef, f.domPath);
+
+  let fellBackToClipboard = false;
+  STATE.swapInProgress = true;
+  try {
+    if (marker && corrected) {
+      marker.textContent = corrected;
+      marker.dataset.quranRefFor = successorId;
+      marker.classList.add('quran-ref-corrected');
+      const ayahSpan = document.querySelector(`[data-finding-id="${cssEscapeId(findingId)}"]`);
+      if (ayahSpan) {
+        for (const c of ALL_HIGHLIGHT_CLASSES) ayahSpan.classList.remove(c);
+        if (CSS_BY_COLOR[successorColor]) ayahSpan.classList.add(CSS_BY_COLOR[successorColor]);
+        const tip = buildTooltip(successorColor, { color: successorColor, claimedRef: trueRef, matchedRef: successorMatchedRef, deviation: vres && vres.deviation });
+        ayahSpan.dataset.findingId = successorId;
+        ayahSpan.dataset.color = successorColor;
+        ayahSpan.dataset.claimedRef = trueRef;
+        ayahSpan.dataset.matchedRef = successorMatchedRef;
+        ayahSpan.dataset.tooltip = tip;
+        if (CATEGORY_LABEL_AR[successorColor]) {
+          ayahSpan.setAttribute('aria-label', CATEGORY_LABEL_AR[successorColor] + (tip ? '. ' + tip : ''));
+        }
+      }
+    } else {
+      // FR-012 fallback: copy the corrected citation for manual paste.
+      fellBackToClipboard = true;
+      const clip = corrected || trueRef;
+      try {
+        if (typeof QuranActions !== 'undefined' && QuranActions.copy) await QuranActions.copy(clip);
+        else if (navigator.clipboard) await navigator.clipboard.writeText(clip);
+      } catch (_) {}
+    }
+  } finally {
+    setTimeout(() => { STATE.swapInProgress = false; }, 50);
+  }
+
+  // FR-022 successor: discard the prior Finding, add the re-verified successor
+  // with a priorFindingId back-reference.
+  const successor = {
+    ...f,
+    id: successorId,
+    category: successorColor,
+    color: successorColor,
+    citedReference: trueRef,
+    claimedRef: trueRef,
+    matchedReference: successorMatchedRef,
+    matchedRef: successorMatchedRef,
+    authenticText: (vres && vres.authenticText) || f.authenticText,
+    authenticExcerpt: (vres && vres.authenticExcerpt) || null,
+    deviation: (vres && vres.deviation) || f.deviation,
+    refText: corrected || f.refText,
+    priorFindingId: findingId,
+    persistedBadge: null,
+  };
+  const idx = STATE.findings.findIndex(x => x.id === findingId);
+  if (idx !== -1) STATE.findings.splice(idx, 1, successor); else STATE.findings.push(successor);
+
+  if (!fellBackToClipboard && typeof QuranSwap !== 'undefined' && STATE.prefs) {
+    STATE.swapInProgress = true;
+    try { QuranSwap.applySwap(successor, STATE.prefs); } catch (_) {}
+    setTimeout(() => { STATE.swapInProgress = false; }, 50);
+  }
+
+  const perCategoryCount = { green: 0, lightBlue: 0, yellow: 0, orange: 0, red: 0 };
+  for (const x of STATE.findings) if (perCategoryCount[x.category] !== undefined) perCategoryCount[x.category]++;
+  QuranMsg.emit('SCAN_PROGRESS', { scanId: STATE.scanId, finding: successor, priorFindingId: findingId, runningCount: STATE.findings.length, perCategoryCount });
+  // The sidebar runs in this content context and won't receive the cross-context
+  // SCAN_PROGRESS broadcast, so update its model directly (T066).
+  if (typeof QuranPanelSidebar !== 'undefined' && QuranPanelSidebar.isMounted()) {
+    try { QuranPanelSidebar.ingest(successor, findingId); } catch (_) {}
+  }
+  window.__quranMatches = STATE.findings.slice();
+
+  // T068 — persist the correction keyed by the ORIGINAL finding's id (FR-024).
+  // A static page reverts to its wrong reference on reload, so the recurring
+  // finding has the prior id; keying on the successor would never re-match.
+  try {
+    await QuranMsg.sendRequest('PERSIST_WRITE', { urlKey: pageUrlKey(), compositeKey: findingId, kind: 'correction', at: new Date().toISOString() });
+  } catch (_) {}
+
+  return { ok: true, result: { successorFindingId: successorId, fellBackToClipboard } };
+}
+
 if (chrome?.runtime?.onMessage) {
   chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     const { type, requestId, payload = {} } = msg;
@@ -1332,6 +1537,16 @@ if (chrome?.runtime?.onMessage) {
         : false;
       sendResponse({ ok });
       return;
+    }
+
+    // CORRECT_IN_PLACE — panel → content (FR-012 + FR-022). Replace the cited
+    // reference in the page DOM with the true one, emit the successor Finding.
+    if (type === 'CORRECT_IN_PLACE') {
+      const id = payload.findingId || msg.findingId;
+      correctInPlace(id)
+        .then(r => sendResponse(r.ok ? QuranMsg.okResponse(requestId, r.result) : QuranMsg.errResponse(requestId, r.error.code, r.error.message)))
+        .catch(e => sendResponse(QuranMsg.errResponse(requestId, 'INTERNAL', e.message)));
+      return true;
     }
 
     // PREFS_CHANGED — refresh the cache, reconcile authentic-text swap state

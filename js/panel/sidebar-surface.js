@@ -71,12 +71,20 @@ const QuranPanelSidebar = (() => {
     // Action buttons (T052). Primary action is row click = jump (FR-011a).
     const actions = document.createElement('div');
     actions.className = 'quran-ext-panel-actions';
+    if (finding.color === 'orange') {
+      actions.append(makeActionBtn('تصحيح', () => runAction('correctInPlace', finding)));
+    }
     actions.append(
       makeActionBtn('نسخ',    () => runAction('copy',   finding)),
       makeActionBtn('مشاركة', () => runAction('share',  finding)),
       makeActionBtn('تقرير',  () => runAction('report', finding)),
       makeActionBtn('JSON',   () => runAction('json',   finding)),
     );
+    const isDismissed = finding.panelState?.dismissedThisSession === true ||
+                        finding.panelState?.persistedBadge?.kind === 'dismissed';
+    actions.append(isDismissed
+      ? makeActionBtn('استرجاع', () => runAction('restore', finding))
+      : makeActionBtn('تجاهل',   () => runAction('dismiss', finding)));
     row.append(actions);
     row.addEventListener('click', (e) => {
       if (e.target.closest('.quran-ext-panel-action-btn')) return;
@@ -113,6 +121,20 @@ const QuranPanelSidebar = (() => {
         case 'share':  await QuranActions.copyShareArtifact(finding, opts); break;
         case 'report': await QuranActions.copyReport(finding, opts); break;
         case 'json':   await QuranActions.copyRecordJson(finding, opts); break;
+        // T067 — correct-in-place runs directly in this content context; the
+        // sidebar model is updated by content.js via QuranPanelSidebar.ingest.
+        case 'correctInPlace': await QuranActions.correctInContent(finding.id); break;
+        // T069/T070 — dismiss; T071 — restore. Update this surface's model + persist.
+        case 'dismiss':
+          QuranPanelModel.markDismissedThisSession(finding.id);
+          await QuranActions.dismiss(finding, opts);
+          render();
+          break;
+        case 'restore':
+          QuranPanelModel.unmarkDismissed(finding.id);
+          await QuranActions.restore(finding, opts);
+          render();
+          break;
       }
     } catch (_) {}
   }
@@ -148,8 +170,9 @@ const QuranPanelSidebar = (() => {
       container.append(empty);
       return;
     }
-    if (active.length)    container.append(makeSection('النتائج', active));
+    // FR-022 — "Recently corrected" pinned at the top, regardless of filter.
     if (recent.length)    container.append(makeSection('صُحِّحت مؤخرًا', recent));
+    if (active.length)    container.append(makeSection('النتائج', active));
     if (dismissed.length) container.append(makeSection('مرفوضة (هذه الجلسة)', dismissed));
     if (prior.length)     container.append(makeSection('مرفوضة سابقًا', prior));
   }
@@ -257,9 +280,11 @@ const QuranPanelSidebar = (() => {
   function clearUserClosed() { userClosed = false; }
 
   function upsert(finding) { QuranPanelModel.upsert(finding); if (rootEl) render(); }
+  // T066 — ingest a correct-in-place successor (discards prior, pins successor).
+  function ingest(finding, priorFindingId) { QuranPanelModel.ingestProgress(finding, priorFindingId || null); if (rootEl) render(); }
   function reset() { QuranPanelModel.reset(); if (rootEl) render(); }
   function tagPersisted(entries) { QuranPanelModel.tagPersisted(entries); if (rootEl) render(); }
   function isMounted() { return rootEl !== null && document.body.contains(rootEl); }
 
-  return { mount, unmount, upsert, reset, tagPersisted, isMounted, clearUserClosed };
+  return { mount, unmount, upsert, ingest, reset, tagPersisted, isMounted, clearUserClosed };
 })();
