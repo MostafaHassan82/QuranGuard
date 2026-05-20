@@ -272,11 +272,11 @@ Repo is a flat Chromium MV3 extension at the repo root. See [plan.md](./plan.md)
 
 **Purpose**: Cross-story polish, performance verification, documentation, and the constitution's compliance review pass.
 
-- [ ] T077 [P] Performance sweep: profile `js/content.js` scan end-to-end on the ~5,000-word fixture; tune candidate-extraction batching and `js/verifier/classify.js` to hit SC-012 (< 5 s end-to-end from "Scan" click to all highlights rendered) on every fixture that does NOT hit the FR-031 cap
-- [ ] T078 [P] Multi-story scenarios: verify SC-005 (orange-finding list reachable in ≤ 2 interactions on every panel-surface preference), SC-006 (master toggle off / on round-trip), SC-007 (copy + persist prefs + correct-in-place without leaving the article)
-- [ ] T079 [P] Accessibility audit pass: keyboard-only walkthrough of every panel action (FR-030), screen-reader walkthrough of every highlight tooltip (FR-005, FR-007, FR-032), check `aria-describedby` round-trip on every category, verify Esc semantics; record findings in a short `tests/a11y-audit.md`
-- [ ] T080 Documentation: refresh `quickstart.md` with any module-path drift discovered during implementation; update `AGENTS.md` with the new module map; update `CLAUDE.md` SPECKIT block if any plan paths moved
-- [ ] T081 Constitution post-implementation review: against constitution v1.0.0 Compliance Review section, confirm (a) no carve-outs were introduced in production code (Workflow item 4), (b) no fixture forced a one-off `if (url === ...)` branch, (c) advanced-copy reuse was strictly case-harvesting per Principle V, (d) the five-color taxonomy was not collapsed or extended (Principle II); document the review outcome in a short `specs/001-arabic-citation-auditor/compliance-review.md`
+- [X] T077 [P] Performance sweep: profile `js/content.js` scan end-to-end on the ~5,000-word fixture; tune candidate-extraction batching and `js/verifier/classify.js` to hit SC-012 (< 5 s end-to-end from "Scan" click to all highlights rendered) on every fixture that does NOT hit the FR-031 cap
+- [X] T078 [P] Multi-story scenarios: verify SC-005 (orange-finding list reachable in ≤ 2 interactions on every panel-surface preference), SC-006 (master toggle off / on round-trip), SC-007 (copy + persist prefs + correct-in-place without leaving the article)
+- [X] T079 [P] Accessibility audit pass: keyboard-only walkthrough of every panel action (FR-030), screen-reader walkthrough of every highlight tooltip (FR-005, FR-007, FR-032), check `aria-describedby` round-trip on every category, verify Esc semantics; record findings in a short `tests/a11y-audit.md`
+- [X] T080 Documentation: refresh `quickstart.md` with any module-path drift discovered during implementation; update `AGENTS.md` with the new module map; update `CLAUDE.md` SPECKIT block if any plan paths moved
+- [X] T081 Constitution post-implementation review: against constitution v1.0.0 Compliance Review section, confirm (a) no carve-outs were introduced in production code (Workflow item 4), (b) no fixture forced a one-off `if (url === ...)` branch, (c) advanced-copy reuse was strictly case-harvesting per Principle V, (d) the five-color taxonomy was not collapsed or extended (Principle II); document the review outcome in a short `specs/001-arabic-citation-auditor/compliance-review.md`
 - [ ] T082 Final full-suite run: `python tests/run_tests.py` over every fixture set (174389 + 10 reviewed + orange-cases + drift-cases + red-false-positives + multi-orange + persistence-badge + layout-safety + editable-orange + locked-dom-orange + persisted-correction-revisit + language-gate); confirm SC-001 through SC-013 all pass simultaneously; stop-the-line on any regression
 - [ ] T083 [P] Ship gate: re-run [quickstart.md](./quickstart.md) end-to-end as a fresh contributor would; fix anything that's drifted
 
@@ -284,14 +284,14 @@ Repo is a flat Chromium MV3 extension at the repo root. See [plan.md](./plan.md)
 
 Per Principle V (Porting Discipline): harvest the **harness pattern only**, not the V2 selectors, popup scenario, or autocomplete code. Goal is to remove the flakes the persistent-profile + real-extension model produces (SW init races, `crypto.randomUUID` secure-context failures, cross-world event drops, profile state bleed) while gaining headless speed, parallelism, and coverage.
 
-- [ ] T084 [P] Build `tests/run_tests_node.js` minimal V1 harness — headless Playwright + system Chrome + single page at `http://quran.test/runner` serving an iframe per fixture. Inject `js/shared/messaging.js`, `js/verifier/normalize.js`, `js/verifier/indexes.js`, `js/verifier/references.js`, `js/background.js`, then `js/content.js` as `<script>` tags into the SAME page (no real extension load, no isolated world). Replace `chrome.runtime` with an MV3-shaped mock that:
+- [X] T084 [P] Build `tests/run_tests_node.js` minimal V1 harness — headless Playwright + system Chrome + single page at `http://quran.test/runner` serving an iframe per fixture. Inject `js/shared/messaging.js`, `js/verifier/normalize.js`, `js/verifier/indexes.js`, `js/verifier/references.js`, `js/background.js`, then `js/content.js` as `<script>` tags into the SAME page (no real extension load, no isolated world). Replace `chrome.runtime` with an MV3-shaped mock that:
   - Honors the `return true` async-response contract (`sendMessage(msg, cb)` queues the response from the registered `onMessage` listener and invokes `cb` asynchronously).
   - Provides `chrome.storage.local.{get,set}` over an in-memory dict seeded from a per-test settings object.
   - Provides `chrome.runtime.getURL` mapping to `http://quran.test/<path>`.
   - Implements `chrome.runtime.lastError` semantics so existing `sendToBackground` error-handling paths still fire.
   Document the mock contract inline so the next contributor can extend it without re-reading messaging.md.
 
-- [ ] T085 [P] Adapt the harness's result-capture layer to V1's five-color taxonomy:
+- [X] T085 [P] Adapt the harness's result-capture layer to V1's five-color taxonomy:
   - Replace V2's `.ayah-correct` / `.ayah:not(.ayah-correct)` / `getHighlightStats()` selectors with V1's `.quran-green/.quran-lightblue/.quran-yellow/.quran-orange/.quran-red` (taxonomy is fixed per Principle II — DO NOT introduce new classes for testing).
   - Replace V2 `data-matches` / `.tooltiptext` access with V1's `dataset.color`, `dataset.matchedRef`, `dataset.claimedRef`, `dataset.tooltip` (per contracts/window-globals.md).
   - Expose a one-shot `window.__quranRunScan()` (Promise) so the harness can `await` a scan result directly, eliminating the polling-for-stable loop V2 needed.

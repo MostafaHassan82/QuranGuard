@@ -58,11 +58,11 @@ After Phase 1 design ([plan.md](./plan.md) > Project Structure):
 |---|---|---|
 | Service worker, message routing, Quran index | `js/background.js` | Tech Constraints (rebuild on activation, `return true` discipline) |
 | Per-frame scan orchestrator, `MutationObserver`, progressive reveal, cap | `js/content.js` | FR-019, FR-023, FR-031 |
-| Popup UI, preferences, font picker, Re-scan All, Continue scanning, Clear remembered | `js/popup.js` + `html/popup.html` + `css/popup.css` | FR-009, FR-024, FR-026, FR-031 |
+| Popup UI — scan mode, Scan/Continue/Clear, status + stats, sidebar initial state (preferences/font/clear-remembered moved into the sidebar) | `js/popup.js` + `html/popup.html` + `css/popup.css` | FR-026, FR-031 |
 | Verifier — normalization, indexes, five-color classifier, **orange pipeline (new)**, references | `js/verifier/` | Principles I/II/III/V — read advanced copy for *cases*, redesign shape |
 | Authentic-text swap engine | `js/render/swap.js` | Principle IV, FR-008, SC-013 |
 | Bundled Quran fonts | `js/render/fonts.js` + `resources/fonts/*` + `css/fonts.css` | FR-008/FR-009 |
-| Findings panel — both surfaces, identity, actions, keyboard | `js/panel/` + `html/sidebar.html` + `css/sidebar.css` | FR-010, FR-011, FR-022, FR-025, FR-030 |
+| Findings panel — single page-injected sidebar surface (collapsible/resizable; also hosts swap + clear-remembered controls), identity, actions, keyboard | `js/panel/` + `html/sidebar.html` + `css/sidebar.css` | FR-009, FR-010, FR-011, FR-022, FR-024, FR-025, FR-030 |
 | Preferences + per-URL persisted store (30-day TTL) | `js/storage/` | FR-024 |
 | Stateful action badge | `js/badge/badge.js` | FR-028 |
 

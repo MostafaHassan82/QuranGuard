@@ -1293,6 +1293,25 @@ document.addEventListener('__quranBridgeScan', async () => {
   }));
 });
 
+// T085 — one-shot promise bridge for the Node harness (tests/run_tests_node.js).
+// Runs a full scan and resolves with the same shape the DOM bridge emits, so the
+// harness can `await window.__quranRunScan()` without a poll-for-stable loop.
+window.__quranRunScan = async function () {
+  if (document.readyState === 'loading') {
+    await new Promise(r => document.addEventListener('DOMContentLoaded', r, { once: true }));
+  }
+  await scanPage();
+  return {
+    scan: window.__quranScan,
+    stats: { ...STATS },
+    findings: STATE.findings.slice(),
+    matches: STATE.highlightedSpans.map(s => ({
+      text: s.textContent, color: s.dataset.color,
+      matchedRef: s.dataset.matchedRef, claimedRef: s.dataset.claimedRef, tooltip: s.dataset.tooltip,
+    })),
+  };
+};
+
 // ── Popup message listener (T017) ─────────────────────────────────────────────
 
 // ── Correct-in-place (T065, FR-012 + FR-022) ─────────────────────────────────
