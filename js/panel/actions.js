@@ -36,38 +36,40 @@ const QuranActions = (() => {
     };
   }
 
-  // FR-011 plain-text: one field per line, Arabic label / English label: value.
-  function toPlainText(record) {
-    const lines = [
-      `الاقتباس / Citation: ${record.citation}`,
-      `المرجع المذكور / Cited Reference: ${record.citedReference || '—'}`,
-      `المرجع الصحيح / True Reference: ${record.trueReference || '—'}`,
-      `الفئة / Category: ${record.categoryAr || record.category}${record.categoryEn ? ` (${record.categoryEn})` : ''}`,
-      `رابط الصفحة / Page URL: ${record.pageUrl}`,
-      `الوقت / Timestamp: ${record.timestamp}`,
-    ];
-    return lines.join('\n');
+  const T = (k, v) => (typeof QuranI18n !== 'undefined') ? QuranI18n.t(k, v) : k;
+
+  // T091 — reader-facing share/copy text (localized prose, not a field dump).
+  // The machine-readable record stays behind "Copy as JSON" (toJson below).
+  function friendlyText(finding, { pageUrl } = {}) {
+    const color = finding.color || finding.category || '';
+    const snippet = (finding.text || finding.rawText || '').trim();
+    const cited = finding.claimedRef || finding.citedReference || '—';
+    const matched = finding.matchedRef || finding.matchedReference || '—';
+    const sentence = T('share_' + color, { snippet, cited, matched });
+    const url = pageUrl || (typeof location !== 'undefined' ? location.href : '');
+    return `${sentence}\n\n${T('share_page', { url })}\n${T('share_via')}`;
   }
 
   function toJson(record) { return JSON.stringify(record, null, 2); }
 
-  // FR-011c — page URL + #:~:text=<encoded snippet> (Chrome text fragment),
-  // then a blank line, then the plain-text record body. On non-supporting
-  // browsers the recipient still gets a usable URL (the fragment is ignored).
+  // Build the share URL with a Chrome text fragment (#:~:text=). T092 extends
+  // this to highlight BOTH the ayah and the cited reference.
+  function buildShareUrl(finding, opts = {}) {
+    const base = opts.pageUrl || (typeof location !== 'undefined' ? location.href : '');
+    const snippet = (finding.text || finding.rawText || '').trim();
+    if (!snippet || !base) return base;
+    const trimmed = snippet.length > 300 ? snippet.slice(0, 300) : snippet;
+    try {
+      const u = new URL(base);
+      u.hash = `:~:text=${encodeURIComponent(trimmed)}`;
+      return u.toString();
+    } catch (_) { return base; }
+  }
+
+  // FR-011c — reader-facing share text whose embedded link carries the text
+  // fragment, so the recipient lands on the highlighted ayah.
   function buildShareArtifact(finding, opts = {}) {
-    const record = buildRecord(finding, opts);
-    const snippet = (record.citation || '').trim();
-    let url = record.pageUrl;
-    if (snippet && url) {
-      // Trim to a reasonable length so the URL stays under common limits.
-      const truncated = snippet.length > 300 ? snippet.slice(0, 300) : snippet;
-      try {
-        const u = new URL(url);
-        u.hash = `:~:text=${encodeURIComponent(truncated)}`;
-        url = u.toString();
-      } catch (_) { /* leave url as-is on parse failure */ }
-    }
-    return `${url}\n\n${toPlainText(record)}`;
+    return friendlyText(finding, { pageUrl: buildShareUrl(finding, opts) });
   }
 
   async function copy(text) {
@@ -93,10 +95,11 @@ const QuranActions = (() => {
     } catch (_) { return false; }
   }
 
-  // Convenience: build + copy in one call. Returns the text written.
-  async function copyRecord(finding, opts)     { const t = toPlainText(buildRecord(finding, opts)); await copy(t); return t; }
-  async function copyRecordJson(finding, opts) { const t = toJson(buildRecord(finding, opts));       await copy(t); return t; }
-  async function copyShareArtifact(finding, opts) { const t = buildShareArtifact(finding, opts);     await copy(t); return t; }
+  // Convenience: build + copy in one call. Returns the text written. Copy and
+  // Report use the friendly prose; only JSON emits the machine record (T091).
+  async function copyRecord(finding, opts)     { const t = friendlyText(finding, opts);          await copy(t); return t; }
+  async function copyRecordJson(finding, opts) { const t = toJson(buildRecord(finding, opts));    await copy(t); return t; }
+  async function copyShareArtifact(finding, opts) { const t = buildShareArtifact(finding, opts);  await copy(t); return t; }
   // FR-011d — report uses the same plain-text body (Assumptions: no separate
   // wire format; the report destination is the user's clipboard).
   async function copyReport(finding, opts) { return copyRecord(finding, opts); }
@@ -190,7 +193,7 @@ const QuranActions = (() => {
   }
 
   return {
-    buildRecord, toPlainText, toJson, buildShareArtifact,
+    buildRecord, friendlyText, toJson, buildShareUrl, buildShareArtifact,
     copy, copyRecord, copyRecordJson, copyShareArtifact, copyReport,
     jumpInContent, jumpFromPopup, correctInContent, correctFromPopup,
     urlKey, dismiss, restore,

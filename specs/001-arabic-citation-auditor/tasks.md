@@ -415,7 +415,7 @@ matching logic.
 
 ### Friendlier share + richer text fragment
 
-- [ ] T091 Rewrite the share body (`QuranActions.buildShareArtifact` /
+- [X] T091 Rewrite the share body (`QuranActions.buildShareArtifact` /
   `toPlainText`) to be reader-facing, localized prose instead of the current
   `label / Label: value` developer record. Orange example (en): *"This page
   attributes “{snippet}” to {citedRef}, but it actually appears at {trueRef} in

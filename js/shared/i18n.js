@@ -112,6 +112,14 @@ const QuranI18n = (() => {
       tip_orange: 'مذكور كـ: {cited}\nالصواب: {matched}',
       tip_red: 'لم يُعثر على هذا النص في القرآن',
       tip_red_with_ref: 'لم يُعثر على هذا النص في القرآن\nالمرجع المذكور: {ref}',
+      // share (reader-facing prose)
+      share_orange: 'تنسب هذه الصفحة «{snippet}» إلى {cited}، لكنها في الحقيقة من {matched} في القرآن الكريم.',
+      share_green: '«{snippet}» — {matched} (مطابقة موثّقة للقرآن).',
+      share_lightBlue: '«{snippet}» — وردت في {matched} (لم يُذكر المرجع في الصفحة).',
+      share_yellow: '«{snippet}» — قريبة من {matched} مع اختلاف لفظي يستحق المراجعة.',
+      share_red: '«{snippet}» — لم يُعثر على هذا النص في القرآن الكريم.',
+      share_page: 'الصفحة: {url}',
+      share_via: '— عبر مُدقّق آيات القرآن',
     },
     en: {
       cat_green: 'Verified with reference',
@@ -201,6 +209,13 @@ const QuranI18n = (() => {
       tip_orange: 'Cited as: {cited}\nActually: {matched}',
       tip_red: 'This text was not found in the Quran',
       tip_red_with_ref: 'This text was not found in the Quran\nCited reference: {ref}',
+      share_orange: 'This page attributes “{snippet}” to {cited}, but it actually appears at {matched} in the Quran.',
+      share_green: '“{snippet}” — {matched} (verified against the Quran).',
+      share_lightBlue: '“{snippet}” — appears at {matched} (no reference was cited on the page).',
+      share_yellow: '“{snippet}” — close to {matched}, with a word-level difference worth reviewing.',
+      share_red: '“{snippet}” — this text was not found in the Quran.',
+      share_page: 'Page: {url}',
+      share_via: '— via Quran Citation Verifier',
     },
   };
 
