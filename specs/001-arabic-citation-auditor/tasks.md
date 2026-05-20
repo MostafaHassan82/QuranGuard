@@ -441,6 +441,33 @@ matching logic.
   and the cited-ref directives for an orange finding, and that the body matches
   the localized friendly template for each color.
 
+### V1.1 UI polish (NEW, requested 2026-05-20)
+
+- [ ] T094 Move the results **summary/stats table** out of the popup and into the
+  sidebar panel. The popup should hold ONLY controls (scan mode, Scan / Continue
+  / Clear, language, initial panel state); the panel shows all results + details
+  (the per-category counts table + the findings list, which already lives there).
+  Wire the popup→content path so the popup still triggers scans, but reads no
+  results — the panel owns `perCategoryCount` display (subscribe to SCAN_COMPLETE
+  / SCAN_PROGRESS in the sidebar, or render counts from QuranPanelModel). Keep
+  the popup's transient "Scanning… / complete / not-Arabic / empty" status line.
+- [ ] T095 [P] Professional **Islamic visual design** for both popup and panel.
+  Replace the current utilitarian look with a considered theme: a refined color
+  palette (deep green / gold accents that don't clash with the five-color
+  highlight taxonomy — keep the swatch colors intact and legible), tasteful
+  spacing/typography, a subtle geometric (arabesque) motif in headers, an
+  app icon/wordmark, and proper light/dark support. Constraints: pure CSS (no
+  build step, no frameworks per Tech Constraints); the sidebar stays namespaced
+  under `.quran-ext-panel` with `all: initial` so host pages can't bleed in;
+  must not regress the five-color swatches, RTL/LTR flip (T089), or the
+  collapse/resize affordances. Produce the palette + a mockup, get sign-off,
+  then implement popup.css + sidebar.css + content.css.
+- [ ] T096 [P] Make the language selector a **dropdown** (`<select>`) instead of
+  radio buttons, in both the popup and (if a language control is added there) the
+  panel. Keep it wired to `prefs.lang` + the live `applyLang` switch (T089) and
+  localized via `[data-i18n]`; ensure the dropdown itself is keyboard-accessible
+  and RTL-aware.
+
 ## Notes
 
 - **Constitution Principle V** (porting discipline) governs every verifier task. Read the advanced copy at `C:\Users\mosta\PycharmProjects\QuranChromePlugin` to catalog *cases*; redesign the *shape* in the rebuild. Small clean ports of pure data (surah-variant map, normalization tables) are allowed.
