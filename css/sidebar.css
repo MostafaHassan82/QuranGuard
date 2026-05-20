@@ -3,10 +3,9 @@
    the root element resets inherited values via `all: initial` so host styles
    don't bleed in either (font-size, line-height, RTL direction, etc.). */
 
-/* When the sidebar is mounted, reserve gutter space on the host root so the
-   sidebar doesn't sit on top of the page's text. The actual margin width must
-   match the sidebar's width below. */
-html.quran-ext-sidebar-mounted { margin-right: 320px !important; }
+/* When the sidebar is mounted, the host root's right margin is set inline by
+   js/panel/sidebar-surface.js to match the (resizable / collapsible) sidebar
+   width, so the sidebar never sits on top of the page's text. */
 
 .quran-ext-panel {
   /* Reset everything inherited from the host page. */
@@ -15,6 +14,7 @@ html.quran-ext-sidebar-mounted { margin-right: 320px !important; }
   top: 0;
   right: 0;
   width: 320px;
+  min-width: 240px;
   max-width: 90vw;
   height: 100vh;
   overflow-y: auto;
@@ -49,7 +49,14 @@ html.quran-ext-sidebar-mounted { margin-right: 320px !important; }
   color: #333;
 }
 
-.quran-ext-panel-close {
+.quran-ext-panel-header-btns {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.quran-ext-panel-close,
+.quran-ext-panel-collapse {
   background: none;
   border: none;
   font-size: 20px;
@@ -58,6 +65,50 @@ html.quran-ext-sidebar-mounted { margin-right: 320px !important; }
   color: #666;
   padding: 0 4px;
 }
+.quran-ext-panel-collapse { font-size: 16px; }
+.quran-ext-panel-close:hover,
+.quran-ext-panel-collapse:hover { color: #000; }
+
+/* Draggable left edge (RTL: the sidebar is pinned right, so its left border
+   is the resize boundary). */
+.quran-ext-panel-resize {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 6px;
+  height: 100%;
+  cursor: ew-resize;
+  background: transparent;
+  z-index: 1;
+}
+.quran-ext-panel-resize:hover { background: rgba(74, 144, 226, 0.35); }
+
+/* Collapsed tab — a thin handle pinned to the TOP-right edge; click to expand. */
+.quran-ext-panel-tab {
+  all: initial;
+  position: fixed;
+  top: 12px;
+  right: 0;
+  width: 26px;
+  min-height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fafafa;
+  color: #333;
+  font-family: Arial, sans-serif;
+  font-size: 14px;
+  cursor: pointer;
+  border: 1px solid #e0e0e0;
+  border-right: none;
+  border-radius: 6px 0 0 6px;
+  box-shadow: -2px 0 8px rgba(0, 0, 0, 0.15);
+  z-index: 2147483647;
+  writing-mode: vertical-rl;
+  padding: 8px 4px;
+  user-select: none;
+}
+.quran-ext-panel-tab:hover { background: #eef4fb; }
 
 .quran-ext-panel-close:hover { color: #222; }
 
@@ -71,6 +122,52 @@ html.quran-ext-sidebar-mounted { margin-right: 320px !important; }
 
 /* Match popup chip focus ring for chip labels themselves (Tab focus). */
 .quran-ext-filter-chip:focus { outline: 2px solid #4a90e2; outline-offset: 1px; }
+
+/* Swap + saved-corrections controls (moved from the popup). */
+.quran-ext-swap,
+.quran-ext-persist {
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  background: #fff;
+  padding: 6px 8px;
+  font-size: 12px;
+}
+.quran-ext-swap summary,
+.quran-ext-persist summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: #444;
+  padding: 2px 0;
+  user-select: none;
+}
+.quran-ext-swap-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 0;
+}
+.quran-ext-swap-per-color { padding-right: 10px; }
+.quran-ext-swap-font {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+}
+.quran-ext-font-select { flex: 1; }
+.quran-ext-clear-persisted {
+  margin-top: 6px;
+  border: 1px solid #c0392b;
+  color: #c0392b;
+  background: #fff;
+  border-radius: 4px;
+  padding: 4px 8px;
+  cursor: pointer;
+}
+.quran-ext-persist-status {
+  margin-top: 6px;
+  color: #2e7d32;
+  font-size: 11px;
+}
 
 .quran-ext-filter-chips {
   display: flex;
@@ -136,6 +233,13 @@ html.quran-ext-sidebar-mounted { margin-right: 320px !important; }
 
 .quran-ext-panel-row:hover { background: #f5f5f5; }
 .quran-ext-panel-row:focus { box-shadow: 0 0 0 2px #4a90e2; }
+
+/* Page → panel: flash the row when its highlight is clicked on the page. */
+.quran-ext-panel-row-flash { animation: quran-ext-row-flash 1.5s ease-out; }
+@keyframes quran-ext-row-flash {
+  0%   { background: #fff3cd; }
+  100% { background: transparent; }
+}
 
 .quran-ext-panel-row-orange    { border-right: 3px solid #ff8c00; }
 .quran-ext-panel-row-green     { border-right: 3px solid #2d7a2d; }

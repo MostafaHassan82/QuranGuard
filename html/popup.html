@@ -58,79 +58,21 @@
     </div>
   </div>
 
-  <!-- Filter chips + surface picker (T047) -->
-  <div id="panel-controls">
-    <div id="filter-chips" role="group" aria-label="تصفية حسب الفئة">
-      <label class="filter-chip filter-orange" tabindex="0">
-        <input type="checkbox" data-color="orange"><span>⚠ مرجع خاطئ</span>
-      </label>
-      <label class="filter-chip filter-green" tabindex="0">
-        <input type="checkbox" data-color="green"><span>✓ تطابق تام</span>
-      </label>
-      <label class="filter-chip filter-lightBlue" tabindex="0">
-        <input type="checkbox" data-color="lightBlue"><span>✓ بدون مرجع</span>
-      </label>
-      <label class="filter-chip filter-yellow" tabindex="0">
-        <input type="checkbox" data-color="yellow"><span>~ اختلاف لفظي</span>
-      </label>
-      <label class="filter-chip filter-red" tabindex="0">
-        <input type="checkbox" data-color="red"><span>✗ لم يُتحقَّق</span>
-      </label>
-    </div>
-    <div id="surface-picker">
-      <label id="surface-label">سطح اللوحة:</label>
-      <label class="toggle-option">
-        <input type="radio" name="panelSurface" value="popup" id="surface-popup" checked>
-        <span>منبثقة</span>
-      </label>
-      <label class="toggle-option">
-        <input type="radio" name="panelSurface" value="sidebar" id="surface-sidebar">
-        <span>شريط جانبي</span>
-      </label>
-    </div>
+  <!-- Initial sidebar panel state. The findings panel, filters, swap controls,
+       and saved-corrections settings all live in the page-injected sidebar. -->
+  <div id="panel-state-picker">
+    <label id="panel-state-label">لوحة النتائج تبدأ:</label>
+    <label class="toggle-option">
+      <input type="radio" name="panelInitialState" value="expanded" id="state-expanded" checked>
+      <span>مفتوحة</span>
+    </label>
+    <label class="toggle-option">
+      <input type="radio" name="panelInitialState" value="collapsed" id="state-collapsed">
+      <span>مطوية</span>
+    </label>
   </div>
 
-  <!-- Authentic-text swap controls (T061, FR-009) -->
-  <details id="swap-controls">
-    <summary>عرض النص القرآني الأصلي</summary>
-    <label class="swap-row">
-      <input type="checkbox" id="swap-master" checked>
-      <span>تفعيل (رئيسي)</span>
-    </label>
-    <div class="swap-per-color">
-      <label class="swap-row"><input type="checkbox" data-swap-color="green" checked><span>تطابق تام</span></label>
-      <label class="swap-row"><input type="checkbox" data-swap-color="lightBlue" checked><span>تطابق بدون مرجع</span></label>
-      <label class="swap-row"><input type="checkbox" data-swap-color="yellow" checked><span>اختلاف لفظي</span></label>
-      <label class="swap-row"><input type="checkbox" data-swap-color="orange" checked><span>مرجع غير مطابق</span></label>
-      <label class="swap-row swap-row-disabled" title="الأحمر دائمًا معطّل (FR-015)">
-        <input type="checkbox" data-swap-color="red" disabled><span>لم يُتحقَّق — دائمًا معطّل</span>
-      </label>
-    </div>
-    <div class="swap-font-picker">
-      <label id="font-label" for="font-select">الخط:</label>
-      <select id="font-select">
-        <option value="uthmaniHafs">عثماني — حفص</option>
-        <option value="indoPak">هندي / باكستاني</option>
-        <option value="simplified">مبسّط</option>
-      </select>
-    </div>
-  </details>
-
-  <!-- Persisted corrections/dismissals settings (T072, FR-024) -->
-  <details id="persist-settings">
-    <summary>التصحيحات والتجاهلات المحفوظة</summary>
-    <button id="btn-clear-persisted" type="button">مسح التصحيحات والتجاهلات المحفوظة</button>
-    <div id="persist-status" role="status" aria-live="polite"></div>
-  </details>
-
-  <!-- Findings panel (T046) — populated by js/panel/popup-surface.js -->
-  <div id="panel-container" role="region" aria-label="نتائج التحقق"></div>
-
   <script src="../js/shared/messaging.js"></script>
-  <script src="../js/panel/model.js"></script>
-  <script src="../js/panel/actions.js"></script>
-  <script src="../js/panel/keyboard.js"></script>
-  <script src="../js/panel/popup-surface.js"></script>
   <script src="../js/popup.js"></script>
 </body>
 </html>

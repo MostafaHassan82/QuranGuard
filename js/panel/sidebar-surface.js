@@ -1,7 +1,8 @@
 'use strict';
-// T050 — Page-injected sidebar surface. Runs in the content-script world,
-// uses its own QuranPanelModel instance (separate from the popup's). Mounts
-// only when prefs.panelSurface === 'sidebar' AND the scan produced findings
+// T050 — Page-injected sidebar surface. Runs in the content-script world and
+// is the ONLY panel surface (the popup is scan-only). Mounts whenever a scan
+// produces findings; the user can collapse it to a tab but not close it. Hosts
+// the findings list, filters, swap controls, and saved-corrections settings
 // (FR-010, FR-027, FR-029).
 const QuranPanelSidebar = (() => {
   const CATEGORY_LABEL_AR = {
@@ -23,6 +24,97 @@ const QuranPanelSidebar = (() => {
   let userClosed = false;
   // Keyboard listener detacher; set on mount, called on unmount.
   let detachKeyboard = null;
+
+  // Collapsible + resizable layout state (persisted in chrome.storage.local so
+  // it survives reloads without touching the prefs.v1 schema).
+  let panelWidth = 320;
+  let collapsed = false;
+  let tabEl = null;
+  const MIN_PANEL_W = 240;
+  const TAB_W = 26;
+  const UI_KEY = 'quran.sidebar.ui';
+
+  // Set the host root's right gutter (inline + important so it beats any host
+  // stylesheet) to match the visible sidebar width — or the tab when collapsed.
+  function setHostMargin(px) {
+    document.documentElement.style.setProperty('margin-right', px + 'px', 'important');
+  }
+
+  function clampWidth(w) {
+    const max = Math.round(window.innerWidth * 0.9);
+    return Math.max(MIN_PANEL_W, Math.min(max, w));
+  }
+
+  // Reflect collapsed/width state into the DOM (panel, host margin, tab).
+  function applyLayout() {
+    if (!rootEl) return;
+    if (collapsed) {
+      rootEl.style.display = 'none';
+      ensureTab().style.display = 'flex';
+      setHostMargin(TAB_W);
+    } else {
+      rootEl.style.display = 'flex';
+      rootEl.style.width = panelWidth + 'px';
+      if (tabEl) tabEl.style.display = 'none';
+      setHostMargin(panelWidth);
+    }
+  }
+
+  function ensureTab() {
+    if (tabEl && document.body.contains(tabEl)) return tabEl;
+    tabEl = document.createElement('div');
+    tabEl.className = 'quran-ext-panel-tab';
+    tabEl.setAttribute('role', 'button');
+    tabEl.setAttribute('tabindex', '0');
+    tabEl.setAttribute('aria-label', 'فتح اللوحة');
+    tabEl.title = 'فتح لوحة النتائج';
+    tabEl.textContent = 'النتائج ⟨';
+    const open = () => expand();
+    tabEl.addEventListener('click', open);
+    tabEl.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
+    document.body.appendChild(tabEl);
+    return tabEl;
+  }
+
+  function persistUi() {
+    try { chrome.storage.local.set({ [UI_KEY]: { width: panelWidth, collapsed } }); } catch (_) {}
+  }
+
+  async function loadUi() {
+    try {
+      const r = await chrome.storage.local.get(UI_KEY);
+      const ui = r?.[UI_KEY] || {};
+      if (typeof ui.width === 'number') panelWidth = clampWidth(ui.width);
+      collapsed = !!ui.collapsed;
+    } catch (_) {}
+  }
+
+  function collapse() { collapsed = true; applyLayout(); persistUi(); }
+  function expand() { collapsed = false; applyLayout(); persistUi(); focusFirstRow(); }
+
+  // Drag the left edge to resize. Panel is pinned right, so width tracks the
+  // distance from the cursor to the right viewport edge.
+  function wireResize() {
+    const handle = rootEl.querySelector('.quran-ext-panel-resize');
+    if (!handle) return;
+    handle.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      const onMove = (ev) => {
+        panelWidth = clampWidth(window.innerWidth - ev.clientX);
+        rootEl.style.width = panelWidth + 'px';
+        setHostMargin(panelWidth);
+      };
+      const onUp = () => {
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+        document.body.style.userSelect = '';
+        persistUi();
+      };
+      document.body.style.userSelect = 'none';
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+  }
 
   async function fetchTemplate() {
     const url = chrome.runtime.getURL('html/sidebar.html');
@@ -185,16 +277,67 @@ const QuranPanelSidebar = (() => {
   }
 
   function wireEvents() {
-    rootEl.querySelector('.quran-ext-panel-close').addEventListener('click', () => {
-      userClosed = true;
-      unmount();
-    });
+    const collapseBtn = rootEl.querySelector('.quran-ext-panel-collapse');
+    if (collapseBtn) collapseBtn.addEventListener('click', () => collapse());
+    wireResize();
     rootEl.querySelectorAll('.quran-ext-filter-chip input[type=checkbox]').forEach(cb => {
       cb.addEventListener('change', () => {
         activeFilter = { ...(activeFilter || {}), [cb.dataset.color]: cb.checked };
         render();
         QuranMsg.sendRequest('PREFS_WRITE', { patch: { panelFilter: activeFilter } }).catch(() => {});
       });
+    });
+    wireSwapAndPersist();
+  }
+
+  // Reflect saved prefs into the swap controls (moved here from the popup).
+  function syncSwapControls(prefs) {
+    const master = rootEl.querySelector('.quran-ext-swap-master');
+    if (master) master.checked = prefs?.master?.authenticTextReplacement !== false;
+    const perColor = prefs?.perColor || {};
+    rootEl.querySelectorAll('[data-swap-color]').forEach(cb => {
+      const c = cb.dataset.swapColor;
+      if (c === 'red') { cb.checked = false; cb.disabled = true; return; } // FR-015
+      cb.checked = perColor[c] !== false;
+    });
+    const fontSel = rootEl.querySelector('.quran-ext-font-select');
+    if (fontSel) fontSel.value = prefs?.font || 'uthmaniHafs';
+  }
+
+  // Wire the swap controls + the "clear saved corrections" button. PREFS_WRITE
+  // broadcasts PREFS_CHANGED, which content.js uses to reconcile the on-page
+  // swaps — so no extra plumbing is needed here.
+  function wireSwapAndPersist() {
+    const master = rootEl.querySelector('.quran-ext-swap-master');
+    if (master) master.addEventListener('change', () => {
+      QuranMsg.sendRequest('PREFS_WRITE', { patch: { master: { authenticTextReplacement: master.checked } } }).catch(() => {});
+    });
+    rootEl.querySelectorAll('[data-swap-color]').forEach(cb => {
+      if (cb.dataset.swapColor === 'red') return; // FR-015 — locked off
+      cb.addEventListener('change', () => {
+        QuranMsg.sendRequest('PREFS_WRITE', { patch: { perColor: { [cb.dataset.swapColor]: cb.checked } } }).catch(() => {});
+      });
+    });
+    const fontSel = rootEl.querySelector('.quran-ext-font-select');
+    if (fontSel) fontSel.addEventListener('change', () => {
+      QuranMsg.sendRequest('PREFS_WRITE', { patch: { font: fontSel.value } }).catch(() => {});
+    });
+
+    const clearBtn = rootEl.querySelector('.quran-ext-clear-persisted');
+    if (clearBtn) clearBtn.addEventListener('click', async () => {
+      const status = rootEl.querySelector('.quran-ext-persist-status');
+      clearBtn.disabled = true;
+      try {
+        const resp = await QuranMsg.sendRequest('CLEAR_PERSISTED', {});
+        const pruned = resp?.payload?.result?.prunedCount ?? 0;
+        if (status) status.textContent = `تم المسح — لا توجد عناصر محفوظة (أُزيلت ${pruned}).`;
+        QuranPanelModel.all().forEach(f => { if (f.panelState) f.panelState.persistedBadge = null; });
+        render();
+      } catch (_) {
+        if (status) status.textContent = 'تعذّر المسح. حاول مرة أخرى.';
+      } finally {
+        clearBtn.disabled = false;
+      }
     });
   }
 
@@ -213,14 +356,20 @@ const QuranPanelSidebar = (() => {
     // Reserve gutter space on <html> so the sidebar doesn't overlap content.
     document.documentElement.classList.add('quran-ext-sidebar-mounted');
 
+    await loadUi();
+
+    let prefs = {};
     try {
       const resp = await QuranMsg.sendRequest('PREFS_READ', {});
-      activeFilter = resp?.payload?.result?.panelFilter || { orange: true };
+      prefs = resp?.payload?.result || {};
+      activeFilter = prefs.panelFilter || { orange: true };
     } catch (_) { activeFilter = { orange: true }; }
 
     syncChips();
     wireEvents();
+    syncSwapControls(prefs);
     render();
+    applyLayout(); // restore saved width / collapsed state
 
     // Page-level shortcut: Alt+Shift+Q from anywhere on the host page pulls
     // focus into the sidebar's first row. Lets keyboard users hop back to the
@@ -265,11 +414,15 @@ const QuranPanelSidebar = (() => {
     }
     if (rootEl && rootEl.parentNode) rootEl.parentNode.removeChild(rootEl);
     rootEl = null;
+    if (tabEl && tabEl.parentNode) tabEl.parentNode.removeChild(tabEl);
+    tabEl = null;
     document.documentElement.classList.remove('quran-ext-sidebar-mounted');
+    document.documentElement.style.removeProperty('margin-right');
   }
 
   function focusFirstRow() {
     if (!rootEl) return;
+    if (collapsed) expand(); // can't focus a row while collapsed
     const row = rootEl.querySelector('.quran-ext-panel-row');
     if (row) row.focus();
     else rootEl.focus();
@@ -286,5 +439,22 @@ const QuranPanelSidebar = (() => {
   function tagPersisted(entries) { QuranPanelModel.tagPersisted(entries); if (rootEl) render(); }
   function isMounted() { return rootEl !== null && document.body.contains(rootEl); }
 
-  return { mount, unmount, upsert, ingest, reset, tagPersisted, isMounted, clearUserClosed };
+  // Page → panel: scroll the row for findingId into view and flash it. Called
+  // by content.js when the user clicks a highlight on the page (the inverse of
+  // the panel → page jump). Returns false if the row isn't currently shown
+  // (e.g. its category is filtered out). Finding ids are [0-9a-z-] so the
+  // attribute selector needs no escaping.
+  function focusRow(findingId) {
+    if (!rootEl || !findingId) return false;
+    if (collapsed) expand(); // surface the panel so the row is visible
+    const row = rootEl.querySelector(`.quran-ext-panel-row[data-finding-id="${findingId}"]`);
+    if (!row) return false;
+    row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    row.classList.add('quran-ext-panel-row-flash');
+    setTimeout(() => row.classList.remove('quran-ext-panel-row-flash'), 1500);
+    try { row.focus({ preventScroll: true }); } catch (_) {}
+    return true;
+  }
+
+  return { mount, unmount, upsert, ingest, reset, tagPersisted, isMounted, clearUserClosed, focusRow };
 })();

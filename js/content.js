@@ -853,9 +853,21 @@ function applyHighlight(candidate, result, { hidden = false } = {}) {
 function clearHighlights({ normalize = true } = {}) {
   // T065 — unwrap reference markers first so a re-scan starts from clean text
   // (otherwise the marker spans accumulate and fragment the reference text).
-  for (const m of document.querySelectorAll('.' + REF_MARKER_CLASS)) m.replaceWith(...m.childNodes);
+  // Restore the ORIGINAL cited reference for any marker that was corrected in
+  // place, so a re-scan sees the page's original wording (matches a reload).
+  for (const m of document.querySelectorAll('.' + REF_MARKER_CLASS)) {
+    if (m.dataset.quranRefOrig != null) m.textContent = m.dataset.quranRefOrig;
+    m.replaceWith(...m.childNodes);
+  }
   const spans = document.querySelectorAll(HIGHLIGHT_SELECTOR);
-  for (const span of spans) span.replaceWith(...span.childNodes);
+  for (const span of spans) {
+    // Revert authentic-text swaps before unwrapping. The swap engine stashes
+    // the page's original text in data-quran-orig-text; without restoring it,
+    // unwrapping would leave the swapped Quran text behind and the next scan
+    // would re-extract authentic wording instead of the original citation.
+    if (span.dataset.quranOrigText != null) span.textContent = span.dataset.quranOrigText;
+    span.replaceWith(...span.childNodes);
+  }
   // normalize=true (default, used for explicit user clear and before pass 1):
   //   merges the split text nodes so the next pass starts from a clean DOM.
   // normalize=false (used between scan passes 2/3):
@@ -1102,20 +1114,16 @@ function emitComplete(scanId, startedAt, startTime) {
     setTimeout(() => { STATE.swapInProgress = false; }, 50);
   }
 
-  // T050 — Mount the sidebar surface if the user opted into it and the scan
-  // found something worth showing (FR-010, FR-027, FR-029).
+  // Mount the sidebar surface whenever the scan found something worth showing.
+  // The sidebar is now the only panel surface (the popup is scan-only), so it
+  // always mounts here — its initial collapsed/expanded state is restored from
+  // chrome.storage.local inside mount() (FR-010, FR-027, FR-029).
   maybeMountSidebar(finalState).catch(() => {});
 }
 
 async function maybeMountSidebar(finalState) {
   if (typeof QuranPanelSidebar === 'undefined') return;
   if (finalState === 'empty' || finalState === 'notArabic') return;
-  let prefs = null;
-  try {
-    const resp = await QuranMsg.sendRequest('PREFS_READ', {});
-    prefs = resp?.payload?.result || null;
-  } catch (_) { return; }
-  if (prefs?.panelSurface !== 'sidebar') return;
 
   QuranPanelSidebar.reset();
   for (const f of STATE.findings) QuranPanelSidebar.upsert(f);
@@ -1160,14 +1168,15 @@ function setupMutationObserver() {
     const roots = new Set();
     for (const m of mutations) {
       if (m.addedNodes.length === 0) continue;
-      // Ignore mutations inside our own sidebar — its mount/render churn must
-      // not trigger a rescan that would re-mount the sidebar after the user
-      // closed it (or churn through scan loops on every chip toggle).
-      if (m.target && m.target.closest && m.target.closest('.quran-ext-panel')) continue;
-      // Ignore the body-level mutation that ADDS the sidebar itself.
+      // Ignore mutations inside our own sidebar (or its collapsed tab) — their
+      // mount/render/collapse churn must not trigger a rescan that would re-mount
+      // the sidebar or re-extract on a single pass (producing different matches).
+      const OWN_UI = '.quran-ext-panel, .quran-ext-panel-tab';
+      if (m.target && m.target.closest && m.target.closest(OWN_UI)) continue;
+      // Ignore the body-level mutation that ADDS the sidebar or the tab itself.
       let isOurOwnAdd = true;
       for (const n of m.addedNodes) {
-        if (n.nodeType === 1 && (n.classList?.contains('quran-ext-panel') || n.closest?.('.quran-ext-panel'))) continue;
+        if (n.nodeType === 1 && (n.classList?.contains('quran-ext-panel') || n.classList?.contains('quran-ext-panel-tab') || n.closest?.(OWN_UI))) continue;
         isOurOwnAdd = false; break;
       }
       if (isOurOwnAdd) continue;
@@ -1394,6 +1403,7 @@ async function correctInPlace(findingId) {
   STATE.swapInProgress = true;
   try {
     if (marker && corrected) {
+      if (marker.dataset.quranRefOrig == null) marker.dataset.quranRefOrig = marker.textContent;
       marker.textContent = corrected;
       marker.dataset.quranRefFor = successorId;
       marker.classList.add('quran-ref-corrected');
@@ -1549,9 +1559,9 @@ if (chrome?.runtime?.onMessage) {
       return true;
     }
 
-    // PREFS_CHANGED — refresh the cache, reconcile authentic-text swap state
-    // for every finding (T060), and mount/unmount the sidebar to match the
-    // new surface pref.
+    // PREFS_CHANGED — refresh the cache and reconcile authentic-text swap state
+    // for every finding (T060). The sidebar is always the panel surface now, so
+    // there's no surface-based mount/unmount here.
     if (type === 'PREFS_CHANGED') {
       const prefs = payload?.prefs;
       if (!prefs) return;
@@ -1565,19 +1575,25 @@ if (chrome?.runtime?.onMessage) {
         try { QuranSwap.reconcile(STATE.findings, prefs); } catch (_) {}
         setTimeout(() => { STATE.swapInProgress = false; }, 50);
       }
-      if (typeof QuranPanelSidebar !== 'undefined') {
-        if (prefs.panelSurface === 'sidebar' && STATE.findings.length > 0) {
-          QuranPanelSidebar.reset();
-          for (const f of STATE.findings) QuranPanelSidebar.upsert(f);
-          QuranPanelSidebar.mount().catch(() => {});
-        } else if (prefs.panelSurface !== 'sidebar' && QuranPanelSidebar.isMounted()) {
-          QuranPanelSidebar.unmount();
-        }
-      }
       return;
     }
   });
 }
+
+// Page → panel: clicking a highlight focuses + flashes its row in the sidebar
+// (the inverse of the panel → page jump). The popup can't be targeted from the
+// page, so this applies only when the sidebar surface is mounted.
+document.addEventListener('click', (e) => {
+  const t = e.target;
+  if (!t || typeof t.closest !== 'function') return;
+  if (t.closest('.quran-ext-panel')) return; // ignore clicks inside the panel
+  const span = t.closest(HIGHLIGHT_SELECTOR);
+  const id = span && span.dataset.findingId;
+  if (!id) return;
+  if (typeof QuranPanelSidebar !== 'undefined' && QuranPanelSidebar.isMounted()) {
+    QuranPanelSidebar.focusRow(id);
+  }
+});
 
 // ── Startup ───────────────────────────────────────────────────────────────────
 

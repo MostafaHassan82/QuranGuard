@@ -3,9 +3,11 @@
      into the host page's <body>. All styles live in css/sidebar.css and are
      namespaced under .quran-ext-panel to prevent host-page CSS bleed. -->
 <aside class="quran-ext-panel" role="region" aria-label="نتائج التحقق من الاقتباسات" aria-keyshortcuts="Alt+Shift+Q">
+  <!-- Drag this left edge to widen/narrow the sidebar. -->
+  <div class="quran-ext-panel-resize" role="separator" aria-orientation="vertical" aria-label="تغيير العرض"></div>
   <header class="quran-ext-panel-header">
     <h2 class="quran-ext-panel-title">نتائج التحقق</h2>
-    <button class="quran-ext-panel-close" type="button" aria-label="إغلاق">×</button>
+    <button class="quran-ext-panel-collapse" type="button" aria-label="طيّ اللوحة" title="طيّ">⟨</button>
   </header>
   <div class="quran-ext-panel-hint" title="اضغط Alt+Shift+Q من أي مكان في الصفحة للعودة إلى اللوحة">
     Alt+Shift+Q ← اللوحة
@@ -28,6 +30,38 @@
       <input type="checkbox" data-color="red"><span>✗ لم يُتحقَّق</span>
     </label>
   </div>
+
+  <!-- Authentic-text swap controls (moved from popup; T061, FR-009) -->
+  <details class="quran-ext-swap">
+    <summary>عرض النص القرآني الأصلي</summary>
+    <label class="quran-ext-swap-row">
+      <input type="checkbox" class="quran-ext-swap-master"><span>تفعيل (رئيسي)</span>
+    </label>
+    <div class="quran-ext-swap-per-color">
+      <label class="quran-ext-swap-row"><input type="checkbox" data-swap-color="green"><span>تطابق تام</span></label>
+      <label class="quran-ext-swap-row"><input type="checkbox" data-swap-color="lightBlue"><span>تطابق بدون مرجع</span></label>
+      <label class="quran-ext-swap-row"><input type="checkbox" data-swap-color="yellow"><span>اختلاف لفظي</span></label>
+      <label class="quran-ext-swap-row"><input type="checkbox" data-swap-color="orange"><span>مرجع غير مطابق</span></label>
+      <label class="quran-ext-swap-row" title="الأحمر دائمًا معطّل (FR-015)">
+        <input type="checkbox" data-swap-color="red" disabled><span>لم يُتحقَّق — دائمًا معطّل</span>
+      </label>
+    </div>
+    <div class="quran-ext-swap-font">
+      <label>الخط:</label>
+      <select class="quran-ext-font-select">
+        <option value="uthmaniHafs">عثماني — حفص</option>
+        <option value="indoPak">هندي / باكستاني</option>
+        <option value="simplified">مبسّط</option>
+      </select>
+    </div>
+  </details>
+
+  <!-- Saved corrections/dismissals (moved from popup; T072, FR-024) -->
+  <details class="quran-ext-persist">
+    <summary>التصحيحات والتجاهلات المحفوظة</summary>
+    <button type="button" class="quran-ext-clear-persisted">مسح التصحيحات والتجاهلات المحفوظة</button>
+    <div class="quran-ext-persist-status" role="status" aria-live="polite"></div>
+  </details>
 
   <div class="quran-ext-panel-container"></div>
 </aside>

@@ -159,17 +159,23 @@ button:disabled {
 .filter-chip.filter-yellow:has(input:checked)    { background: #fbf3d8; border-color: #d4a017; color: #8a6d00; }
 .filter-chip.filter-red:has(input:checked)       { background: #f7d8dc; border-color: #b00020; color: #8a0017; }
 
-#surface-picker {
+#surface-picker,
+#panel-state-picker {
   display: flex;
   align-items: center;
   gap: 8px;
   font-size: 11px;
   color: #555;
+  margin-top: 10px;
+  border-top: 1px solid #e0e0e0;
+  padding-top: 8px;
 }
 
-#surface-label { font-weight: 600; }
+#surface-label,
+#panel-state-label { font-weight: 600; }
 
-#surface-picker .toggle-option {
+#surface-picker .toggle-option,
+#panel-state-picker .toggle-option {
   display: inline-flex;
   align-items: center;
   gap: 3px;
