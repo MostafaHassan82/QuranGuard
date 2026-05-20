@@ -225,10 +225,10 @@ Repo is a flat Chromium MV3 extension at the repo root. See [plan.md](./plan.md)
 
 ### Phase 5 swap follow-ups (USER-REPORTED BUGS — fix BEFORE Phase 6)
 
-- [ ] T058z [US3] **CRITICAL — swap-during-scan corrupts results**: applySwap currently fires inside `applyHighlight` during the convergence loop, so subsequent passes / the MutationObserver see authentic text instead of the page's original wording → final green/orange/yellow counts differ from a no-swap scan. Repro: default prefs (swap ON) → wrong counts; swap OFF → reload → scan → enable swap → correct counts. **Fix**: defer all applySwap calls until AFTER the convergence loop, called from `emitComplete` iterating `STATE.findings`; also gate the MutationObserver while swapping (flag mirroring the sidebar-add filter).
+- [X] T058z [US3] **CRITICAL — swap-during-scan corrupts results**: applySwap currently fires inside `applyHighlight` during the convergence loop, so subsequent passes / the MutationObserver see authentic text instead of the page's original wording → final green/orange/yellow counts differ from a no-swap scan. Repro: default prefs (swap ON) → wrong counts; swap OFF → reload → scan → enable swap → correct counts. **Fix**: defer all applySwap calls until AFTER the convergence loop, called from `emitComplete` iterating `STATE.findings`; also gate the MutationObserver while swapping (flag mirroring the sidebar-add filter).
 - [X] T058a [US3] **Excerpt-preserving swap**: replace the highlight ONLY with the matching subset of the authentic ayah (same excerpt shape the page cited), not the full ayah. For ellipsis-excerpts `{first ... last}` swap each segment with its authentic counterpart. For multi-ayah citations swap each segment with its matching ayah. Full ayah stays in the panel row + copy/share record only. Requires the verifier to surface the aligned segment text(s) — likely a new `result.authenticSegments` field (array of `{text}`). Yellow (word-level) needs the optimal-matching segment indices from the diff.
-- [ ] T058b [US3] **Swap sizing**: replace the iterative `applyBoundedSizing` with a fixed baseline of `font-size: 0.8em; line-height: 1` (matches the advanced copy's working pattern). Only escalate if measurement still exceeds 1.5× parent line-box.
-- [ ] T058c [US3] **Color rectangle drift**: when swapped text length differs from the original, the colored highlight box no longer wraps the visible text correctly. Investigate whether `unicode-bidi: isolate` on `.quran-swap` is creating a sub-line-box mismatch; the highlight wrapper is `display: inline` so it should reflow with the swap text, but the user reports it doesn't.
+- [X] T058b [US3] **Swap sizing**: replace the iterative `applyBoundedSizing` with a fixed baseline of `font-size: 0.8em; line-height: 1` (matches the advanced copy's working pattern). Only escalate if measurement still exceeds 1.5× parent line-box.
+- [X] T058c [US3] **Color rectangle drift**: when swapped text length differs from the original, the colored highlight box no longer wraps the visible text correctly. Investigate whether `unicode-bidi: isolate` on `.quran-swap` is creating a sub-line-box mismatch; the highlight wrapper is `display: inline` so it should reflow with the swap text, but the user reports it doesn't.
 
 **Checkpoint**: User Stories 1 + 2 + 3 all work independently. The reader gets the full triad — detect, list, render authentic — with all preferences persisting across sessions. Correct-in-place is the only feature left.
 
@@ -382,6 +382,64 @@ With multiple developers post-Phase 2:
 4. US4 lands after US2 + US3 complete (it's the last in priority)
 
 ---
+
+## Phase 8: V1.1 — i18n + share UX (NEW, requested 2026-05-20)
+
+**Purpose**: capture the post-V1 enhancement requests. These are additive; none
+change the verifier or the five-color taxonomy. Implement after the V1 fixture
+gate (T040–T076) or in parallel — they touch UI/strings + the share builder, not
+matching logic.
+
+### Multilingual UI (Arabic + English to start)
+
+- [ ] T087 Add an i18n layer. Create a `QuranI18n` module (`js/shared/i18n.js`)
+  with `ar` + `en` message catalogs (key → string) and `t(key, vars)` +
+  `dir(lang)` (rtl/ar, ltr/en). Source the active language from a new
+  `prefs.lang` (default: browser UI language if ar/en, else `en`); fall back to
+  `ar`. Decision: roll our own tiny catalog rather than `chrome.i18n`/`_locales`
+  so the page-injected sidebar (content world) and popup share one runtime
+  switch without a reload. Document the contract inline.
+- [ ] T088 Replace hardcoded Arabic strings with `t(...)` across: `html/popup.html`
+  + `js/popup.js`, `html/sidebar.html` + `js/panel/sidebar-surface.js`,
+  `js/panel/actions.js` (record labels), tooltips in `js/content.js`
+  (`buildTooltip`, `CATEGORY_LABEL_AR` → keyed), and `aria-label`s. Keep the
+  category *meanings* fixed (Principle II) — only their display strings localize.
+- [ ] T089 Wire a language switch in the popup (and reflect in the sidebar):
+  set `dir`/`lang` on the panel root and popup `<html>` from `dir(lang)` so the
+  English UI renders LTR while the Quran/Arabic citation content stays RTL.
+  Persist via `prefs.lang`; broadcast `PREFS_CHANGED` so the open sidebar
+  re-renders in the new language without a reload.
+- [ ] T090 [P] i18n fixtures/checks: assert every `t()` key exists in both
+  catalogs (no missing-translation fallback in shipped UI); spot-check RTL/LTR
+  flip in the harness.
+
+### Friendlier share + richer text fragment
+
+- [ ] T091 Rewrite the share body (`QuranActions.buildShareArtifact` /
+  `toPlainText`) to be reader-facing, localized prose instead of the current
+  `label / Label: value` developer record. Orange example (en): *"This page
+  attributes “{snippet}” to {citedRef}, but it actually appears at {trueRef} in
+  the Quran."*; green/lightBlue/yellow get their own friendly templates. Keep a
+  separate machine-readable record only behind "Copy as JSON" (FR-011).
+- [ ] T092 Highlight BOTH the ayah and the reference in the shared link. Text
+  fragments support multiple directives joined by `&`, so emit
+  `#:~:text=<ayah>&text=<citedRef>` (and, for orange, optionally a second
+  fragment for the true ref if it appears on the page). Guard total URL length;
+  fall back to ayah-only if the ref string can't be located/encoded.
+  - **Note (color):** the `#:~:text=` highlight color is the *target page's* to
+    style via the `::target-text` CSS pseudo-element — a sender can't force a
+    color on a third-party page, so "change the default purple/yellow" is not
+    reliably possible for arbitrary pages. We CAN style `::target-text` on pages
+    WE inject into (our own sidebar/overlay), but not on the recipient's page.
+  - **Note (tooltip / alternative to text-fragment):** text fragments carry no
+    tooltip and no color payload — they're URL-encoded text only. A tooltip-style
+    share would require either (a) a landing/redirect page we host that renders
+    the finding then scrolls, or (b) appending a human-readable caption to the
+    copied *body* (T091) rather than the URL. Recommend (b) for V1.1; (a) is a
+    bigger, hosted-infra change — defer unless wanted.
+- [ ] T093 [P] Share fixtures: assert the generated URL contains both the ayah
+  and the cited-ref directives for an orange finding, and that the body matches
+  the localized friendly template for each color.
 
 ## Notes
 
