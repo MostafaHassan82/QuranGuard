@@ -13,7 +13,25 @@ const STATE = {
   languageDetected: null,
   mutationObserver: null,
   mutationDebounceTimer: null,
+  // Cache of the active prefs.v1; refreshed at startup and on PREFS_CHANGED.
+  // Used by the authentic-text swap (T060) and any other code that needs to
+  // gate behavior on user preferences without an extra round-trip per call.
+  prefs: null,
 };
+
+// T060 — load prefs once at startup so applySwap is ready when the first
+// finding lands. PREFS_CHANGED handler later keeps this cache in sync.
+(async function loadInitialPrefs() {
+  try {
+    const resp = await QuranMsg.sendRequest('PREFS_READ', {});
+    STATE.prefs = resp?.payload?.result || null;
+  } catch (_) { /* keep STATE.prefs null; gates will short-circuit safely */ }
+})();
+
+// T059 — register @font-face rules for all three Quran fonts on every page
+// the content script runs on. Idempotent; safe to call before document.head
+// exists (the function defers to document.documentElement).
+if (typeof QuranFonts !== 'undefined') QuranFonts.ensureLoaded();
 
 function makeEmptyStats() {
   return {
@@ -814,6 +832,10 @@ function applyHighlight(candidate, result, { hidden = false } = {}) {
       strategy: candidate.strategy,
     };
     STATE.findings.push(finding);
+    // T060 — authentic-text swap is DEFERRED to emitComplete (T058z). Running
+    // applySwap here mutates page text mid-scan, which causes subsequent
+    // convergence passes and the MutationObserver to operate on swapped text
+    // instead of the page's original wording → category counts diverge.
   }
   return span;
 }
@@ -1044,6 +1066,26 @@ function emitComplete(scanId, startedAt, startTime) {
   QuranMsg.emit('SCAN_COMPLETE', payload);
   updateWindowGlobals(scanId, startedAt, payload);
 
+  // T058z — Apply authentic-text swap AFTER convergence. Doing this during
+  // the scan loop corrupts subsequent passes because they re-walk swapped
+  // text instead of the page's original wording. The observer is briefly
+  // gated so the swap mutations don't trigger a phantom rescan.
+  if (typeof QuranSwap !== 'undefined' && STATE.prefs) {
+    STATE.swapInProgress = true;
+    try {
+      for (const f of STATE.findings) {
+        try {
+          if (QuranSwap.applySwap(f, STATE.prefs)) STATS.swapApplied++;
+          else if (f.color === 'red') STATS.swapSkippedRed++;
+        } catch (_) {}
+      }
+    } finally {
+      // Clear the flag on the next microtask so any synchronously-queued
+      // mutation records from the swap are still filtered out.
+      setTimeout(() => { STATE.swapInProgress = false; }, 50);
+    }
+  }
+
   // T050 — Mount the sidebar surface if the user opted into it and the scan
   // found something worth showing (FR-010, FR-027, FR-029).
   maybeMountSidebar(finalState).catch(() => {});
@@ -1087,6 +1129,10 @@ function setupMutationObserver() {
   if (STATE.mutationObserver) STATE.mutationObserver.disconnect();
 
   STATE.mutationObserver = new MutationObserver(mutations => {
+    // T058z — ignore mutations the swap engine just generated. Without this
+    // gate the swap text mutations would trigger a phantom rescan that
+    // re-walks authentic text instead of the page's original wording.
+    if (STATE.swapInProgress) return;
     STATS.mutationsObserved += mutations.length;
     const roots = new Set();
     for (const m of mutations) {
@@ -1285,16 +1331,30 @@ if (chrome?.runtime?.onMessage) {
       return;
     }
 
-    // PREFS_CHANGED — mount/unmount the sidebar to match the new surface pref.
+    // PREFS_CHANGED — refresh the cache, reconcile authentic-text swap state
+    // for every finding (T060), and mount/unmount the sidebar to match the
+    // new surface pref.
     if (type === 'PREFS_CHANGED') {
       const prefs = payload?.prefs;
-      if (!prefs || typeof QuranPanelSidebar === 'undefined') return;
-      if (prefs.panelSurface === 'sidebar' && STATE.findings.length > 0) {
-        QuranPanelSidebar.reset();
-        for (const f of STATE.findings) QuranPanelSidebar.upsert(f);
-        QuranPanelSidebar.mount().catch(() => {});
-      } else if (prefs.panelSurface !== 'sidebar' && QuranPanelSidebar.isMounted()) {
-        QuranPanelSidebar.unmount();
+      if (!prefs) return;
+      STATE.prefs = prefs;
+      // T060 — reapply / revert authentic-text swaps to match the new master,
+      // per-color, and font selections (FR-008, FR-009, FR-015). Gate the
+      // mutation observer so the swap's own DOM writes don't trigger a
+      // phantom rescan (T058z).
+      if (typeof QuranSwap !== 'undefined') {
+        STATE.swapInProgress = true;
+        try { QuranSwap.reconcile(STATE.findings, prefs); } catch (_) {}
+        setTimeout(() => { STATE.swapInProgress = false; }, 50);
+      }
+      if (typeof QuranPanelSidebar !== 'undefined') {
+        if (prefs.panelSurface === 'sidebar' && STATE.findings.length > 0) {
+          QuranPanelSidebar.reset();
+          for (const f of STATE.findings) QuranPanelSidebar.upsert(f);
+          QuranPanelSidebar.mount().catch(() => {});
+        } else if (prefs.panelSurface !== 'sidebar' && QuranPanelSidebar.isMounted()) {
+          QuranPanelSidebar.unmount();
+        }
       }
       return;
     }

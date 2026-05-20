@@ -84,6 +84,18 @@ function applyPrefsToUI(prefs) {
   const sPop = document.getElementById('surface-popup');
   const sSide = document.getElementById('surface-sidebar');
   if (sPop && sSide) (surface === 'sidebar' ? sSide : sPop).checked = true;
+
+  // T061 — sync authentic-text swap controls (FR-009)
+  const master = document.getElementById('swap-master');
+  if (master) master.checked = prefs?.master?.authenticTextReplacement !== false;
+  const perColor = prefs?.perColor || {};
+  document.querySelectorAll('[data-swap-color]').forEach(cb => {
+    const c = cb.dataset.swapColor;
+    if (c === 'red') { cb.checked = false; cb.disabled = true; return; } // FR-015
+    cb.checked = perColor[c] !== false;
+  });
+  const fontSel = document.getElementById('font-select');
+  if (fontSel) fontSel.value = prefs?.font || 'uthmaniHafs';
 }
 
 // ── Scan trigger (T021) ───────────────────────────────────────────────────────
@@ -310,6 +322,33 @@ document.addEventListener('DOMContentLoaded', async () => {
       await savePrefs({ panelSurface: radio.value });
     });
   });
+
+  // T061 — authentic-text swap controls (FR-009)
+  const master = document.getElementById('swap-master');
+  if (master) {
+    master.addEventListener('change', async () => {
+      activePrefs = activePrefs || {};
+      activePrefs.master = { ...(activePrefs.master || {}), authenticTextReplacement: master.checked };
+      await savePrefs({ master: { authenticTextReplacement: master.checked } });
+    });
+  }
+  document.querySelectorAll('[data-swap-color]').forEach(cb => {
+    if (cb.dataset.swapColor === 'red') return; // FR-015 — red is locked off
+    cb.addEventListener('change', async () => {
+      const patch = { perColor: { [cb.dataset.swapColor]: cb.checked } };
+      activePrefs = activePrefs || {};
+      activePrefs.perColor = { ...(activePrefs.perColor || {}), [cb.dataset.swapColor]: cb.checked };
+      await savePrefs(patch);
+    });
+  });
+  const fontSel = document.getElementById('font-select');
+  if (fontSel) {
+    fontSel.addEventListener('change', async () => {
+      activePrefs = activePrefs || {};
+      activePrefs.font = fontSel.value;
+      await savePrefs({ font: fontSel.value });
+    });
+  }
 
   // Show stats from a prior scan (autoscan or earlier manual run).
   hydrateFromActiveTab();

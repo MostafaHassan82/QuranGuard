@@ -164,29 +164,29 @@ Repo is a flat Chromium MV3 extension at the repo root. See [plan.md](./plan.md)
 
 ### Panel model + composite identity
 
-- [ ] T044 [US2] Create `js/panel/model.js`: in-memory `Map<findingId, Finding>` for the active scan; per-finding `PanelState`; sections "Active filter view" / "Recently corrected" (empty until US4) / "Dismissed (this session)" / "Previously dismissed" (data-model.md > Finding)
-- [ ] T045 [US2] On every `SCAN_PROGRESS`, append to `js/panel/model.js`; on `SCAN_COMPLETE`, query `js/storage/persisted.js` for the current `urlKey` (via `PERSIST_READ`) and tag matching Findings with `persistedBadge` per FR-024 (depends on T010, T044)
+- [X] T044 [US2] Create `js/panel/model.js`: in-memory `Map<findingId, Finding>` for the active scan; per-finding `PanelState`; sections "Active filter view" / "Recently corrected" (empty until US4) / "Dismissed (this session)" / "Previously dismissed" (data-model.md > Finding)
+- [X] T045 [US2] On every `SCAN_PROGRESS`, append to `js/panel/model.js`; on `SCAN_COMPLETE`, query `js/storage/persisted.js` for the current `urlKey` (via `PERSIST_READ`) and tag matching Findings with `persistedBadge` per FR-024 (depends on T010, T044)
 
 ### Popup-attached surface (default)
 
-- [ ] T046 [US2] Create `js/panel/popup-surface.js`: render panel into `html/popup.html` (extend `html/popup.html` with a panel container); per-finding row shows category glyph + category-name in words + color swatch + citation snippet + (cited ref / true ref) per FR-010; row is `role="button"` + `tabindex="0"` (FR-030)
-- [ ] T047 [US2] Extend `html/popup.html` to host the panel container, the per-category filter toggles (default: orange on, others off per FR-010), and the surface picker ("Popup" / "Sidebar"); persist via `PREFS_WRITE`
+- [X] T046 [US2] Create `js/panel/popup-surface.js`: render panel into `html/popup.html` (extend `html/popup.html` with a panel container); per-finding row shows category glyph + category-name in words + color swatch + citation snippet + (cited ref / true ref) per FR-010; row is `role="button"` + `tabindex="0"` (FR-030)
+- [X] T047 [US2] Extend `html/popup.html` to host the panel container, the per-category filter toggles (default: orange on, others off per FR-010), and the surface picker ("Popup" / "Sidebar"); persist via `PREFS_WRITE`
 
 ### Page-injected sidebar surface
 
-- [ ] T048 [P] [US2] Create `html/sidebar.html` markup for the page-injected sidebar/overlay surface (FR-010)
-- [ ] T049 [P] [US2] Create `css/sidebar.css` scoped to extension UI selectors (prefixed) to avoid host-page style bleed
-- [ ] T050 [US2] Create `js/panel/sidebar-surface.js`: inject `html/sidebar.html` into the current page on demand when `prefs.panelSurface === "sidebar"` AND `finalState !== "empty" && finalState !== "notArabic"` (FR-010, FR-027, FR-029); render the same data and actions as the popup surface
+- [X] T048 [P] [US2] Create `html/sidebar.html` markup for the page-injected sidebar/overlay surface (FR-010)
+- [X] T049 [P] [US2] Create `css/sidebar.css` scoped to extension UI selectors (prefixed) to avoid host-page style bleed
+- [X] T050 [US2] Create `js/panel/sidebar-surface.js`: inject `html/sidebar.html` into the current page on demand when `prefs.panelSurface === "sidebar"` AND `finalState !== "empty" && finalState !== "notArabic"` (FR-010, FR-027, FR-029); render the same data and actions as the popup surface
 
 ### Per-finding actions
 
-- [ ] T051 [US2] Create `js/panel/actions.js`: implement (a) jump-to-highlight (scroll target highlight into view + flash focus), (b) copy (plain-text Arabic+English-labeled record per FR-011), (c) share (page URL + `#:~:text=<percent-encoded snippet>` + plain-text body on the next line per FR-011 + Decision 7.20), (d) report (same plain-text body per FR-011 + Assumptions), (e) copy-as-JSON (FR-011 secondary action)
-- [ ] T052 [US2] Wire panel rows in `js/panel/popup-surface.js` and `js/panel/sidebar-surface.js` to `js/panel/actions.js` action handlers (depends on T046, T050, T051)
+- [X] T051 [US2] Create `js/panel/actions.js`: implement (a) jump-to-highlight (scroll target highlight into view + flash focus), (b) copy (plain-text Arabic+English-labeled record per FR-011), (c) share (page URL + `#:~:text=<percent-encoded snippet>` + plain-text body on the next line per FR-011 + Decision 7.20), (d) report (same plain-text body per FR-011 + Assumptions), (e) copy-as-JSON (FR-011 secondary action)
+- [X] T052 [US2] Wire panel rows in `js/panel/popup-surface.js` and `js/panel/sidebar-surface.js` to `js/panel/actions.js` action handlers (depends on T046, T050, T051)
 
 ### Keyboard model (FR-030)
 
-- [ ] T053 [US2] Create `js/panel/keyboard.js`: scoped keydown listener that fires only while focus is inside the panel root; Arrow ↑/↓ move row focus across sections in order; Enter = jump (FR-011a); C/S/R/F/D/J map to copy/share/report/correct-in-place/dismiss/copy-as-JSON (F + D do nothing until US4 ships them); Space toggles a filter when focused on a filter chip; Esc returns focus to the surface root then to the page (FR-030)
-- [ ] T054 [US2] Wire `js/panel/keyboard.js` into both surfaces (depends on T053, T046, T050)
+- [X] T053 [US2] Create `js/panel/keyboard.js`: scoped keydown listener that fires only while focus is inside the panel root; Arrow ↑/↓ move row focus across sections in order; Enter = jump (FR-011a); C/S/R/F/D/J map to copy/share/report/correct-in-place/dismiss/copy-as-JSON (F + D do nothing until US4 ships them); Space toggles a filter when focused on a filter chip; Esc returns focus to the surface root then to the page (FR-030)
+- [X] T054 [US2] Wire `js/panel/keyboard.js` into both surfaces (depends on T053, T046, T050)
 
 ### Fixtures for US2
 
@@ -206,22 +206,29 @@ Repo is a flat Chromium MV3 extension at the repo root. See [plan.md](./plan.md)
 
 ### Swap engine
 
-- [ ] T058 [US3] Create `js/render/swap.js`: per-finding `applySwap(finding)` + `revertSwap(finding)` operating on the highlight wrapper; sets inner text to `Verse.textUthmani` from the loaded JSON; applies `font-family` from `prefs.font`; adjusts `font-size` and `line-height` inside the span only (no outside-span CSS) with the rendered line-box constrained ≤ 1.5× the surrounding line-box per FR-008
-- [ ] T059 [US3] Create `js/render/fonts.js`: small registry exposing the three font CSS family names that `js/render/swap.js` consumes
-- [ ] T060 [US3] Wire `js/content.js` to call `js/render/swap.js`.`applySwap` for every non-red finding once verification completes, gated by `prefs.master.authenticTextReplacement` AND `prefs.perColor[finding.verification.category]` (FR-008 + FR-009 + FR-015); call `revertSwap` when toggles flip via `PREFS_CHANGED` broadcast (T008)
+- [X] T058 [US3] Create `js/render/swap.js`: per-finding `applySwap(finding)` + `revertSwap(finding)` operating on the highlight wrapper; sets inner text to `Verse.textUthmani` from the loaded JSON; applies `font-family` from `prefs.font`; adjusts `font-size` and `line-height` inside the span only (no outside-span CSS) with the rendered line-box constrained ≤ 1.5× the surrounding line-box per FR-008
+- [X] T059 [US3] Create `js/render/fonts.js`: small registry exposing the three font CSS family names that `js/render/swap.js` consumes
+- [X] T060 [US3] Wire `js/content.js` to call `js/render/swap.js`.`applySwap` for every non-red finding once verification completes, gated by `prefs.master.authenticTextReplacement` AND `prefs.perColor[finding.verification.category]` (FR-008 + FR-009 + FR-015); call `revertSwap` when toggles flip via `PREFS_CHANGED` broadcast (T008)
 
 ### Popup UI for FR-009
 
-- [ ] T061 [US3] Extend `html/popup.html` + `js/popup.js` to add: (a) master toggle for `authenticTextReplacement`, (b) four per-color checkboxes (green / light blue / yellow / orange — red disabled and visually marked "always off"), (c) font picker (Uthmanic Hafs / Indo-Pak / simplified); all wired to `PREFS_WRITE` and reflect on the active page via `PREFS_CHANGED` (FR-009)
+- [X] T061 [US3] Extend `html/popup.html` + `js/popup.js` to add: (a) master toggle for `authenticTextReplacement`, (b) four per-color checkboxes (green / light blue / yellow / orange — red disabled and visually marked "always off"), (c) font picker (Uthmanic Hafs / Indo-Pak / simplified); all wired to `PREFS_WRITE` and reflect on the active page via `PREFS_CHANGED` (FR-009)
 
 ### CSS for swap
 
-- [ ] T062 [P] [US3] Extend `css/content.css` with a `.quran-swap` style class used by swap spans: applies the active font CSS variable, full tashkeel rendering hints (`font-feature-settings`), and the bounded line-box absorption rules from FR-008
+- [X] T062 [P] [US3] Extend `css/content.css` with a `.quran-swap` style class used by swap spans: applies the active font CSS variable, full tashkeel rendering hints (`font-feature-settings`), and the bounded line-box absorption rules from FR-008
 
 ### Fixtures for US3
 
 - [ ] T063 [P] [US3] Curate the top-10 layout-safety fixture set under `tests/fixtures/layout-safety/`: each fixture's `expected.json` records the original layout-box of the first paragraph that contains a non-red highlight; the runner asserts post-swap layout-box delta < 50 px per SC-013
 - [ ] T064 [US3] Run the Playwright suite; iterate on `js/render/swap.js` font sizing / line-height tuning until SC-013 passes on all 10 fixtures with span-local absorption only (no outside-span CSS modifications, no relaxing the 1.5× bound — constitution Principle IV, FR-008 absorption rules)
+
+### Phase 5 swap follow-ups (USER-REPORTED BUGS — fix BEFORE Phase 6)
+
+- [ ] T058z [US3] **CRITICAL — swap-during-scan corrupts results**: applySwap currently fires inside `applyHighlight` during the convergence loop, so subsequent passes / the MutationObserver see authentic text instead of the page's original wording → final green/orange/yellow counts differ from a no-swap scan. Repro: default prefs (swap ON) → wrong counts; swap OFF → reload → scan → enable swap → correct counts. **Fix**: defer all applySwap calls until AFTER the convergence loop, called from `emitComplete` iterating `STATE.findings`; also gate the MutationObserver while swapping (flag mirroring the sidebar-add filter).
+- [ ] T058a [US3] **Excerpt-preserving swap**: replace the highlight ONLY with the matching subset of the authentic ayah (same excerpt shape the page cited), not the full ayah. For ellipsis-excerpts `{first ... last}` swap each segment with its authentic counterpart. For multi-ayah citations swap each segment with its matching ayah. Full ayah stays in the panel row + copy/share record only. Requires the verifier to surface the aligned segment text(s) — likely a new `result.authenticSegments` field (array of `{text}`). Yellow (word-level) needs the optimal-matching segment indices from the diff.
+- [ ] T058b [US3] **Swap sizing**: replace the iterative `applyBoundedSizing` with a fixed baseline of `font-size: 0.8em; line-height: 1` (matches the advanced copy's working pattern). Only escalate if measurement still exceeds 1.5× parent line-box.
+- [ ] T058c [US3] **Color rectangle drift**: when swapped text length differs from the original, the colored highlight box no longer wraps the visible text correctly. Investigate whether `unicode-bidi: isolate` on `.quran-swap` is creating a sub-line-box mismatch; the highlight wrapper is `display: inline` so it should reflow with the swap text, but the user reports it doesn't.
 
 **Checkpoint**: User Stories 1 + 2 + 3 all work independently. The reader gets the full triad — detect, list, render authentic — with all preferences persisting across sessions. Correct-in-place is the only feature left.
 

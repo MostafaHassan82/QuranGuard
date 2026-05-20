@@ -291,3 +291,53 @@ button:disabled {
 }
 .panel-action-btn:hover { background: #f0f0f0; }
 .panel-action-btn:focus { outline: 2px solid #4a90e2; outline-offset: 1px; }
+
+/* ── Authentic-text swap controls (T061, FR-009) ───────────────────────── */
+#swap-controls {
+  margin-top: 8px;
+  padding: 6px 8px;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  background: #fff;
+  font-size: 12px;
+}
+#swap-controls summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: #444;
+  padding: 2px 0;
+  user-select: none;
+}
+.swap-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 0;
+  cursor: pointer;
+}
+.swap-row input { margin: 0; }
+.swap-per-color {
+  margin: 4px 0 4px 12px;
+  padding-right: 6px;
+  border-right: 2px solid #eee;
+}
+.swap-row-disabled {
+  color: #999;
+  cursor: not-allowed;
+}
+.swap-font-picker {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+}
+#font-label { font-weight: 600; color: #444; }
+#font-select {
+  flex: 1;
+  padding: 3px 4px;
+  font-size: 12px;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+  background: #fff;
+  color: #333;
+}

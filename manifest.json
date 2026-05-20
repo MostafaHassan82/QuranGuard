@@ -19,6 +19,8 @@
         "js/panel/actions.js",
         "js/panel/keyboard.js",
         "js/panel/sidebar-surface.js",
+        "js/render/fonts.js",
+        "js/render/swap.js",
         "js/content.js"
       ],
       "css": ["css/content.css", "css/sidebar.css"],

@@ -142,3 +142,18 @@
   0%   { outline-color: #4a90e2; }
   100% { outline-color: transparent; }
 }
+
+/* ── Authentic-text swap (T062, FR-008) ──────────────────────────────────
+   Span-local class applied by js/render/swap.js. Font and size are set
+   inline by the JS so they reflect the active prefs.font without needing
+   per-font CSS classes. Layout absorption is bounded by the JS to ≤1.5×
+   the surrounding line-box; the CSS only provides shaping/ligature hints
+   so the Quran fonts render their composed glyphs correctly. */
+.quran-swap {
+  font-feature-settings: "liga", "calt", "rlig", "kern";
+  font-variant-ligatures: common-ligatures contextual;
+  /* No unicode-bidi override: the highlight wrapper already establishes the
+     RTL context. Isolating the swap span shifted the colored highlight rect
+     away from the visible glyphs when the swap text length differed from
+     the original (T058c). */
+}

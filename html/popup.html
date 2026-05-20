@@ -90,6 +90,32 @@
     </div>
   </div>
 
+  <!-- Authentic-text swap controls (T061, FR-009) -->
+  <details id="swap-controls">
+    <summary>عرض النص القرآني الأصلي</summary>
+    <label class="swap-row">
+      <input type="checkbox" id="swap-master" checked>
+      <span>تفعيل (رئيسي)</span>
+    </label>
+    <div class="swap-per-color">
+      <label class="swap-row"><input type="checkbox" data-swap-color="green" checked><span>تطابق تام</span></label>
+      <label class="swap-row"><input type="checkbox" data-swap-color="lightBlue" checked><span>تطابق بدون مرجع</span></label>
+      <label class="swap-row"><input type="checkbox" data-swap-color="yellow" checked><span>اختلاف لفظي</span></label>
+      <label class="swap-row"><input type="checkbox" data-swap-color="orange" checked><span>مرجع غير مطابق</span></label>
+      <label class="swap-row swap-row-disabled" title="الأحمر دائمًا معطّل (FR-015)">
+        <input type="checkbox" data-swap-color="red" disabled><span>لم يُتحقَّق — دائمًا معطّل</span>
+      </label>
+    </div>
+    <div class="swap-font-picker">
+      <label id="font-label" for="font-select">الخط:</label>
+      <select id="font-select">
+        <option value="uthmaniHafs">عثماني — حفص</option>
+        <option value="indoPak">هندي / باكستاني</option>
+        <option value="simplified">مبسّط</option>
+      </select>
+    </div>
+  </details>
+
   <!-- Findings panel (T046) — populated by js/panel/popup-surface.js -->
   <div id="panel-container" role="region" aria-label="نتائج التحقق"></div>
 
