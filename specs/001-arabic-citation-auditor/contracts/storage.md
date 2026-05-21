@@ -24,9 +24,9 @@ Single object. Schema-driven; absent fields fall back to defaults.
     "orange":    true,
     "red":       false                           // FR-015: red is fixed false
   },
-  "font": "uthmaniHafs",                         // FR-009: one of uthmaniHafs | indoPak | simplified
+  "font": "uthmaniHafs",                         // see font set below; default uthmaniHafs
+  "lang": "ar",                                  // T087: ar | en (default browser ar/en, else en)
   "scanTrigger": "manual",                       // FR-026: manual | autoscan
-  "panelSurface": "popup",                       // FR-010: popup | sidebar
   "panelFilter": {                               // FR-010 default: orange only
     "orange":    true,
     "green":     false,
@@ -40,11 +40,36 @@ Single object. Schema-driven; absent fields fall back to defaults.
 **Validation on read** (defensive; in case storage was hand-edited):
 
 - `perColor.red` MUST be `false` (clamped). If found `true`, normalize to `false` and emit a console warning.
-- `font` MUST be one of the three known values; otherwise reset to `uthmaniHafs`.
+- `font` MUST be one of the known font keys (see below); otherwise reset to `uthmaniHafs`.
+- `lang` MUST be `ar` or `en`; otherwise reset to `ar`.
 - `scanTrigger` MUST be `manual` or `autoscan`; otherwise reset to `manual`.
-- `panelSurface` MUST be `popup` or `sidebar`; otherwise reset to `popup`.
 
 **Default fill on read**: any missing leaf is filled with the default above before the consumer sees the object.
+
+### Font set (updated 2026-05-21)
+
+`font` is one of the nine bundled-font keys (all under `resources/fonts/`, all
+local — no network per FR-008): `uthmaniHafs` (default), `qpcHafs`, `qpcV2`,
+`qpcV4Tajweed`, `digitalKhattIndopak`, `digitalKhattV1`, `digitalKhattV2`,
+`indopakNastaleeq`, `kfgqpcNastaleeq`. Source of truth: `QuranFonts.REGISTRY`
+in `js/render/fonts.js`; the validator's `VALID_FONTS` set mirrors it.
+
+The original three-value enum (`uthmaniHafs | indoPak | simplified`) shipped
+with placeholder font files that were **byte-identical** to one another, so
+`indoPak` and `simplified` were never visually distinct fonts. They were
+removed on 2026-05-21 when real fonts were added. **No schema version bump**:
+the change is additive for the new keys, and the two dropped values clamp to
+`uthmaniHafs` on read — which rendered identically to those placeholders anyway,
+so no user-visible state is lost.
+
+### Removed: `panelSurface` (2026-05-21)
+
+Earlier schemas carried `panelSurface: "popup" | "sidebar"` (FR-010's two-surface
+choice). The product converged on the **page-injected sidebar as the only panel
+surface** (the popup is scan/controls only), so the field is no longer written
+or read. It was dropped from defaults + validation; any stored value is inert.
+No version bump — removing an unread field changes no behavior. See `AGENTS.md`
+and the FR-010 implementation note in `spec.md`.
 
 ---
 

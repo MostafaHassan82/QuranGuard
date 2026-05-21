@@ -52,7 +52,8 @@ modules) and answers verification + persistence + prefs messages.
 ### Popup — `html/popup.html` + `js/popup.js`
 **Scan-only** now: scan mode, scan/continue/clear, live status + stats, and the
 sidebar's initial collapsed/expanded choice. No findings panel (that lives in the
-sidebar). `js/panel/popup-surface.js` is retained but no longer loaded.
+sidebar). The old `js/panel/popup-surface.js` and the `panelSurface` pref were
+removed on 2026-05-21 — the sidebar is the only panel surface.
 
 ### Surfaces / docs
 - Messaging contract: `specs/001-arabic-citation-auditor/contracts/messaging.md`

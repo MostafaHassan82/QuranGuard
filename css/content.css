@@ -19,7 +19,7 @@
 }
 
 /* ── Per-category glyph prefix (FR-007, T033) ────────────────────────────────
-   Screen-readers get the category name in words via aria-describedby (T034);
+   Screen-readers get the category name in words via the highlight's aria-label (T034);
    sighted users get a compact glyph so the taxonomy is visible even on a
    monochrome / colour-blind / dark-mode page. Glyphs sit OUTSIDE the highlight
    bounding box so the page layout isn't shifted. */

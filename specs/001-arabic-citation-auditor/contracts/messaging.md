@@ -79,9 +79,14 @@ Responses share the same envelope with `type` suffixed `_RESPONSE` and an extra 
 - **Response**: `{ok, result: {entries: [<persisted entry>], prunedCount}}` — content uses entries to badge re-encountered Findings per FR-024.
 
 #### `CLEAR_PERSISTED`
-- **Direction**: popup → background
+- **Direction**: popup or sidebar → background
 - **Payload**: `{}`
 - **Behavior**: FR-024 "Clear remembered corrections and dismissals" — wipes `persisted.v1.byUrl.*` and `persisted.v1.index`.
+
+#### `PERSIST_REMOVE`
+- **Direction**: panel (sidebar) → background
+- **Payload**: `{urlKey, compositeKey, kind: "correction" | "dismissal"}`
+- **Behavior**: removes a SINGLE persisted entry — used by the per-row "Restore" affordance (FR-025) to drop a dismissal/correction without clearing the whole store. Added 2026-05; complements `RESTORE_DISMISSED` (which restores the in-session row) by removing the durable entry so the badge doesn't reappear on revisit.
 
 ### Preferences
 
@@ -115,6 +120,40 @@ Responses share the same envelope with `type` suffixed `_RESPONSE` and an extra 
 - **Direction**: background → popup + content (broadcast)
 - **Payload**: `{}`
 - **Behavior**: clears the FR-020 error state across surfaces; content scripts attach.
+
+## Internal (non-envelope) messages
+
+**Implementation note (2026-05-21):** alongside the typed envelope above, two
+groups of messages use a **bare `{type, ...fields}` shape** (no `requestId`/
+`payload` wrapper). They are intentionally kept simple and are NOT part of the
+cross-context envelope contract; they are documented here so the contract
+matches the running protocol (review finding #6). Migrating them to the envelope
+is tracked separately and is not required for V1.
+
+### Verifier RPC — content → background
+
+The hot path: content extracts a candidate and asks background to classify it.
+Background's listener (`js/background.js`) handles these in a `switch` and
+responds with the raw verification result (or `null`).
+
+- `verifyFragment` — `{type, text, candidateConfidence}` → `VerificationResult | null`
+- `verifyFragmentByRef` — `{type, text, ref, candidateConfidence, debug?}` → `VerificationResult | null` (with `_trace` when `debug`)
+- `resolveReference` — `{type, ref}` → `{surahNum, surahName, ayahNums, ayahTexts, displayLabel} | null`
+- `getAyahText` — `{type, surahNum, ayahNum}` → `{text, ref} | null`
+- `ping` — `{type}` → `{ok, indexReady}` (readiness probe before scanning)
+- `logFindings` — `{type, findings}` → console dump (debug aid; no response needed)
+
+### Content control — popup/test → content
+
+The popup (and the `window.__quran*` test bridge) drive a scan with bare
+messages handled in `js/content.js`:
+
+- `scan` — `{type, liftCap?}` → runs/streams a scan
+- `clear` — `{type}` → removes all highlights
+- `stats` / `getFindings` / `getState` — `{type}` → current scan snapshot
+
+(Cross-context, enveloped actions — `CORRECT_IN_PLACE`, `JUMP_TO_FINDING`,
+`PERSIST_*`, `PREFS_*`, etc. — use the typed envelope above.)
 
 ## Async discipline
 
