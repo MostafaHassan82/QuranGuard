@@ -481,6 +481,41 @@ then the small dropdown refinement lands with the options page).
   localized via `[data-i18n]`, keyboard-accessible and RTL-aware. (Lands with the
   options page in T094; listed separately for traceability.)
 
+## Phase 9: Codex full-codebase review findings (triaged 2026-05-21)
+
+**Purpose**: capture the actionable findings from the Codex review run on
+2026-05-21. Severities are Codex's. Many are spec/doc drift (cheap reconciles)
+rather than bugs. Ordered by severity. T097 (finding #2) is already done; listed
+for traceability.
+
+### Done
+
+- [X] T097 **(High #2) Orange dropped medium-confidence exact-ref mismatches.** The orange classifier (`js/verifier/orange.js`) gated on `candidateConfidence === 'high'`, so explicit-ref citations graded medium (bare run / short fragment) fell through to yellow/red. Fixed by gating on MATCH quality: an exact full-verse match elsewhere is allowed regardless of confidence; fuzzy subsequence/soft tiers keep the high gate. Added `--verify-ref` probe + `tests/orange_medium_check.js`. (Commit fa36226.)
+
+### High
+
+- [ ] T098 **(High #1) Page→content-script trust boundary leak.** `js/content.js:~1285` listens for a page-world `__quranBridgeScan` event and returns results via `__quranBridgeDone`; once the sidebar is mounted, host-page JS can synthesize UI events against controls that write prefs / clear persisted state (`js/panel/sidebar-surface.js:~280/309/327`). A hostile page can drive privileged behavior and bypass Manual-scan intent. Fix: remove the DOM test bridge from production (move test triggering to test-only plumbing), and reject synthetic/untrusted events on pref/persistence controls (e.g. require `isTrusted`, or route mutations only through extension-owned UI).
+- [ ] T099 **(High #3) Manual scans don't install the mutation/SPA observer.** The `MutationObserver` is wired only on the autoscan path (`js/content.js:~1205/1212`); Manual is the DEFAULT mode, and there is no `pushState`/`replaceState`/`popstate` handling, so dynamic/SPA pages go stale right after the first scan (FR-019/FR-026). Fix: install mutation + route observation after ANY successful initial scan, not only autoscan.
+- [ ] T100 **(High #4) Fresh full scans suppress the progressive-reveal stream.** Full scans set `useHidden` and hide highlights until convergence; `SCAN_PROGRESS` is emitted only when `!useHidden` (`js/content.js:~958/1032/1061`), so the popup count doesn't live-update and per-finding actions aren't available during the initial scan (FR-023). Fix: preserve convergence correctness without suppressing user-visible progress, OR re-spec the convergence UX and drop the progressive-reveal claim.
+
+### Medium
+
+- [ ] T101 **(Medium #5) FR-020 fail-loud recovery is only half-wired.** Background emits/retries `DATA_UNAVAILABLE` but the popup has no error state / Retry control and the content handler only logs (`js/popup.js:~163`, `js/content.js:~1557`). Fix: add explicit popup/sidebar error states + a Retry action wired to `RETRY_DATA_LOAD`; keep "data unavailable" distinct from "no citations."
+- [ ] T102 **(Medium #6) Messaging contract ≠ runtime.** `contracts/messaging.md` says every exchange uses the typed envelope, but content still sends raw `verifyFragment`/`scan`/`clear`/`getState` and background routes them (`js/content.js:~1019/1519`, `js/background.js:~993`); `PERSIST_REMOVE` is implemented but undocumented while `RESTORE_DISMISSED` is documented. Fix: either finish the envelope migration and delete raw routes, or update the contract to the actual wire protocol (with sender/response/error rules per message).
+- [ ] T103 **(Medium #7) Swap 1.5× line-box bound is claimed but not enforced.** `spec.md:131` requires ≤ 1.5× the surrounding line-box; `js/render/swap.js` just special-cases `0.8em` for uthmaniHafs and restores original sizing for the rest — no measurement/clamp. Fix: measure before/after span metrics and clamp span-local typography to the bound; pair with the layout-safety fixtures (T063/T064) for each supported font.
+- [ ] T104 **(Medium #8) Badge violates the FR-028 glyph contract.** `js/badge/badge.js` shows numeric counts during progress (`:27`), clears on empty/not-Arabic (`:32`), and uses `✗` for data-unavailable (`:58`); FR-028 allows only `● / ✓ / !` with data error clearing the badge and putting detail in the tooltip. Fix: align the badge state machine to FR-028; keep counts in tooltip/popup only.
+- [ ] T105 **(Medium #9) Copy/share/report dropped the bilingual field record.** FR-011 requires the plain-text default to carry the same labeled fields as the JSON, one bilingual-labeled field per line; copy/report now emit localized prose via `friendlyText` (`js/panel/actions.js:~41/113`). Fix: restore the structured plain-text serializer as the default for copy/share/report, keeping friendly prose as an optional artifact. (Cross-check against the T091 friendly-share decision — may instead update FR-011 if prose is the intended product direction.)
+- [ ] T106 **(Medium #10) `prefs.v1` font schema drifted without a version bump.** `contracts/storage.md:27` still lists three fonts incl. `indoPak`/`simplified`, but `js/storage/prefs.js:17` now accepts the new bundled-font keys and the sidebar exposes them; contract-valid `indoPak`/`simplified` values would be clamped away (fallout from the 2026-05-21 font work). Fix: reconcile the storage contract with the shipped font set; decide whether the dropped keys warrant a `prefs` version/migration or just a doc update.
+
+### Low
+
+- [ ] T107 **(Low #11) a11y: `aria-label` vs FR-032's `aria-describedby`.** Highlights use `aria-label` (`js/content.js:~737`) — a deliberate choice to avoid a DOM-mutation regression — but FR-032 and a `css/content.css:22` comment still say `aria-describedby`. Fix: reconcile after manual screen-reader verification — either implement the described relationship or update the requirement/docs to record the `aria-label` decision.
+- [ ] T108 **(Low #12) Dead `popup-surface.js` + stale `panelSurface` prefs/docs.** `AGENTS.md:40` says the sidebar is the only panel surface, but `spec.md:133` / `contracts/storage.md:29` still require `panelSurface` + a popup-attached panel, and `js/panel/popup-surface.js` isn't loaded by the manifest. Fix: pick the current product contract, then remove or revive the stale surface code/prefs/docs as one change.
+
+### Extra (found while fixing T097, not in the Codex report)
+
+- [ ] T109 **Medium-confidence ref extractors rarely fire.** The bare-run (`js/content.js:~475`) and short-fragment (`:555`) extractors anchor on `AR_RUN + '$'`, which fails to match when there's whitespace before the `(ref)` (the common case), so medium candidates seldom reach the verifier. This makes the T097 classification fix mostly latent in the wild. Fix: trim/allow trailing whitespace before the `$` anchor (or re-anchor on the ref position) so genuine `text (ref)` citations are extracted at medium confidence; then extend the orange fixture to exercise the full extract→classify path end-to-end.
+
 ## Notes
 
 - **Constitution Principle V** (porting discipline) governs every verifier task. Read the advanced copy at `C:\Users\mosta\PycharmProjects\QuranChromePlugin` to catalog *cases*; redesign the *shape* in the rebuild. Small clean ports of pure data (surah-variant map, normalization tables) are allowed.
