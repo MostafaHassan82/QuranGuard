@@ -31,21 +31,36 @@ const QuranOrange = (() => {
     return recs.filter(r => !claimedKeys.has(`${r.surahNum}:${r.ayahNum}`));
   }
 
+  function sortRecs(recs) {
+    return recs.slice().sort((a, b) => a.surahNum - b.surahNum || a.ayahNum - b.ayahNum);
+  }
+
   // High-level entry point. Returns null if no orange-worthy mismatch found,
   // or a sorted-by-surah array of records that ARE real Quran at other ayahs.
   // Caller (background.js) wraps the first record into a makeResult({color:'orange',...}).
   //
-  // FR-016 confidence gate: only attempt orange when the candidate came in with
-  // high confidence (i.e. brace-bounded or strong lead-in extraction). Low-
-  // confidence candidates with elsewhere-matches are too noisy and should fall
-  // through to a quieter path.
+  // FR-016 confidence gate, refined: the gate is really about MATCH quality, not
+  // the extractor's a-priori confidence label. An EXACT full-verse match
+  // elsewhere is self-validating — the candidate text is verbatim a complete
+  // ayah, so the extraction boundary was correct and the wrong-reference
+  // accusation is justified even for a medium-confidence explicit-ref candidate
+  // (a bare Arabic run before a ref, or a short fragment). The fuzzier
+  // subsequence/soft tiers carry real boundary ambiguity, so they stay gated to
+  // high-confidence candidates to protect orange precision.
   function classify(t1, words, resolved, candidateConfidence, searchAPI) {
+    const claimedKeys = new Set(resolved.ayahNums.map(n => `${resolved.surahNum}:${n}`));
+    const notClaimed = r => !claimedKeys.has(`${r.surahNum}:${r.ayahNum}`);
+
+    const exact = searchAPI.findExactGlobal(t1).filter(notClaimed);
+    if (exact.length > 0) return sortRecs(exact);
+
     if (candidateConfidence !== 'high') return null;
-    const elsewhere = findElsewhere(t1, words, resolved, searchAPI);
-    if (elsewhere.length === 0) return null;
-    return elsewhere.slice().sort(
-      (a, b) => a.surahNum - b.surahNum || a.ayahNum - b.ayahNum
-    );
+    let recs = searchAPI.findOrderedContiguousGlobal(words);
+    if (recs.length === 0 && searchAPI.findOrderedContiguousSoftGlobal) {
+      recs = searchAPI.findOrderedContiguousSoftGlobal(words);
+    }
+    recs = recs.filter(notClaimed);
+    return recs.length ? sortRecs(recs) : null;
   }
 
   return { classify, findElsewhere };

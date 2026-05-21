@@ -497,8 +497,42 @@ async function launchSystemChromium() {
   return chromium.launch(opts);
 }
 
+// Diagnostic: call the by-ref verifier directly (bypasses candidate extraction)
+// so we can probe classification of a given text + cited reference at a chosen
+// confidence. Used to verify the orange medium-confidence path (review #2).
+async function verifyRefProbe(context, text, ref, conf) {
+  const page = await context.newPage();
+  const runnerHtml = buildRunnerHtml('<p>تهيئة</p>', {});
+  await page.route(`${ORIGIN}/**`, (route) => {
+    const url = new URL(route.request().url());
+    if (url.pathname === '/runner' || url.pathname === '/runner.html') {
+      return route.fulfill({ status: 200, contentType: 'text/html; charset=utf-8', body: runnerHtml });
+    }
+    const filePath = path.join(PROJECT_DIR, url.pathname.replace(/^\/+/, ''));
+    if (!filePath.startsWith(PROJECT_DIR) || !fs.existsSync(filePath)) return route.fulfill({ status: 404, body: 'not found' });
+    const ext = path.extname(filePath).toLowerCase();
+    const type = ext === '.js' ? 'application/javascript' : ext === '.json' ? 'application/json' : ext === '.css' ? 'text/css' : ext === '.html' ? 'text/html; charset=utf-8' : 'application/octet-stream';
+    return route.fulfill({ status: 200, contentType: type, body: fs.readFileSync(filePath) });
+  });
+  try {
+    await page.goto(`${ORIGIN}/runner`, { waitUntil: 'load', timeout: 20000 });
+    return await page.evaluate(async ({ text, ref, conf }) => {
+      if (typeof window.__quranRunScan === 'function') { try { await window.__quranRunScan(); } catch (_) {} }
+      if (typeof verifyFragmentByRef !== 'function') return { error: 'verifyFragmentByRef is not a global' };
+      const r = verifyFragmentByRef(text, ref, conf, true);
+      return { color: r.color, matchedRef: r.matchedRef, claimedRef: r.claimedRef, matchType: r.matchType, trace: r._trace };
+    }, { text, ref, conf });
+  } finally {
+    await page.close();
+  }
+}
+
 async function main() {
   const argv = process.argv.slice(2);
+  const verifyIdx = argv.indexOf('--verify-ref');
+  const verifyText = verifyIdx !== -1 ? argv[verifyIdx + 1] : null;
+  const verifyRef = verifyIdx !== -1 ? argv[verifyIdx + 2] : null;
+  const verifyConf = verifyIdx !== -1 ? (argv[verifyIdx + 3] || 'medium') : null;
   const all = argv.includes('--all');
   const writeObserved = argv.includes('--write-observed');
   const coverage = argv.includes('--coverage');
@@ -515,7 +549,10 @@ async function main() {
   const context = await browser.newContext({ ignoreHTTPSErrors: true });
   let passed = 0, total = 0;
   try {
-    if (textSnippet) {
+    if (verifyText && verifyRef) {
+      const r = await verifyRefProbe(context, verifyText, verifyRef, verifyConf);
+      console.log(JSON.stringify(r, null, 2));
+    } else if (textSnippet) {
       const html = `<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="UTF-8"></head><body><p>${textSnippet}</p></body></html>`;
       const r = await runOne(context, html, '--text', {});
       console.log(JSON.stringify(r, null, 2));
