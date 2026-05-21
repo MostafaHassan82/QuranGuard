@@ -20,7 +20,6 @@ const QuranFonts = (() => {
     digitalKhattV2:     { family: 'quran-digital-khatt-v2',     path: 'resources/fonts/digital-khatt-v2.otf' },
     indopakNastaleeq:   { family: 'quran-indopak-nastaleeq',    path: 'resources/fonts/indopak-nastaleeq.ttf' },
     kfgqpcNastaleeq:    { family: 'quran-kfgqpc-nastaleeq',     path: 'resources/fonts/kfgqpc-nastaleeq.ttf' },
-    meQuran:            { family: 'quran-me-quran',             path: 'resources/fonts/me-quran.ttf' },
   };
 
   function familyFor(prefKey) {

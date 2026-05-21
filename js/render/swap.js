@@ -43,16 +43,20 @@ const QuranSwap = (() => {
     return String(s).replace(/[^a-zA-Z0-9_-]/g, '\\$&');
   }
 
-  // T058b — fixed baseline sizing. Quran fonts render ~25-30% larger than
-  // typical body text, so `0.8em` + `line-height: 1` lands very close to the
-  // surrounding flow's visual line. The advanced QuranChromePlugin codebase
-  // used this exact pair successfully; iterative shrinking added cost without
-  // a measurable layout-safety win. If a future measurement run shows the
-  // line-box still exceeds 1.5× (FR-008), escalate by stepping size further
-  // down — but start here, not at 1.0em.
-  function applyBoundedSizing(span) {
-    span.style.fontSize = '0.8em';
-    span.style.lineHeight = '1';
+  // T058b — sizing. The legacy placeholder (uthmaniHafs / me_quran) renders
+  // ~25-30% larger than body text, so it gets a `0.8em` + `line-height: 1`
+  // downscale to land near the surrounding flow. The real bundled fonts are
+  // metrically well-behaved and the user wants them at natural size, so for
+  // every font EXCEPT uthmaniHafs we restore the span's original size/line-
+  // height instead of shrinking.
+  function applyBoundedSizing(span, font) {
+    if (font === 'uthmaniHafs') {
+      span.style.fontSize = '0.8em';
+      span.style.lineHeight = '1';
+    } else {
+      span.style.fontSize = span.getAttribute(ATTR_ORIG_SIZE) || '';
+      span.style.lineHeight = span.getAttribute(ATTR_ORIG_LH) || '';
+    }
   }
 
   function applySwap(finding, prefs) {
@@ -60,8 +64,10 @@ const QuranSwap = (() => {
     const span = findSpan(finding.id);
     if (!span) return false;
     if (span.classList.contains(CSS_CLASS)) {
-      // Already swapped — only update the font in case prefs.font changed.
+      // Already swapped — update font + sizing in case prefs.font changed
+      // (switching to/from uthmaniHafs toggles the downscale).
       span.style.fontFamily = QuranFonts.familyFor(prefs.font);
+      applyBoundedSizing(span, prefs.font);
       return true;
     }
 
@@ -74,7 +80,7 @@ const QuranSwap = (() => {
     span.textContent = swapTextFor(finding);
     span.classList.add(CSS_CLASS);
     span.style.fontFamily = QuranFonts.familyFor(prefs.font);
-    applyBoundedSizing(span);
+    applyBoundedSizing(span, prefs.font);
     return true;
   }
 
