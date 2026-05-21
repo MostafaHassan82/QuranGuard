@@ -10,19 +10,17 @@ const QuranFonts = (() => {
   // prefix with `quran-` so we control them exclusively.
   const REGISTRY = {
     uthmaniHafs: { family: 'quran-uthmani-hafs', path: 'resources/fonts/uthmani-hafs.ttf' },
-    indoPak:     { family: 'quran-indo-pak',     path: 'resources/fonts/indo-pak.ttf' },
-    simplified:  { family: 'quran-simplified',   path: 'resources/fonts/simplified.ttf' },
-    // Additional bundled Quran fonts (added 2026-05-20). Filenames keep spaces/
-    // parentheses; ensureLoaded() encodes the URL so they resolve.
-    qpcHafs:            { family: 'quran-qpc-hafs',            path: 'resources/QPC Hafs (Official Uthmani script font) - TTF.ttf' },
-    qpcV2:              { family: 'quran-qpc-v2',              path: 'resources/QPC V2 (King Fahd Complex for the Printing of the Holy Quran) - WOFF2.woff2' },
-    qpcV4Tajweed:       { family: 'quran-qpc-v4-tajweed',      path: 'resources/QPC V4 Tajweed - TTF.ttf' },
-    digitalKhattIndopak:{ family: 'quran-digital-khatt-indopak', path: 'resources/Digital Khatt Indopak - OTF.otf' },
-    digitalKhattV1:     { family: 'quran-digital-khatt-v1',    path: 'resources/Digital Khatt V1 - OTF.otf' },
-    digitalKhattV2:     { family: 'quran-digital-khatt-v2',    path: 'resources/Digital Khatt V2 - OTF.otf' },
-    indopakNastaleeq:   { family: 'quran-indopak-nastaleeq',   path: 'resources/Indopak Nastaleeq - TTF.ttf' },
-    kfgqpcNastaleeq:    { family: 'quran-kfgqpc-nastaleeq',    path: 'resources/KFGQPC Nastaleeq - TTF.ttf' },
-    meQuran:            { family: 'quran-me-quran',            path: 'resources/Me Quran - TTF.ttf' },
+    // Bundled Quran fonts (added 2026-05-20). Clean filenames (no spaces/parens)
+    // so chrome.runtime.getURL + web_accessible_resources resolve reliably.
+    qpcHafs:            { family: 'quran-qpc-hafs',             path: 'resources/fonts/qpc-hafs.ttf' },
+    qpcV2:              { family: 'quran-qpc-v2',               path: 'resources/fonts/qpc-v2.woff2' },
+    qpcV4Tajweed:       { family: 'quran-qpc-v4-tajweed',       path: 'resources/fonts/qpc-v4-tajweed.ttf' },
+    digitalKhattIndopak:{ family: 'quran-digital-khatt-indopak', path: 'resources/fonts/digital-khatt-indopak.otf' },
+    digitalKhattV1:     { family: 'quran-digital-khatt-v1',     path: 'resources/fonts/digital-khatt-v1.otf' },
+    digitalKhattV2:     { family: 'quran-digital-khatt-v2',     path: 'resources/fonts/digital-khatt-v2.otf' },
+    indopakNastaleeq:   { family: 'quran-indopak-nastaleeq',    path: 'resources/fonts/indopak-nastaleeq.ttf' },
+    kfgqpcNastaleeq:    { family: 'quran-kfgqpc-nastaleeq',     path: 'resources/fonts/kfgqpc-nastaleeq.ttf' },
+    meQuran:            { family: 'quran-me-quran',             path: 'resources/fonts/me-quran.ttf' },
   };
 
   function familyFor(prefKey) {
