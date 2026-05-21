@@ -24,7 +24,8 @@
       "Bash(python tests/run_tests.py tests/fixtures/uthmani_drift_synthetic.html --write-observed)",
       "Bash(python tests/run_tests.py tests/fixtures/orange_synthetic.html --write-observed)",
       "Bash(python tests/run_tests.py tests/fixtures/orange_synthetic.html)",
-      "Bash(python -c \"import json; json.load\\(open\\('manifest.json'\\)\\)\")"
+      "Bash(python -c \"import json; json.load\\(open\\('manifest.json'\\)\\)\")",
+      "Bash(python -c \"import playwright; print\\('py playwright present'\\)\")"
     ]
   }
 }

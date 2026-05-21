@@ -14,7 +14,7 @@ const QuranPrefs = (() => {
     panelFilter: { orange: true, green: false, lightBlue: false, yellow: false, red: false },
   };
 
-  const VALID_FONTS = new Set(['uthmaniHafs', 'indoPak', 'simplified']);
+  const VALID_FONTS = new Set(['uthmaniHafs', 'indoPak', 'simplified', 'qpcHafs', 'qpcV2', 'qpcV4Tajweed', 'digitalKhattIndopak', 'digitalKhattV1', 'digitalKhattV2', 'indopakNastaleeq', 'kfgqpcNastaleeq', 'meQuran']);
   const VALID_SCAN_TRIGGERS = new Set(['manual', 'autoscan']);
   const VALID_PANEL_SURFACES = new Set(['popup', 'sidebar']);
   const VALID_LANGS = new Set(['ar', 'en']);

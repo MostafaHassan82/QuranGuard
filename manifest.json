@@ -43,6 +43,9 @@
         "resources/fonts/uthmani-hafs.ttf",
         "resources/fonts/indo-pak.ttf",
         "resources/fonts/simplified.ttf",
+        "resources/*.ttf",
+        "resources/*.otf",
+        "resources/*.woff2",
         "resources/QuranAyas/*.png",
         "resources/QuranAyas2/*.png"
       ],
