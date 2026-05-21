@@ -1,0 +1,144 @@
+'use strict';
+// T040 generator — build the orange precision/recall fixture from the SHIPPED
+// Quran JSON so every case has machine-verified ground truth (constitution
+// Principle I: no hand-typed verses, no fabricated references).
+//
+// Each ORANGE case = a real verse's text cited at a DIFFERENT but valid
+// reference. CONTROL cases = the same verse cited at its CORRECT reference
+// (green) or with no reference (lightBlue) — these exercise precision (the
+// pipeline must NOT flag them orange).
+//
+// Output: tests/fixtures/orange_cases.html + tests/fixtures/orange_cases.expected.json
+// (INTENDED verdicts; never captured from observed output).
+//
+// Run: node tests/gen_orange_cases.js
+const fs = require('fs');
+const path = require('path');
+const ROOT = path.join(__dirname, '..');
+const normSrc = fs.readFileSync(path.join(ROOT, 'js', 'verifier', 'normalize.js'), 'utf8').replace(/'use strict';/, '');
+const { tier1 } = new Function(normSrc + '; return QuranNormalize;')();
+
+const data = JSON.parse(fs.readFileSync(path.join(ROOT, 'resources', 'quran-uthmani_desc-v2.json'), 'utf8'));
+
+const verses = [];
+for (const sura of data.suras) {
+  const surahNum = parseInt(sura.index, 10);
+  for (const aya of sura.ayas) {
+    const ayahNum = parseInt(aya.index, 10);
+    verses.push({ surahNum, surahName: sura.name, ayahNum, ref: `${sura.name}:${ayahNum}`, text: aya.text });
+  }
+}
+
+// Uthmani vocative يَٰ is one merged token; indexes.js splits it into "يا "
+// before indexing, so mirror that here for both the rendering and the key.
+function splitVocative(t) {
+  return t.split(' ').map(tok => tok.replace(/^ي[َُِ]*ٰ/, 'يَا ')).join(' ');
+}
+
+// Web-style rendering: strip tashkeel/annotation marks and normalize Quran-only
+// orthography (alef wasla/madda, dagger alef) to the modern forms a web author
+// would type. Wording is preserved verbatim.
+function webText(t) {
+  return splitVocative(t)
+    .replace(/[ؐ-ًؚ-ٟۖ-ۭ࣓-ࣿـ]/g, '')
+    .replace(/ٰ/g, 'ا')        // dagger alef → ا
+    .replace(/[آٱ]/g, 'ا') // آ madda, ٱ wasla → ا
+    .replace(/[۝۞࣢]/g, '')
+    .replace(/\s+/g, ' ').trim();
+}
+
+// The key the verifier indexes a verse under (vocative split, then tier1).
+function indexedKey(t) { return tier1(splitVocative(t)); }
+
+// Uniqueness: a verse is a safe ORANGE case only if its indexed key resolves to
+// EXACTLY one reference. Otherwise matchedRef would be ambiguous.
+const keyCount = new Map();
+for (const v of verses) {
+  const k = indexedKey(v.text);
+  keyCount.set(k, (keyCount.get(k) || 0) + 1);
+}
+
+function wordCount(v) { return webText(v.text).split(' ').filter(Boolean).length; }
+// Self-consistency gate: the web rendering must normalize to the same key the
+// verifier indexes, or the case would match word-level (yellow) not exact.
+function consistent(v) { return tier1(webText(v.text)) === indexedKey(v.text); }
+function eligibleVerse(v) {
+  return keyCount.get(indexedKey(v.text)) === 1 && wordCount(v) >= 4 && wordCount(v) <= 9 && consistent(v);
+}
+
+const eligible = verses.filter(eligibleVerse);
+eligible.sort((a, b) => a.surahNum - b.surahNum || a.ayahNum - b.ayahNum);
+const stride = Math.floor(eligible.length / 26);
+const picked = [];
+const seenSura = new Set();
+for (let i = 0; i < eligible.length && picked.length < 26; i += stride) {
+  const v = eligible[i];
+  if (seenSura.has(v.surahNum)) { i -= stride - 1; continue; }
+  seenSura.add(v.surahNum);
+  picked.push(v);
+}
+
+const ORANGE_N = 20, GREEN_N = 4, LB_N = 2;
+const oranges = picked.slice(0, ORANGE_N);
+const greens = picked.slice(ORANGE_N, ORANGE_N + GREEN_N);
+const lightblues = picked.slice(ORANGE_N + GREEN_N, ORANGE_N + GREEN_N + LB_N);
+
+// A wrong-but-valid reference: a real verse in a DIFFERENT surah whose text
+// genuinely differs from the cited verse.
+function wrongRefFor(v) {
+  for (const cand of verses) {
+    if (cand.surahNum === v.surahNum) continue;
+    if (cand.ayahNum !== v.ayahNum) continue;
+    if (indexedKey(cand.text) === indexedKey(v.text)) continue;
+    return cand.ref;
+  }
+  const alt = verses.find(c => c.surahNum !== v.surahNum && c.ayahNum === 1 && indexedKey(c.text) !== indexedKey(v.text));
+  return alt.ref;
+}
+
+const cases = [];
+for (const v of oranges) cases.push({ kind: 'orange', text: webText(v.text), trueRef: v.ref, citedRef: wrongRefFor(v) });
+for (const v of greens) cases.push({ kind: 'green', text: webText(v.text), trueRef: v.ref, citedRef: v.ref });
+for (const v of lightblues) cases.push({ kind: 'lightBlue', text: webText(v.text), trueRef: v.ref, citedRef: null });
+
+const para = c => {
+  const ref = c.citedRef ? ` (${c.citedRef})،` : '،';
+  const note = c.kind === 'orange'
+    ? `ORANGE: ${c.trueRef} cited as ${c.citedRef}`
+    : c.kind === 'green' ? `GREEN: correct ref ${c.trueRef}` : `LIGHT BLUE: correct text ${c.trueRef}, no ref`;
+  return `<p>\n  <!-- ${note} -->\n  قال تعالى: {${c.text}}${ref}\n</p>`;
+};
+const html = `<!DOCTYPE html>
+<!--
+  T040 — Orange precision/recall fixture. GENERATED by tests/gen_orange_cases.js
+  from resources/quran-uthmani_desc-v2.json. Do not hand-edit; re-run the
+  generator. ${ORANGE_N} orange (real verse, wrong ref) + ${GREEN_N} green +
+  ${LB_N} light-blue controls. Ground truth is machine-derived (Principle I).
+-->
+<html dir="rtl" lang="ar">
+<head><meta charset="UTF-8"><title>اختبار المرجع</title></head>
+<body>
+<article class="article-content">
+<h1>مجموعة اختبار المرجع</h1>
+${cases.map(para).join('\n\n')}
+</article>
+</body>
+</html>
+`;
+fs.writeFileSync(path.join(ROOT, 'tests', 'fixtures', 'orange_cases.html'), html, 'utf8');
+
+const stats = {
+  greenMatches: GREEN_N, lightBlueMatches: LB_N, yellowMatches: 0,
+  orangeMatches: ORANGE_N, redMatches: 0, totalFindings: cases.length,
+};
+const matches = cases.map(c => ({
+  text: c.text,
+  color: c.kind,
+  matchedRef: c.trueRef,
+  claimedRef: c.citedRef ? `(${c.citedRef})` : '',
+}));
+// The harness compares text+color only; matchedRef/claimedRef are retained so
+// tests/orange_pr_check.js can score precision/recall against the true ref.
+fs.writeFileSync(path.join(ROOT, 'tests', 'fixtures', 'orange_cases.expected.json'), JSON.stringify({ stats, matches }, null, 2), 'utf8');
+console.log(`Generated ${cases.length} cases (${ORANGE_N} orange, ${GREEN_N} green, ${LB_N} lightBlue).`);
+console.log(`Eligible unique consistent verses: ${eligible.length}; stride ${stride}.`);

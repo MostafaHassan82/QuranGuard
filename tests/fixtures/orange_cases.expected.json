@@ -1,0 +1,168 @@
+{
+  "stats": {
+    "greenMatches": 4,
+    "lightBlueMatches": 2,
+    "yellowMatches": 0,
+    "orangeMatches": 20,
+    "redMatches": 0,
+    "totalFindings": 26
+  },
+  "matches": [
+    {
+      "text": "بسم الله الرحمان الرحيم",
+      "color": "orange",
+      "matchedRef": "الفاتحة:1",
+      "claimedRef": "(البقرة:1)"
+    },
+    {
+      "text": "قد سألها قوم من قبلكم ثم أصبحوا بها كافرين",
+      "color": "orange",
+      "matchedRef": "المائدة:102",
+      "claimedRef": "(البقرة:102)"
+    },
+    {
+      "text": "قل إن الذين يفترون على الله الكذب لا يفلحون",
+      "color": "orange",
+      "matchedRef": "يونس:69",
+      "claimedRef": "(البقرة:69)"
+    },
+    {
+      "text": "وجعلنا لكم فيها معايش ومن لستم له برازقين",
+      "color": "orange",
+      "matchedRef": "الحجر:20",
+      "claimedRef": "(البقرة:20)"
+    },
+    {
+      "text": "وأن الذين لا يؤمنون بالءاخرة أعتدنا لهم عذابا أليما",
+      "color": "orange",
+      "matchedRef": "الإسراء:10",
+      "claimedRef": "(البقرة:10)"
+    },
+    {
+      "text": "يوم نحشر المتقين إلى الرحمان وفدا",
+      "color": "orange",
+      "matchedRef": "مريم:85",
+      "claimedRef": "(البقرة:85)"
+    },
+    {
+      "text": "فما زالت تلك دعوىاهم حتىا جعلناهم حصيدا خامدين",
+      "color": "orange",
+      "matchedRef": "الأنبياء:15",
+      "claimedRef": "(البقرة:15)"
+    },
+    {
+      "text": "فأخذتهم الصيحة بالحق فجعلناهم غثاء فبعدا للقوم الظالمين",
+      "color": "orange",
+      "matchedRef": "المؤمنون:41",
+      "claimedRef": "(البقرة:41)"
+    },
+    {
+      "text": "وكلا ضربنا له الأمثال وكلا تبرنا تتبيرا",
+      "color": "orange",
+      "matchedRef": "الفرقان:39",
+      "claimedRef": "(البقرة:39)"
+    },
+    {
+      "text": "إذ نسويكم برب العالمين",
+      "color": "orange",
+      "matchedRef": "الشعراء:98",
+      "claimedRef": "(البقرة:98)"
+    },
+    {
+      "text": "لأعذبنه عذابا شديدا أو لأاذبحنه أو ليأتينى بسلطان مبين",
+      "color": "orange",
+      "matchedRef": "النمل:21",
+      "claimedRef": "(البقرة:21)"
+    },
+    {
+      "text": "ربنا ءاتهم ضعفين من العذاب والعنهم لعنا كبيرا",
+      "color": "orange",
+      "matchedRef": "الأحزاب:68",
+      "claimedRef": "(البقرة:68)"
+    },
+    {
+      "text": "فإنهم يومئذ فى العذاب مشتركون",
+      "color": "orange",
+      "matchedRef": "الصافات:33",
+      "claimedRef": "(البقرة:33)"
+    },
+    {
+      "text": "ص والقرءان ذى الذكر",
+      "color": "orange",
+      "matchedRef": "ص:1",
+      "claimedRef": "(الفاتحة:1)"
+    },
+    {
+      "text": "ادخلوا أبواب جهنم خالدين فيها فبئس مثوى المتكبرين",
+      "color": "orange",
+      "matchedRef": "غافر:76",
+      "claimedRef": "(البقرة:76)"
+    },
+    {
+      "text": "ثم تولوا عنه وقالوا معلم مجنون",
+      "color": "orange",
+      "matchedRef": "الدخان:14",
+      "claimedRef": "(البقرة:14)"
+    },
+    {
+      "text": "قال لا تختصموا لدى وقد قدمت إليكم بالوعيد",
+      "color": "orange",
+      "matchedRef": "ق:28",
+      "claimedRef": "(البقرة:28)"
+    },
+    {
+      "text": "أم خلقوا من غير شىء أم هم الخالقون",
+      "color": "orange",
+      "matchedRef": "الطور:35",
+      "claimedRef": "(البقرة:35)"
+    },
+    {
+      "text": "بل الساعة موعدهم والساعة أدهىا وأمر",
+      "color": "orange",
+      "matchedRef": "القمر:46",
+      "claimedRef": "(البقرة:46)"
+    },
+    {
+      "text": "فلولا إذا بلغت الحلقوم",
+      "color": "orange",
+      "matchedRef": "الواقعة:83",
+      "claimedRef": "(البقرة:83)"
+    },
+    {
+      "text": "ما أغنىا عنى ماليه",
+      "color": "green",
+      "matchedRef": "الحاقة:28",
+      "claimedRef": "(الحاقة:28)"
+    },
+    {
+      "text": "وطعاما ذا غصة وعذابا أليما",
+      "color": "green",
+      "matchedRef": "المزمل:13",
+      "claimedRef": "(المزمل:13)"
+    },
+    {
+      "text": "وجعلنا فيها رواسى شامخات وأسقيناكم ماء فراتا",
+      "color": "green",
+      "matchedRef": "المرسلات:27",
+      "claimedRef": "(المرسلات:27)"
+    },
+    {
+      "text": "فى أى صورة ما شاء ركبك",
+      "color": "green",
+      "matchedRef": "الإنفطار:8",
+      "claimedRef": "(الإنفطار:8)"
+    },
+    {
+      "text": "وإلى الأرض كيف سطحت",
+      "color": "lightBlue",
+      "matchedRef": "الغاشية:20",
+      "claimedRef": ""
+    },
+    {
+      "text": "وقال الإنسان ما لها",
+      "color": "lightBlue",
+      "matchedRef": "الزلزلة:3",
+      "claimedRef": ""
+    }
+  ]
+}
