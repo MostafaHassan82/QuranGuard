@@ -1,15 +1,20 @@
 /* =============================================================================
-   Quran Audit Extension — Five-color highlight system (V1)
+   Quran Audit Extension — highlight system (V1)
    =============================================================================
+   Five verification verdicts:
    green     — verified exact (text + ref agree, tashkeel/spelling tolerated)
    lightBlue — verified exact, no ref on page
    yellow    — word-level deviation
    orange    — REF MISMATCH (text is real Quran but at a different ref)
    red       — citation signal but text not found in Quran
+   Plus one provenance color (constitution Principle II):
+   lightGreen — a citation WE corrected in place (verification-wise green;
+                marked apart so corrected ones are distinguishable/filterable)
 */
 
 .quran-green,
 .quran-lightblue,
+.quran-lightgreen,
 .quran-yellow,
 .quran-orange,
 .quran-red {
@@ -25,6 +30,7 @@
    bounding box so the page layout isn't shifted. */
 .quran-green::before,
 .quran-lightblue::before,
+.quran-lightgreen::before,
 .quran-yellow::before,
 .quran-orange::before,
 .quran-red::before {
@@ -42,6 +48,7 @@
    Skipped for the pending placeholder (invisible spans should stay invisible). */
 .quran-green:focus,
 .quran-lightblue:focus,
+.quran-lightgreen:focus,
 .quran-yellow:focus,
 .quran-orange:focus,
 .quran-red:focus {
@@ -51,6 +58,7 @@
 
 .quran-green::before     { content: "✓"; color: rgba(0, 130, 0, 0.85); }
 .quran-lightblue::before { content: "ⓘ"; color: rgba(50, 140, 200, 0.9); }
+.quran-lightgreen::before { content: "✎"; color: rgba(90, 150, 40, 0.95); }
 .quran-yellow::before    { content: "~"; color: rgba(200, 160, 20, 0.95); }
 .quran-orange::before    { content: "⚠"; color: rgba(220, 110, 0, 0.95); }
 .quran-red::before       { content: "✗"; color: rgba(200, 0, 0, 0.85); }
@@ -63,6 +71,14 @@
 .quran-lightblue {
   background-color: rgba(70, 170, 220, 0.18);
   border-bottom: 2px solid rgba(50, 140, 200, 0.7);
+}
+
+/* Corrected-in-place (provenance, not a verification verdict). A lime/yellow-
+   green that reads apart from the blue-green "verified" green, with a dashed
+   underline to signal "we edited this". */
+.quran-lightgreen {
+  background-color: rgba(150, 210, 80, 0.22);
+  border-bottom: 2px dashed rgba(110, 170, 50, 0.85);
 }
 
 .quran-yellow {
@@ -99,6 +115,9 @@
 .quran-lightblue[data-tooltip]:hover::after,
 .quran-lightblue[data-tooltip]:focus::after,
 .quran-lightblue[data-tooltip].quran-pressed::after,
+.quran-lightgreen[data-tooltip]:hover::after,
+.quran-lightgreen[data-tooltip]:focus::after,
+.quran-lightgreen[data-tooltip].quran-pressed::after,
 .quran-yellow[data-tooltip]:hover::after,
 .quran-yellow[data-tooltip]:focus::after,
 .quran-yellow[data-tooltip].quran-pressed::after,
@@ -110,23 +129,26 @@
 .quran-red[data-tooltip].quran-pressed::after {
   content: attr(data-tooltip);
   position: absolute;
-  top: calc(100% + 4px);
+  top: calc(100% + 6px);
   right: 0;
-  background: #1a1a1a;
-  color: #f0f0f0;
-  padding: 6px 10px;
-  border-radius: 4px;
-  font-size: 13px;
-  font-family: Arial, sans-serif;
-  line-height: 1.6;
+  background: #0b5d3b;
+  color: #f4f1e9;
+  padding: 9px 13px;
+  border: 1px solid #c8a24a;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 500;
+  font-family: "Segoe UI", Tahoma, Arial, sans-serif;
+  line-height: 1.45;
+  letter-spacing: 0.1px;
   white-space: pre-line;
   direction: rtl;
   text-align: right;
   z-index: 2147483647;
-  min-width: 140px;
-  max-width: 360px;
+  width: max-content;
+  max-width: 320px;
   pointer-events: none;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
 }
 
 

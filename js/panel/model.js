@@ -54,7 +54,15 @@ const QuranPanelModel = (() => {
       const badgeKind = isDismissal ? 'dismissed' : 'corrected';
       const when = (e.at || e.when || '').slice(0, 10);
 
-      const finding = findings.get(e.compositeKey);
+      // Match the live finding by its id, or — when a correction was
+      // auto-re-applied this load — by a successor whose priorFindingId points
+      // back at the original (corrected) id.
+      let finding = findings.get(e.compositeKey);
+      if (!finding) {
+        for (const f of findings.values()) {
+          if (f.priorFindingId === e.compositeKey) { finding = f; break; }
+        }
+      }
       if (!finding) {
         // Carry forward dismissed-on-a-prior-visit entries so the
         // "Previously dismissed" section can render even without a live match.

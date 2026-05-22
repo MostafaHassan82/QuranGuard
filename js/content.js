@@ -55,6 +55,10 @@ const CSS_BY_COLOR = {
   yellow:    'quran-yellow',
   orange:    'quran-orange',
   red:       'quran-red',
+  // Provenance color (not a classifier verdict): a citation we corrected
+  // in place. Verification-wise it is green; lightGreen marks that WE fixed it,
+  // so the user can filter corrected citations apart from natively-correct ones.
+  lightGreen: 'quran-lightgreen',
 };
 // Invisible placeholder class used during intermediate scan passes.
 // Pending spans still fragment the DOM (driving convergence) but are not visible.
@@ -662,6 +666,7 @@ function buildTooltip(color, result) {
       const note = refsDiffer ? '\n' + tt('tip_word_level_and_ref', { cited: claimed }) : '\n' + tt('tip_word_level');
       return matched + note;
     }
+    case 'lightGreen': return tt('tip_corrected', { from: result.correctedFromRef || '?', to: result.matchedRef || '?' });
     case 'orange': return tt('tip_orange', { cited: result.claimedRef || '?', matched: result.matchedRef || '?' });
     case 'red': return result.claimedRef
       ? tt('tip_red_with_ref', { ref: result.claimedRef })
@@ -681,6 +686,7 @@ const CATEGORY_LABEL_AR = {
   yellow:    'اختلاف لفظي',
   orange:    'مرجع غير مطابق',
   red:       'لم يُعثر عليه في القرآن',
+  lightGreen: 'صُحِّح المرجع',
 };
 
 // T037 helpers — composite finding ID. Synchronous (no Web Crypto) so the
@@ -945,7 +951,7 @@ async function scanPage({ liftCap = false, subtreeRoot = null } = {}) {
       clearHighlights();
       STATE.scanning = false;
       const payload = {
-        scanId, totalCount: 0, perCategoryCount: { green: 0, lightBlue: 0, yellow: 0, orange: 0, red: 0 },
+        scanId, totalCount: 0, perCategoryCount: { green: 0, lightBlue: 0, lightGreen: 0, yellow: 0, orange: 0, red: 0 },
         durationMs: Date.now() - startTime, languageDetected: lang, finalState: 'notArabic',
       };
       QuranMsg.emit('SCAN_COMPLETE', payload);
@@ -1006,7 +1012,7 @@ async function scanPage({ liftCap = false, subtreeRoot = null } = {}) {
         }
       }
 
-      const perCategoryCount = { green: 0, lightBlue: 0, yellow: 0, orange: 0, red: 0 };
+      const perCategoryCount = { green: 0, lightBlue: 0, lightGreen: 0, yellow: 0, orange: 0, red: 0 };
 
       for (const candidate of candidates) {
         if (!liftCap && STATE.findings.length >= SCAN_CAP) {
@@ -1061,8 +1067,8 @@ async function scanPage({ liftCap = false, subtreeRoot = null } = {}) {
   if (isFreshFull) materializeHighlights();
   // Cap notification (after materialization so it fires with visible highlights).
   if (STATE.capHit) {
-    const perCategoryCount = { green: 0, lightBlue: 0, yellow: 0, orange: 0, red: 0 };
-    for (const f of STATE.findings) { if (perCategoryCount[f.category] !== undefined) perCategoryCount[f.category]++; }
+    const perCategoryCount = { green: 0, lightBlue: 0, lightGreen: 0, yellow: 0, orange: 0, red: 0 };
+    for (const f of STATE.findings) { if (perCategoryCount[f.color] !== undefined) perCategoryCount[f.color]++; }
     QuranMsg.emit('SCAN_CAP_HIT', { scanId, cap: SCAN_CAP, perCategoryCount });
   }
 
@@ -1072,7 +1078,8 @@ async function scanPage({ liftCap = false, subtreeRoot = null } = {}) {
 
 function computeFinalState() {
   if (STATE.findings.length === 0) return 'empty';
-  const hasDefect = STATE.findings.some(f => f.category !== 'green' && f.category !== 'lightBlue');
+  const VERIFIED = new Set(['green', 'lightBlue', 'lightGreen']);
+  const hasDefect = STATE.findings.some(f => !VERIFIED.has(f.color));
   return hasDefect ? 'defects' : 'clean';
 }
 
@@ -1080,8 +1087,8 @@ function emitComplete(scanId, startedAt, startTime) {
   STATE.scanning = false;
   const durationMs = Math.round(Date.now() - startTime);
   const finalState = computeFinalState();
-  const perCategoryCount = { green: 0, lightBlue: 0, yellow: 0, orange: 0, red: 0 };
-  for (const f of STATE.findings) { if (perCategoryCount[f.category] !== undefined) perCategoryCount[f.category]++; }
+  const perCategoryCount = { green: 0, lightBlue: 0, lightGreen: 0, yellow: 0, orange: 0, red: 0 };
+  for (const f of STATE.findings) { if (perCategoryCount[f.color] !== undefined) perCategoryCount[f.color]++; }
 
   const payload = {
     scanId,
@@ -1125,19 +1132,88 @@ function emitComplete(scanId, startedAt, startTime) {
   maybeMountSidebar(finalState).catch(() => {});
 }
 
+// Safety gate for bulk "auto-correct all orange". Orange means the words are
+// already verified-correct; only the CITED REFERENCE is wrong. Auto-correcting
+// orange rewrites that reference over verified text — it never alters the ayah
+// wording, so the text-swap hazards that apply to yellow (collapsing a `*`
+// multi-verse excerpt onto one verse, trusting a short fragment) do NOT apply
+// here. The one genuine risk is ambiguity: if the correct words occur at more
+// than one reference we can't know which single ref to write, so we skip those.
+// Manual correct-in-place is unaffected — the user can still review + fix them.
+function isOrangeAutoCorrectable(f) {
+  if (!f) return false;
+  if (Array.isArray(f.matchedRefs) && f.matchedRefs.length > 1) return false;
+  return true;
+}
+
+// Correct orange findings in place (silently, without re-persisting).
+//   - persistedKeys: ids the user already corrected before (FR-024a) — always
+//     re-applied, since the user already vetted them (the safety gate is skipped).
+//   - autoAll: when true (prefs.autoCorrectOrange), also correct every OTHER
+//     orange finding that passes isOrangeAutoCorrectable.
+// Returns the count actually applied to the DOM.
+async function autoCorrectOranges({ persistedKeys, autoAll }) {
+  const oranges = STATE.findings.filter(f => f.color === 'orange');
+  let n = 0;
+  for (const f of oranges) {
+    const vetted = persistedKeys && persistedKeys.has(f.id);
+    if (!vetted) {
+      if (!autoAll) continue;
+      if (!isOrangeAutoCorrectable(f)) continue;
+    }
+    try {
+      const r = await correctInPlace(f.id, { persist: false, silent: true });
+      if (r?.ok && !r.result.fellBackToClipboard) n++;
+    } catch (_) {}
+  }
+  return n;
+}
+
 async function maybeMountSidebar(finalState) {
   if (typeof QuranPanelSidebar === 'undefined') return;
   if (finalState === 'empty' || finalState === 'notArabic') return;
 
+  // Read the persisted corrections/dismissals for this URL first (FR-024).
+  let entries = null;
+  try {
+    const resp = await QuranMsg.sendRequest('PERSIST_READ', { urlKey: pageUrlKey() });
+    entries = resp?.payload?.result?.entries || null;
+  } catch (_) {}
+
+  // Auto-correct orange findings in place:
+  //  - always re-apply prior corrections on revisit (a static page re-serves
+  //    its original wrong reference), and
+  //  - if prefs.autoCorrectOrange is set, correct EVERY orange finding.
+  // We don't re-persist (auto-correct re-runs each load anyway, and re-applies
+  // keep their original correction date) and stay silent (one consolidated
+  // badge refresh below). See FR-024a.
+  const correctedKeys = new Set();
+  if (Array.isArray(entries)) {
+    for (const e of entries) {
+      const kind = e.kind || e.action || '';
+      if (kind === 'correction' || kind === 'correct') correctedKeys.add(e.compositeKey);
+    }
+  }
+  const autoAll = STATE.prefs?.autoCorrectOrange === true;
+  const reapplied = await autoCorrectOranges({ persistedKeys: correctedKeys, autoAll });
+
+  // If anything changed, re-settle the badge/popup to the post-correction state.
+  if (reapplied) {
+    const perCategoryCount = { green: 0, lightBlue: 0, lightGreen: 0, yellow: 0, orange: 0, red: 0 };
+    for (const f of STATE.findings) if (perCategoryCount[f.color] !== undefined) perCategoryCount[f.color]++;
+    QuranMsg.emit('SCAN_COMPLETE', {
+      scanId: STATE.scanId, totalCount: STATE.findings.length, perCategoryCount,
+      finalState: computeFinalState(), languageDetected: STATE.languageDetected || 'ar',
+    });
+    window.__quranMatches = STATE.findings.slice();
+  }
+
   QuranPanelSidebar.reset();
   for (const f of STATE.findings) QuranPanelSidebar.upsert(f);
   // FR-024 — tag findings the user corrected/dismissed on a prior visit so the
-  // sidebar shows the "صُحِّح سابقًا" badge (matched by the original finding id).
-  try {
-    const resp = await QuranMsg.sendRequest('PERSIST_READ', { urlKey: pageUrlKey() });
-    const entries = resp?.payload?.result?.entries;
-    if (entries) QuranPanelSidebar.tagPersisted(entries);
-  } catch (_) {}
+  // sidebar shows the "صُحِّح سابقًا" badge. Matched by the original finding id,
+  // or — for an auto-re-applied correction — by the successor's priorFindingId.
+  if (entries) QuranPanelSidebar.tagPersisted(entries);
   await QuranPanelSidebar.mount();
 }
 
@@ -1404,7 +1480,13 @@ function placeRefMarkers() {
 // flip the highlight to the re-verified successor, and emit the successor
 // Finding (priorFindingId set). Falls back to clipboard when the reference
 // can't be edited in place (no marker — e.g. shadow DOM / cross-node ref).
-async function correctInPlace(findingId) {
+// options.persist=false  → don't write a PERSIST record (used by auto-re-apply
+//                          on reload, so the original correction date is kept).
+// options.silent=true    → don't emit SCAN_COMPLETE or ingest into the sidebar
+//                          (the caller re-syncs the panel + badge once).
+async function correctInPlace(findingId, options = {}) {
+  const persist = options.persist !== false;
+  const silent = options.silent === true;
   const f = STATE.findings.find(x => x.id === findingId);
   if (!f) return { ok: false, error: { code: 'NOT_FOUND', message: 'finding not found' } };
   const trueRef = f.matchedRef || f.matchedReference || null;
@@ -1421,6 +1503,13 @@ async function correctInPlace(findingId) {
   const successorColor = (vres && vres.color) || 'green';
   const successorMatchedRef = (vres && vres.matchedRef) || trueRef;
   const successorId = computeCompositeFindingId(f.text, trueRef, successorMatchedRef, f.domPath);
+  // The reference we just replaced (the wrong one), kept so the panel/tooltip
+  // can show "what was wrong" on the corrected finding.
+  const correctedFromRef = f.claimedRef || f.citedReference || null;
+  // Provenance color: a now-verified correction renders as lightGreen so the
+  // user can tell it apart from natively-correct green. If the corrected text
+  // still isn't a clean verify (e.g. yellow), keep that verdict's color.
+  const displayColor = (successorColor === 'green') ? 'lightGreen' : successorColor;
 
   let fellBackToClipboard = false;
   STATE.swapInProgress = true;
@@ -1433,28 +1522,39 @@ async function correctInPlace(findingId) {
       const ayahSpan = document.querySelector(`[data-finding-id="${cssEscapeId(findingId)}"]`);
       if (ayahSpan) {
         for (const c of ALL_HIGHLIGHT_CLASSES) ayahSpan.classList.remove(c);
-        if (CSS_BY_COLOR[successorColor]) ayahSpan.classList.add(CSS_BY_COLOR[successorColor]);
-        const tip = buildTooltip(successorColor, { color: successorColor, claimedRef: trueRef, matchedRef: successorMatchedRef, deviation: vres && vres.deviation });
+        if (CSS_BY_COLOR[displayColor]) ayahSpan.classList.add(CSS_BY_COLOR[displayColor]);
+        const tip = buildTooltip(displayColor, { color: displayColor, claimedRef: trueRef, matchedRef: successorMatchedRef, correctedFromRef, deviation: vres && vres.deviation });
         ayahSpan.dataset.findingId = successorId;
-        ayahSpan.dataset.color = successorColor;
+        ayahSpan.dataset.color = displayColor;
         ayahSpan.dataset.claimedRef = trueRef;
         ayahSpan.dataset.matchedRef = successorMatchedRef;
         ayahSpan.dataset.tooltip = tip;
-        if (CATEGORY_LABEL_AR[successorColor]) {
-          ayahSpan.setAttribute('aria-label', tt('cat_' + successorColor) + (tip ? '. ' + tip : ''));
+        if (CATEGORY_LABEL_AR[displayColor]) {
+          ayahSpan.setAttribute('aria-label', tt('cat_' + displayColor) + (tip ? '. ' + tip : ''));
         }
       }
     } else {
-      // FR-012 fallback: copy the corrected citation for manual paste.
+      // FR-012 fallback: copy the corrected citation for manual paste. Skipped
+      // on silent auto-re-apply (FR-024a) — we must never hijack the clipboard
+      // on every page reload; auto-re-apply degrades to badge-only instead.
       fellBackToClipboard = true;
-      const clip = corrected || trueRef;
-      try {
-        if (typeof QuranActions !== 'undefined' && QuranActions.copy) await QuranActions.copy(clip);
-        else if (navigator.clipboard) await navigator.clipboard.writeText(clip);
-      } catch (_) {}
+      if (!silent) {
+        const clip = corrected || trueRef;
+        try {
+          if (typeof QuranActions !== 'undefined' && QuranActions.copy) await QuranActions.copy(clip);
+          else if (navigator.clipboard) await navigator.clipboard.writeText(clip);
+        } catch (_) {}
+      }
     }
   } finally {
     setTimeout(() => { STATE.swapInProgress = false; }, 50);
+  }
+
+  // Auto-re-apply that couldn't edit the DOM: leave the finding as-is (still
+  // orange) so the page's true state is reflected; the "previously corrected"
+  // badge still attaches via the original id. Do NOT create a green successor.
+  if (silent && fellBackToClipboard) {
+    return { ok: true, result: { successorFindingId: null, fellBackToClipboard: true } };
   }
 
   // FR-022 successor: discard the prior Finding, add the re-verified successor
@@ -1462,8 +1562,9 @@ async function correctInPlace(findingId) {
   const successor = {
     ...f,
     id: successorId,
-    category: successorColor,
-    color: successorColor,
+    category: successorColor,   // the verification verdict (usually green)
+    color: displayColor,        // provenance color shown in UI (lightGreen)
+    correctedFromRef,           // the wrong reference we replaced
     citedReference: trueRef,
     claimedRef: trueRef,
     matchedReference: successorMatchedRef,
@@ -1484,22 +1585,38 @@ async function correctInPlace(findingId) {
     setTimeout(() => { STATE.swapInProgress = false; }, 50);
   }
 
-  const perCategoryCount = { green: 0, lightBlue: 0, yellow: 0, orange: 0, red: 0 };
-  for (const x of STATE.findings) if (perCategoryCount[x.category] !== undefined) perCategoryCount[x.category]++;
-  QuranMsg.emit('SCAN_PROGRESS', { scanId: STATE.scanId, finding: successor, priorFindingId: findingId, runningCount: STATE.findings.length, perCategoryCount });
-  // The sidebar runs in this content context and won't receive the cross-context
-  // SCAN_PROGRESS broadcast, so update its model directly (T066).
-  if (typeof QuranPanelSidebar !== 'undefined' && QuranPanelSidebar.isMounted()) {
-    try { QuranPanelSidebar.ingest(successor, findingId); } catch (_) {}
+  const perCategoryCount = { green: 0, lightBlue: 0, lightGreen: 0, yellow: 0, orange: 0, red: 0 };
+  for (const x of STATE.findings) if (perCategoryCount[x.color] !== undefined) perCategoryCount[x.color]++;
+  // A correction is a discrete, completed change — not an in-progress scan.
+  // Emit SCAN_COMPLETE (not SCAN_PROGRESS) so the badge re-settles to its
+  // ✓ / ! glyph with the updated counts instead of getting stuck showing a
+  // progress count (FR-028). The sidebar runs in this content context and is
+  // updated directly via ingest below; the cross-context emit is for the badge
+  // + popup only.
+  if (!silent) {
+    QuranMsg.emit('SCAN_COMPLETE', {
+      scanId: STATE.scanId,
+      totalCount: STATE.findings.length,
+      perCategoryCount,
+      finalState: computeFinalState(),
+      languageDetected: STATE.languageDetected || 'ar',
+    });
+    // The sidebar runs in this content context and won't receive the
+    // cross-context emit, so update its model directly (T066).
+    if (typeof QuranPanelSidebar !== 'undefined' && QuranPanelSidebar.isMounted()) {
+      try { QuranPanelSidebar.ingest(successor, findingId); } catch (_) {}
+    }
   }
   window.__quranMatches = STATE.findings.slice();
 
   // T068 — persist the correction keyed by the ORIGINAL finding's id (FR-024).
   // A static page reverts to its wrong reference on reload, so the recurring
   // finding has the prior id; keying on the successor would never re-match.
-  try {
-    await QuranMsg.sendRequest('PERSIST_WRITE', { urlKey: pageUrlKey(), compositeKey: findingId, kind: 'correction', at: new Date().toISOString() });
-  } catch (_) {}
+  if (persist) {
+    try {
+      await QuranMsg.sendRequest('PERSIST_WRITE', { urlKey: pageUrlKey(), compositeKey: findingId, kind: 'correction', at: new Date().toISOString() });
+    } catch (_) {}
+  }
 
   return { ok: true, result: { successorFindingId: successorId, fellBackToClipboard } };
 }
@@ -1518,14 +1635,21 @@ if (chrome?.runtime?.onMessage) {
     // Legacy handlers (popup.js still uses these)
     if (type === 'scan') {
       scanPage().then(() => {
-        const pcc = { green: 0, lightBlue: 0, yellow: 0, orange: 0, red: 0 };
+        const pcc = { green: 0, lightBlue: 0, lightGreen: 0, yellow: 0, orange: 0, red: 0 };
         for (const f of STATE.findings) if (pcc[f.category] !== undefined) pcc[f.category]++;
         sendResponse({ stats: STATS, perCategoryCount: pcc, totalCount: STATE.findings.length, findings: STATE.findings });
       });
       return true;
     }
     if (type === 'clear') {
+      // Gate the mutation observer: clearHighlights() unwraps spans and calls
+      // document.body.normalize(), which the observer would otherwise treat as
+      // page edits and rescan ~500ms later — re-painting the highlights the
+      // user just cleared. Reuse the swap suppression flag; reset after the
+      // observer's debounce window so the queued mutations are ignored.
+      STATE.swapInProgress = true;
       clearHighlights();
+      setTimeout(() => { STATE.swapInProgress = false; }, 600);
       sendResponse({ ok: true });
       return;
     }
@@ -1540,8 +1664,8 @@ if (chrome?.runtime?.onMessage) {
     // Popup-on-open state query — lets the popup show results from a scan that
     // completed before it opened (autoscan, or earlier manual scan).
     if (type === 'getState') {
-      const pcc = { green: 0, lightBlue: 0, yellow: 0, orange: 0, red: 0 };
-      for (const f of STATE.findings) if (pcc[f.category] !== undefined) pcc[f.category]++;
+      const pcc = { green: 0, lightBlue: 0, lightGreen: 0, yellow: 0, orange: 0, red: 0 };
+      for (const f of STATE.findings) if (pcc[f.color] !== undefined) pcc[f.color]++;
       sendResponse({
         scanId: STATE.scanId,
         scanComplete: !STATE.scanning && STATE.scanId !== null,
@@ -1582,6 +1706,15 @@ if (chrome?.runtime?.onMessage) {
       return true;
     }
 
+    // PERSISTED_CLEARED — the options page cleared saved corrections/dismissals;
+    // drop stale badges from the open sidebar (T094 follow-up).
+    if (type === 'PERSISTED_CLEARED') {
+      if (typeof QuranPanelSidebar !== 'undefined' && QuranPanelSidebar.isMounted()) {
+        try { QuranPanelSidebar.clearPersistedBadges(); } catch (_) {}
+      }
+      return;
+    }
+
     // PREFS_CHANGED — refresh the cache and reconcile authentic-text swap state
     // for every finding (T060). The sidebar is always the panel surface now, so
     // there's no surface-based mount/unmount here.
@@ -1602,6 +1735,12 @@ if (chrome?.runtime?.onMessage) {
         STATE.swapInProgress = true;
         try { QuranSwap.reconcile(STATE.findings, prefs); } catch (_) {}
         setTimeout(() => { STATE.swapInProgress = false; }, 50);
+      }
+      // Live "auto-correct all orange" toggle: if it's now on and the current
+      // scan still has uncorrected orange findings, correct them in place now
+      // and re-sync the sidebar/badge (rather than waiting for the next scan).
+      if (prefs.autoCorrectOrange && STATE.findings.some(f => f.color === 'orange')) {
+        maybeMountSidebar(computeFinalState()).catch(() => {});
       }
       return;
     }

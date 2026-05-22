@@ -4,12 +4,14 @@
 //          DATA_UNAVAILABLE / DATA_AVAILABLE events.
 // Exported as QuranBadge global (loaded via importScripts in SW).
 const QuranBadge = (() => {
-  // Priority order for defect severity: orange > red > yellow
+  // Priority order for defect severity: red > yellow > orange (most severe
+  // first, per constitution Principle II — red is words not in the Quran,
+  // orange is correct words with only a wrong reference).
   function severityColor(perCategoryCount) {
     if (!perCategoryCount) return '#888888';
-    if ((perCategoryCount.orange || 0) > 0) return '#E67300';
     if ((perCategoryCount.red || 0) > 0) return '#CC0000';
     if ((perCategoryCount.yellow || 0) > 0) return '#D4A000';
+    if ((perCategoryCount.orange || 0) > 0) return '#E67300';
     return '#4CAF50'; // all green/lightBlue — clean
   }
 
@@ -25,8 +27,10 @@ const QuranBadge = (() => {
   }
 
   function onScanProgress(tabId, perCategoryCount, runningCount) {
+    // FR-028: the badge is a glyph indicator, never a count. Show the in-progress
+    // dot; the running count lives in the tooltip only.
     const col = severityColor(perCategoryCount);
-    set(tabId, { text: String(runningCount), color: col, title: `Scanning… ${runningCount} finding(s)` });
+    set(tabId, { text: '●', color: col, title: `Scanning… ${runningCount} finding(s)` });
   }
 
   function onScanComplete(tabId, finalState, perCategoryCount, totalCount) {
@@ -47,6 +51,7 @@ const QuranBadge = (() => {
     if (perCategoryCount.yellow) lines.push(`${perCategoryCount.yellow} word-level deviation`);
     if (perCategoryCount.green) lines.push(`${perCategoryCount.green} verified`);
     if (perCategoryCount.lightBlue) lines.push(`${perCategoryCount.lightBlue} verified (no ref)`);
+    if (perCategoryCount.lightGreen) lines.push(`${perCategoryCount.lightGreen} corrected`);
     set(tabId, { text: glyph, color: col, title: `Quran Citation Verifier — ${lines.join(', ')}` });
   }
 

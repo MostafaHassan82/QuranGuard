@@ -5,7 +5,7 @@
 // the findings list, filters, swap controls, and saved-corrections settings
 // (FR-010, FR-027, FR-029).
 const QuranPanelSidebar = (() => {
-  const CATEGORY_GLYPH = { green: '✓', lightBlue: '✓', yellow: '~', orange: '⚠', red: '✗' };
+  const CATEGORY_GLYPH = { green: '✓', lightBlue: '✓', lightGreen: '✎', yellow: '~', orange: '⚠', red: '✗' };
   // i18n helpers (fall back to the key if QuranI18n isn't loaded for some reason).
   const T = (k, v) => (typeof QuranI18n !== 'undefined') ? QuranI18n.t(k, v) : k;
   const catLabel = (color) => T('cat_' + color);
@@ -41,17 +41,33 @@ const QuranPanelSidebar = (() => {
     return Math.max(MIN_PANEL_W, Math.min(max, w));
   }
 
-  // Reflect collapsed/width state into the DOM (panel, host margin, tab).
+  // Chevron icons for the persistent edge toggle. Left = expand (pull the panel
+  // out); right = collapse (push it to the edge).
+  const CHEVRON_LEFT  = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  const CHEVRON_RIGHT = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><path d="M9 5l7 7-7 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
+  // Reflect collapsed/width state into the DOM (panel, host margin, tab). The
+  // edge tab stays mounted in BOTH states: when collapsed it's the only handle;
+  // when expanded it rides the panel's left edge as a persistent collapse
+  // toggle.
   function applyLayout() {
     if (!rootEl) return;
+    const tab = ensureTab();
+    tab.style.display = 'flex';
     if (collapsed) {
       rootEl.style.display = 'none';
-      ensureTab().style.display = 'flex';
+      tab.style.right = '0px';
+      tab.innerHTML = CHEVRON_LEFT;
+      tab.setAttribute('aria-label', T('tab_open_aria'));
+      tab.title = T('tab_open_aria');
       setHostMargin(TAB_W);
     } else {
       rootEl.style.display = 'flex';
       rootEl.style.width = panelWidth + 'px';
-      if (tabEl) tabEl.style.display = 'none';
+      tab.style.right = panelWidth + 'px';
+      tab.innerHTML = CHEVRON_RIGHT;
+      tab.setAttribute('aria-label', T('collapse_aria'));
+      tab.title = T('collapse');
       setHostMargin(panelWidth);
     }
   }
@@ -62,12 +78,10 @@ const QuranPanelSidebar = (() => {
     tabEl.className = 'quran-ext-panel-tab';
     tabEl.setAttribute('role', 'button');
     tabEl.setAttribute('tabindex', '0');
-    tabEl.setAttribute('aria-label', T('tab_open_aria'));
-    tabEl.title = T('tab_open_aria');
-    tabEl.textContent = T('tab_text');
-    const open = () => expand();
-    tabEl.addEventListener('click', open);
-    tabEl.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
+    tabEl.innerHTML = CHEVRON_LEFT;
+    const toggle = () => { if (collapsed) expand(); else collapse(); };
+    tabEl.addEventListener('click', toggle);
+    tabEl.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } });
     document.body.appendChild(tabEl);
     return tabEl;
   }
@@ -99,6 +113,7 @@ const QuranPanelSidebar = (() => {
         panelWidth = clampWidth(window.innerWidth - ev.clientX);
         rootEl.style.width = panelWidth + 'px';
         setHostMargin(panelWidth);
+        if (tabEl) tabEl.style.right = panelWidth + 'px';
       };
       const onUp = () => {
         document.removeEventListener('mousemove', onMove);
@@ -147,8 +162,14 @@ const QuranPanelSidebar = (() => {
     refs.className = 'quran-ext-panel-refs';
     const cited = finding.claimedRef || finding.citedReference || '';
     const matched = finding.matchedRef || '';
-    if (cited && matched && cited !== matched) refs.textContent = `${cited} → ${matched}`;
-    else refs.textContent = matched || cited || '';
+    if (finding.color === 'lightGreen' && finding.correctedFromRef) {
+      // Corrected: show what was wrong (the bad ref) → the true ref.
+      refs.textContent = `${finding.correctedFromRef} ✎→ ${matched || cited}`;
+    } else if (cited && matched && cited !== matched) {
+      refs.textContent = `${cited} → ${matched}`;
+    } else {
+      refs.textContent = matched || cited || '';
+    }
 
     row.setAttribute('aria-label',
       `${catLabel(finding.color)}. ${finding.text || ''}${refs.textContent ? '. ' + refs.textContent : ''}`);
@@ -238,8 +259,45 @@ const QuranPanelSidebar = (() => {
     return section;
   }
 
+  // Results summary table (moved from the popup; T094). Counts derive from the
+  // panel model so the sidebar owns perCategoryCount without extra messaging.
+  function renderSummary() {
+    if (!rootEl) return;
+    const grid = rootEl.querySelector('.quran-ext-summary-grid');
+    if (!grid) return;
+    const all = QuranPanelModel.all();
+    const counts = { orange: 0, green: 0, lightBlue: 0, lightGreen: 0, yellow: 0, red: 0 };
+    for (const f of all) if (counts[f.color] != null) counts[f.color]++;
+    const cells = [
+      ['total', all.length],
+      ['orange', counts.orange],
+      ['green', counts.green],
+      ['lightBlue', counts.lightBlue],
+      ['lightGreen', counts.lightGreen],
+      ['yellow', counts.yellow],
+      ['red', counts.red],
+    ];
+    grid.replaceChildren();
+    for (const [key, n] of cells) {
+      const cell = document.createElement('div');
+      cell.className = key === 'total'
+        ? 'quran-ext-summary-cell quran-ext-summary-total'
+        : `quran-ext-summary-cell quran-ext-summary-${key}`;
+      const label = document.createElement('span');
+      label.className = 'quran-ext-summary-label';
+      label.textContent = T(key === 'total' ? 'stat_total'
+        : key === 'lightBlue' ? 'stat_lightblue' : 'stat_' + key);
+      const value = document.createElement('span');
+      value.className = 'quran-ext-summary-value';
+      value.textContent = n;
+      cell.append(label, value);
+      grid.append(cell);
+    }
+  }
+
   function render() {
     if (!rootEl) return;
+    renderSummary();
     const container = rootEl.querySelector('.quran-ext-panel-container');
     container.replaceChildren();
 
@@ -273,8 +331,6 @@ const QuranPanelSidebar = (() => {
   }
 
   function wireEvents() {
-    const collapseBtn = rootEl.querySelector('.quran-ext-panel-collapse');
-    if (collapseBtn) collapseBtn.addEventListener('click', () => collapse());
     wireResize();
     rootEl.querySelectorAll('.quran-ext-filter-chip input[type=checkbox]').forEach(cb => {
       cb.addEventListener('change', () => {
@@ -286,54 +342,24 @@ const QuranPanelSidebar = (() => {
     wireSwapAndPersist();
   }
 
-  // Reflect saved prefs into the swap controls (moved here from the popup).
+  // Reflect the saved master swap state into the sidebar's quick-toggle. The
+  // per-color + font defaults now live in the options page (T094).
   function syncSwapControls(prefs) {
     const master = rootEl.querySelector('.quran-ext-swap-master');
     if (master) master.checked = prefs?.master?.authenticTextReplacement !== false;
-    const perColor = prefs?.perColor || {};
-    rootEl.querySelectorAll('[data-swap-color]').forEach(cb => {
-      const c = cb.dataset.swapColor;
-      if (c === 'red') { cb.checked = false; cb.disabled = true; return; } // FR-015
-      cb.checked = perColor[c] !== false;
-    });
-    const fontSel = rootEl.querySelector('.quran-ext-font-select');
-    if (fontSel) fontSel.value = prefs?.font || 'uthmaniHafs';
   }
 
-  // Wire the swap controls + the "clear saved corrections" button. PREFS_WRITE
-  // broadcasts PREFS_CHANGED, which content.js uses to reconcile the on-page
-  // swaps — so no extra plumbing is needed here.
+  // Wire the master swap quick-toggle. This is the SAME global
+  // prefs.v1.master.authenticTextReplacement setting the options page exposes —
+  // surfaced here for quick access while reading (prefs.v1 has no session-scoped
+  // field; T094 kept the schema unchanged). PREFS_WRITE broadcasts PREFS_CHANGED,
+  // which content.js uses to reconcile the on-page swaps across tabs — so no
+  // extra plumbing is needed here. (Per-color + font + clear-persisted moved to
+  // the options page; T094.)
   function wireSwapAndPersist() {
     const master = rootEl.querySelector('.quran-ext-swap-master');
     if (master) master.addEventListener('change', () => {
       QuranMsg.sendRequest('PREFS_WRITE', { patch: { master: { authenticTextReplacement: master.checked } } }).catch(() => {});
-    });
-    rootEl.querySelectorAll('[data-swap-color]').forEach(cb => {
-      if (cb.dataset.swapColor === 'red') return; // FR-015 — locked off
-      cb.addEventListener('change', () => {
-        QuranMsg.sendRequest('PREFS_WRITE', { patch: { perColor: { [cb.dataset.swapColor]: cb.checked } } }).catch(() => {});
-      });
-    });
-    const fontSel = rootEl.querySelector('.quran-ext-font-select');
-    if (fontSel) fontSel.addEventListener('change', () => {
-      QuranMsg.sendRequest('PREFS_WRITE', { patch: { font: fontSel.value } }).catch(() => {});
-    });
-
-    const clearBtn = rootEl.querySelector('.quran-ext-clear-persisted');
-    if (clearBtn) clearBtn.addEventListener('click', async () => {
-      const status = rootEl.querySelector('.quran-ext-persist-status');
-      clearBtn.disabled = true;
-      try {
-        const resp = await QuranMsg.sendRequest('CLEAR_PERSISTED', {});
-        const pruned = resp?.payload?.result?.prunedCount ?? 0;
-        if (status) status.textContent = T('persist_cleared', { n: pruned });
-        QuranPanelModel.all().forEach(f => { if (f.panelState) f.panelState.persistedBadge = null; });
-        render();
-      } catch (_) {
-        if (status) status.textContent = T('persist_clear_failed');
-      } finally {
-        clearBtn.disabled = false;
-      }
     });
   }
 
@@ -385,15 +411,16 @@ const QuranPanelSidebar = (() => {
     render();
     applyLayout(); // restore saved width / collapsed state
 
-    // Page-level shortcut: Alt+Shift+Q from anywhere on the host page pulls
-    // focus into the sidebar's first row. Lets keyboard users hop back to the
-    // panel after a jump-to-highlight or any other page interaction without
-    // having to Tab through every focusable element on the host page.
+    // Page-level shortcut: Alt+Shift+Q from anywhere on the host page toggles
+    // the panel. When collapsed it expands and pulls focus into the first row
+    // (so keyboard users can hop back without Tabbing through the whole page);
+    // when open it collapses to the edge tab.
     if (!window.__quranSidebarHotkey) {
       window.__quranSidebarHotkey = (e) => {
         if (e.altKey && e.shiftKey && (e.key === 'Q' || e.key === 'q')) {
           e.preventDefault();
-          focusFirstRow();
+          if (collapsed) focusFirstRow(); // focusFirstRow expands first
+          else collapse();
         }
       };
       document.addEventListener('keydown', window.__quranSidebarHotkey);
@@ -450,6 +477,12 @@ const QuranPanelSidebar = (() => {
   // T066 — ingest a correct-in-place successor (discards prior, pins successor).
   function ingest(finding, priorFindingId) { QuranPanelModel.ingestProgress(finding, priorFindingId || null); if (rootEl) render(); }
   function reset() { QuranPanelModel.reset(); if (rootEl) render(); }
+  // Drop stale persisted badges after the options page clears the store, then
+  // re-render so the open sidebar reflects the cleared state immediately.
+  function clearPersistedBadges() {
+    QuranPanelModel.all().forEach(f => { if (f.panelState) f.panelState.persistedBadge = null; });
+    if (rootEl) render();
+  }
   function tagPersisted(entries) { QuranPanelModel.tagPersisted(entries); if (rootEl) render(); }
   function isMounted() { return rootEl !== null && document.body.contains(rootEl); }
 
@@ -470,5 +503,5 @@ const QuranPanelSidebar = (() => {
     return true;
   }
 
-  return { mount, unmount, upsert, ingest, reset, tagPersisted, isMounted, clearUserClosed, focusRow, applyLang };
+  return { mount, unmount, upsert, ingest, reset, tagPersisted, clearPersistedBadges, isMounted, clearUserClosed, focusRow, applyLang };
 })();
