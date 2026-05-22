@@ -14,6 +14,11 @@ const QuranPanelSidebar = (() => {
   // Local filter mirrors prefs.panelFilter. Updated from chip toggles and
   // persisted via PREFS_WRITE so popup + sidebar stay in sync across surfaces.
   let activeFilter = null;
+  // Whether references render as clickable quran.com links (prefs.refLinks),
+  // and the effective UI language for the /ar/ locale prefix in those links.
+  let refLinksEnabled = true;
+  let uiLang = 'ar';
+  let uiFont = 'uthmaniHafs';
   // Sticky for this page session: once the user closes the sidebar (X button),
   // don't auto-remount on subsequent scans. Cleared explicitly by the caller
   // when a fresh-full scan begins (so the next user-initiated scan reopens it).
@@ -133,6 +138,94 @@ const QuranPanelSidebar = (() => {
     return await resp.text();
   }
 
+  // quran.com URL for a surah + ayah range, per spec: quran.com/2/3-4
+  // (and quran.com/ar/2/3-4 when the UI language is Arabic).
+  function quranComUrl(surah, first, last) {
+    const ayahPart = (last && last !== first) ? `${first}-${last}` : `${first}`;
+    return `https://quran.com/${uiLang === 'ar' ? 'ar/' : ''}${surah}/${ayahPart}`;
+  }
+
+  // Resolve a reference to {surahNum, ayahNums, ayahTexts}, memoized so repeated
+  // renders (filter toggles) don't re-hit the background per row.
+  const refCache = new Map();
+  async function resolveRefCached(refString) {
+    if (refCache.has(refString)) return refCache.get(refString);
+    let r = null;
+    try {
+      const resp = await QuranMsg.sendRequest('resolveReference', { ref: refString });
+      const res = resp?.payload?.result || resp?.result || resp;
+      if (res && res.surahNum && Array.isArray(res.ayahNums) && res.ayahNums.length) r = res;
+    } catch (_) {}
+    refCache.set(refString, r);
+    return r;
+  }
+
+  // A single styled tooltip element (matching the in-page hover) lives on
+  // document.body as position:fixed so the panel's overflow can't clip it.
+  let refTipEl = null;
+  function ensureRefTip() {
+    if (refTipEl && document.body.contains(refTipEl)) return refTipEl;
+    refTipEl = document.createElement('div');
+    refTipEl.className = 'quran-ext-ref-tip';
+    refTipEl.setAttribute('role', 'tooltip');
+    document.body.appendChild(refTipEl);
+    return refTipEl;
+  }
+  function showRefTip(anchor, text) {
+    const tip = ensureRefTip();
+    tip.textContent = text;
+    if (typeof QuranFonts !== 'undefined') tip.style.setProperty('--quran-ref-tooltip-font', QuranFonts.familyFor(uiFont));
+    // Mirror the swap engine: downscale only the legacy uthmaniHafs font.
+    tip.classList.toggle('quran-ext-tip-downscale', uiFont === 'uthmaniHafs');
+    tip.style.visibility = 'hidden';
+    tip.style.display = 'block';
+    const a = anchor.getBoundingClientRect();
+    const t = tip.getBoundingClientRect();
+    let top = a.bottom + 6;
+    if (top + t.height > window.innerHeight - 8) top = Math.max(8, a.top - t.height - 6);
+    let left = a.right - t.width;
+    left = Math.min(Math.max(8, left), window.innerWidth - 8 - t.width);
+    tip.style.top = `${top}px`;
+    tip.style.left = `${left}px`;
+    tip.style.visibility = 'visible';
+  }
+  function hideRefTip() { if (refTipEl) refTipEl.style.display = 'none'; }
+
+  // Render a single reference token. Always shows the full ayah text(s) on hover
+  // (styled tooltip, matching the in-page hover), so any ref (right or wrong)
+  // can be verified. When prefs.refLinks is on it's also a clickable link that
+  // opens quran.com. Plain text when the ref is empty.
+  function refToken(refString) {
+    const el = document.createElement('span');
+    el.textContent = refString || '';
+    if (!refString) return el;
+    el.className = 'quran-ext-panel-ref';
+    // Warm the cache so the first hover is instant.
+    resolveRefCached(refString);
+    const showOnHover = async () => {
+      const r = await resolveRefCached(refString);
+      if (!r || !Array.isArray(r.ayahTexts) || !r.ayahTexts.length) return;
+      showRefTip(el, r.ayahTexts.filter(Boolean).join(' ۝ '));
+    };
+    el.addEventListener('mouseenter', showOnHover);
+    el.addEventListener('mouseleave', hideRefTip);
+    el.addEventListener('focus', showOnHover);
+    el.addEventListener('blur', hideRefTip);
+    if (refLinksEnabled) {
+      el.classList.add('quran-ext-panel-ref-link');
+      el.setAttribute('role', 'link');
+      el.setAttribute('tabindex', '0');
+      const open = async (e) => {
+        e.stopPropagation();
+        const r = await resolveRefCached(refString);
+        if (r) window.open(quranComUrl(r.surahNum, r.ayahNums[0], r.ayahNums[r.ayahNums.length - 1]), '_blank', 'noopener');
+      };
+      el.addEventListener('click', open);
+      el.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(e); } });
+    }
+    return el;
+  }
+
   function makeRow(finding) {
     const row = document.createElement('div');
     row.className = `quran-ext-panel-row quran-ext-panel-row-${finding.color}`;
@@ -162,20 +255,25 @@ const QuranPanelSidebar = (() => {
     refs.className = 'quran-ext-panel-refs';
     const cited = finding.claimedRef || finding.citedReference || '';
     const matched = finding.matchedRef || '';
+    let refsLabel = '';
     if (finding.color === 'lightGreen' && finding.correctedFromRef) {
-      // Corrected: show what was wrong (the bad ref) → the true ref.
-      refs.textContent = `${finding.correctedFromRef} ✎→ ${matched || cited}`;
+      // Corrected: the wrong ref ✎→ the true ref. Both are linkable/hoverable so
+      // the user can open quran.com for each and verify the old ref was wrong.
+      refs.append(refToken(finding.correctedFromRef), document.createTextNode(' ✎→ '), refToken(matched || cited));
+      refsLabel = `${finding.correctedFromRef} ✎→ ${matched || cited}`;
     } else if (cited && matched && cited !== matched) {
-      refs.textContent = `${cited} → ${matched}`;
-    } else {
-      refs.textContent = matched || cited || '';
+      refs.append(refToken(cited), document.createTextNode(' → '), refToken(matched));
+      refsLabel = `${cited} → ${matched}`;
+    } else if (matched || cited) {
+      refs.append(refToken(matched || cited));
+      refsLabel = matched || cited;
     }
 
     row.setAttribute('aria-label',
-      `${catLabel(finding.color)}. ${finding.text || ''}${refs.textContent ? '. ' + refs.textContent : ''}`);
+      `${catLabel(finding.color)}. ${finding.text || ''}${refsLabel ? '. ' + refsLabel : ''}`);
 
     row.append(head, snippet);
-    if (refs.textContent) row.append(refs);
+    if (refsLabel) row.append(refs);
 
     // Action buttons (T052). Primary action is row click = jump (FR-011a).
     const actions = document.createElement('div');
@@ -332,6 +430,9 @@ const QuranPanelSidebar = (() => {
 
   function wireEvents() {
     wireResize();
+    // The ref tooltip is position:fixed, so hide it when the panel scrolls
+    // (otherwise it lingers detached from its anchor).
+    rootEl.addEventListener('scroll', hideRefTip, { passive: true });
     rootEl.querySelectorAll('.quran-ext-filter-chip input[type=checkbox]').forEach(cb => {
       cb.addEventListener('change', () => {
         activeFilter = { ...(activeFilter || {}), [cb.dataset.color]: cb.checked };
@@ -402,6 +503,9 @@ const QuranPanelSidebar = (() => {
       const resp = await QuranMsg.sendRequest('PREFS_READ', {});
       prefs = resp?.payload?.result || {};
       activeFilter = prefs.panelFilter || { orange: true };
+      refLinksEnabled = prefs.refLinks !== false;
+      uiLang = prefs.lang === 'en' ? 'en' : 'ar';
+      uiFont = prefs.font || 'uthmaniHafs';
     } catch (_) { activeFilter = { orange: true }; }
 
     setLangDom(prefs.lang); // localize static markup + set dir/lang on the panel
@@ -457,6 +561,8 @@ const QuranPanelSidebar = (() => {
     rootEl = null;
     if (tabEl && tabEl.parentNode) tabEl.parentNode.removeChild(tabEl);
     tabEl = null;
+    if (refTipEl && refTipEl.parentNode) refTipEl.parentNode.removeChild(refTipEl);
+    refTipEl = null;
     document.documentElement.classList.remove('quran-ext-sidebar-mounted');
     document.documentElement.style.removeProperty('margin-right');
   }

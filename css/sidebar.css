@@ -334,6 +334,20 @@
   direction: ltr;
   text-align: left;
 }
+.quran-ext-panel-ref {
+  cursor: help; /* hover shows the full ayah text via title */
+}
+.quran-ext-panel-ref-link {
+  color: var(--q-gold, #c8a24a);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+.quran-ext-panel-ref-link:hover,
+.quran-ext-panel-ref-link:focus {
+  filter: brightness(1.15);
+  outline: none;
+}
 
 .quran-ext-panel-persisted {
   display: inline-block;
