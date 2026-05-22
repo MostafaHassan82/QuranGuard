@@ -23,7 +23,7 @@ This product exists because the Quran is Noble and its integrity on the web is w
 ## Goals (V1)
 
 1. **Detect the four verifiable citation states reliably on Arabic web pages**: exact match, word-level deviation, reference mismatch, and unverifiable. Five-color highlight taxonomy below.
-2. **Make reference mismatch the headline feature**: catch citations where the text is real Quran but the attached reference points to a different verse. This is the case no human reader catches by eye.
+2. **Catch reference mismatch (orange)**: citations where the text is real Quran but the attached reference points to a different verse. No human reader catches this by eye, so it must be detected — but it is the LEAST severe problem case (correct words, wrong reference). Overall severity runs red > yellow > orange; the product's north star is citation integrity (never-altered text + authentic in-place replacement) plus writer-side prevention, not orange specifically.
 3. **Render the authentic Quran text in place by default** for all verified findings (green, light blue, yellow, orange). Authenticity is signaled visually through the Quran font + full tashkeel, not just through colored highlights.
 4. **Provide a findings panel** that collects all orange (reference-mismatch) findings on a page in one place, with actions to report, copy, share, and (where technically possible) edit the citation in place.
 5. **Ship on Manifest V3** with a deterministic verifier whose green highlights are trustworthy enough that users do not learn to ignore them.
@@ -85,13 +85,13 @@ The verifier produces one of five states for every span it processes. These are 
 | **Green** | Text matches Quran exactly **OR** differs only in tashkeel/diacritics **OR** differs only in normal modern-vs-Quranic spelling drift (ا/آ, ى/ي, ة/ه). The page-stated reference (if any) agrees with the matched verse. | Default: swap to authentic text (Quran font + tashkeel). |
 | **Light blue** | Text matches the Quran exactly (green-grade match) but the page did not state a reference. | Swap text + tooltip surfaces the correct reference. |
 | **Yellow** | Text largely matches a verse but with a word-level difference — a word missing, a word added, or a word substituted. The intent is clearly a citation of the matched verse, but the wording is imprecise. | Swap to authentic text (this is *both* the correction and the authenticity signal). |
-| **Orange** ⭐ | Text exists in the Quran *exactly* (green-grade match) — but at a **different reference** than the page states. Both the citation and the page's reference are real, but they don't belong together. | Tooltip shows "Cited as X, actually Y." Findings panel collects all orange findings. Edit-in-place lets the user correct the reference in the page DOM. Authentic-text swap optional and orthogonal. |
+| **Orange** | Text exists in the Quran *exactly* (green-grade match) — but at a **different reference** than the page states. Both the citation and the page's reference are real, but they don't belong together. | Tooltip shows "Cited as X, actually Y." Findings panel collects all orange findings. Edit-in-place lets the user correct the reference in the page DOM. Authentic-text swap optional and orthogonal. |
 | **Red** | Page strongly looks like a Quran citation (lead-in phrase, braces, explicit reference) but the words do not exist as ordered Quran text anywhere. Likely fabrication, heavy paraphrase, or serious transcription error. | Highlight only. We cannot authentically render text we cannot verify. |
 
 **Important rules.**
 
 - Tashkeel and Quranic-vs-modern spelling drift are *not* alterations. Green must tolerate them. Promoting them to yellow trains users to ignore yellow.
-- Orange is the V1 headline feature. The advanced copy does not produce orange at all; designing the orange pipeline is a fresh-design problem, not a port.
+- Orange is a required V1 finding (the case no reader catches by eye), even though it is the least severe problem case. The advanced copy does not produce orange at all; designing the orange pipeline is a fresh-design problem, not a port.
 - A candidate that fails verification at high candidate-confidence is red. A candidate at low candidate-confidence with no match is dropped silently (no highlight).
 - Layered fallback matching (skeleton, gap-allowed ordered, etc.) is allowed for *finding* candidates but does NOT promote a result to green. Only exact / tashkeel-drift / spelling-drift matches are green.
 

@@ -23,8 +23,8 @@ The extraction strategies (`extractLeadInBraced`, `extractSecondaryLeadInBraced`
 phrases, brace style, reference proximity), not by page identity. The
 verification verdicts in `verifyFragmentByRef` branch on match quality
 (tier1 / ellipsis / word-level / orange / global), never on a specific verse or
-page. The known headline case (`ما ننسخ من آية` → orange at البقرة:106) is
-resolved by the general orange pipeline, not a special case. Verdict: **clean**.
+page. The known reference-mismatch case (`ما ننسخ من آية` → orange at البقرة:106)
+is resolved by the general orange pipeline, not a special case. Verdict: **clean**.
 
 ## (c) Advanced-copy reuse was case-harvesting only — Principle V · PASS
 
@@ -59,14 +59,16 @@ FR-015). The user controls it via the master toggle + per-color overrides (now i
 the sidebar). Reversal is lossless (original text stashed in data attributes and
 restored on revert / re-scan). Verdict: **matches the constitution's default**.
 
-## Principle I / III (integrity + orange flagship) · PASS (design-level)
+## Principle I / III (integrity + severity-ordered coverage) · PASS (design-level)
 
-Orange has the most-developed pipeline (single-word + multi-word elsewhere
-search, soft-equality to absorb Uthmani drift so wrong-ref cases aren't masked),
-its own correct-in-place action, and a dedicated panel section + page glyph. The
-five-color verdicts all serve the "make false citations visible" test. Final
-quantitative confirmation (SC-009 precision ≥95%, SC-010 recall ≥90%) is gated on
-the orange fixture set (T040), which is part of the postponed test work.
+The five-color verdicts all serve the "make false citations visible" test, with
+severity red > yellow > orange. Orange (the reference-mismatch case a reader
+can't catch unaided) has a well-developed pipeline (single-word + multi-word
+elsewhere search, soft-equality to absorb Uthmani drift so wrong-ref cases aren't
+masked), its own correct-in-place action, and a dedicated panel section + page
+glyph — but it is not treated as the sole headline. Final quantitative
+confirmation (SC-009 precision ≥95%, SC-010 recall ≥90%) is gated on the orange
+fixture set (T040), which is part of the postponed test work.
 
 ## Open / gated items
 

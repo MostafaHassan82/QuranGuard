@@ -107,7 +107,7 @@ Expect ~1-3 fixtures to fail on first run. Common failure modes:
 1. **Don't port `QuranChromePlugin` code verbatim.** It has accumulated patches (e.g., the `يبنم` carve-out for Surah Taha at line 737 of its content.js, mojibake bracket characters at lines 1387/1433/1438, 20-pass `scanUntilStable` retry loop). Harvest principles, not lines.
 2. **Don't confuse green with yellow.** Tashkeel difference, ا vs آ, ى vs ي, ة vs ه, Uthmani decomposed `ءا` vs modern `آ`, adjacent same-letter collapse (`بالليل` vs `بِٱلَّيْلِ`) — ALL of these are green, not yellow. Yellow is for *word-level* deviation (a word missing, added, or substituted).
 3. **Don't ship a verifier that produces wrong greens.** A single wrong-green destroys trust in all greens. Better to drop a candidate than mislabel it.
-4. **Don't make orange optional.** It's the headline V1 finding. If a fix removes orange firing, that's a regression.
+4. **Don't make orange optional.** It's a required V1 finding (the reference-mismatch case a reader can't catch unaided), even though it's the least severe problem case (severity runs red > yellow > orange). If a fix removes orange firing, that's a regression.
 5. **Don't add features outside the V1 scope.** Image render, typing autocomplete, English citations, autoInteractive scan — all explicitly out of V1 per the PRD. If you find yourself adding one, stop and check the PRD.
 
 ---

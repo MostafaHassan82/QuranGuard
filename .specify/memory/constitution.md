@@ -1,19 +1,33 @@
 <!--
 SYNC IMPACT REPORT
 ==================
-Version change: (uninitialized template) → 1.0.0
-Modified principles: N/A (initial ratification)
-Added sections:
-  - Core Principles (6 principles)
-  - Technology Constraints
-  - Development Workflow
-  - Governance
+Version change: 1.0.0 → 2.0.0 (MAJOR — the highlight taxonomy gained a sixth color)
+Modified principles:
+  - II. "Five-Color Highlight Taxonomy Is Fixed" → "Highlight Taxonomy Is Fixed
+    (Five Verdicts + One Provenance Color)". Added a sixth highlight color,
+    **Light Green — Corrected**, denoting a citation the user fixed in place
+    (provenance, NOT a verification verdict — its underlying verdict is green).
+    Also (2026-05-21 clarification) removed the orange "⭐ HEADLINE FINDING"
+    emphasis and added the severity ordering (red > yellow > orange).
+  - III. "Orange Is the Product's Flagship Signal" → "Integrity Across the
+    Severity Order (Red > Yellow > Orange)" — no single color is the headline;
+    integrity (never-altered + authentic replacement) plus writer-side
+    prevention are the north star.
+Rationale: (a) Project owner ratified a sixth highlight color so corrected
+  citations are visually distinct from natively-correct green and separately
+  filterable, with the prior (wrong) reference shown — MAJOR per the taxonomy
+  amendment rule. (b) Orange-as-flagship was a misunderstanding; the goal from
+  the start was citation integrity + writer-side prevention. Orange is the LEAST
+  severe problem case.
+Added sections: N/A
 Removed sections: N/A
-Templates requiring updates:
-  ✅ .specify/templates/plan-template.md — Constitution Check gate references this file; no edit needed
-  ✅ .specify/templates/spec-template.md — Aligned (no scope/requirement changes needed)
-  ✅ .specify/templates/tasks-template.md — Aligned (no new task categories required at v1.0.0)
-  ⚠ CLAUDE.md — Project guidance file should cite this constitution; review on next amend
+Templates / docs updated for alignment:
+  ✅ CLAUDE.md — taxonomy line (now six colors) + integrity/severity framing
+  ✅ specs/** (spec, plan, research, tasks, checklists, compliance-review),
+     fresh_start/00-V1-PRD.md, HANDOFF.md, AGENTS.md — "headline/flagship orange"
+     wording swept to integrity-first framing
+  ⚠ Implementation note: Light Green is applied by correct-in-place (provenance),
+     not produced by the classifier; classify.js still freezes the five verdicts.
 Follow-up TODOs: None
 -->
 
@@ -29,23 +43,37 @@ The product serves two coupled workflows in service of this mission: (1) reader-
 
 When prioritizing, render polish, image replacement, popup styling, and font swaps are SECONDARY to making the verifier trustworthy.
 
-### II. Five-Color Highlight Taxonomy Is Fixed
+### II. Highlight Taxonomy Is Fixed (Five Verdicts + One Provenance Color)
 
-The extension uses exactly five highlight colors. Each carries a specific verification meaning. The taxonomy MUST NOT be collapsed, relabeled, or extended without explicit ratification.
+The extension uses exactly five **verification verdict** colors plus one **provenance** color. Each carries a specific meaning. The taxonomy MUST NOT be collapsed, relabeled, or extended without explicit ratification.
+
+The five verification verdicts (output of the classifier):
 
 - **Green — Verified.** Text matches the Quran exactly OR differs only in tashkeel/diacritics OR differs only in normal modern-vs-Quranic Arabic spelling drift (alif variants ا/آ/ٱ, alef maqsura vs ya ى/ي, ta marbuta vs ha ة/ه, adjacent same-letter collapse such as `بِٱلَّيْلِ` ↔ `بالليل`). All such drift is NOT alteration and MUST be treated as fully verified. If a written reference accompanies the citation, it agrees with the matched verse.
 - **Light Blue — Unreferenced but verified.** Citation matches the Quran (per green rules) but no reference was written. Extension contributes the correct reference in the tooltip.
 - **Yellow — Word-level inexact.** A real word is missing, added, or substituted relative to the matched verse. Intent is clearly a citation; not wrong, just imprecise. Worth human review.
-- **Orange — Reference mismatch.** ⭐ **HEADLINE FINDING.** Text exists in the Quran but at a DIFFERENT reference than the one written on the page. Both the citation and the written reference are real in isolation, but they don't belong together. Tooltip MUST say "Cited as X, actually Y." This is the case no human reader catches by eye, and it is the main reason this product exists.
-- **Red — Not in Quran.** Page strongly looks like a Quran citation (lead-in phrase, braces, explicit reference) but the words do not exist as ordered Quran text anywhere. Could be fabrication, heavy paraphrase, or transcription error.
+- **Orange — Reference mismatch.** Text exists in the Quran but at a DIFFERENT reference than the one written on the page. Both the citation and the written reference are real in isolation, but they don't belong together. Tooltip MUST say "Cited as X, actually Y." This is the case no human reader catches by eye. It is the LEAST severe of the problem cases (the divine words are correct; only the reference is wrong, usually an honest mistake) — valuable to surface, but not the product's headline.
+- **Red — Not in Quran.** Page strongly looks like a Quran citation (lead-in phrase, braces, explicit reference) but the words do not exist as ordered Quran text anywhere. Could be fabrication, heavy paraphrase, or transcription error. This is the MOST severe case — words are attributed to Allah that the Quran does not contain.
+
+The one provenance color (NOT a classifier verdict):
+
+- **Light Green — Corrected.** A citation the user fixed in place via correct-in-place (FR-012), or one auto-re-applied on revisit (FR-024a). Verification-wise it is green (now correct), but it renders light green so the user can tell *we corrected it* apart from *it was already right*, filter corrected citations separately, and see the prior (wrong) reference → the true reference. The classifier never emits Light Green; it is applied by the correction pathway. Light Green is treated as a verified (clean) state for badge/empty-state purposes and follows green's authentic-text-replacement setting.
+
+**Severity ordering of the problem cases:** **red > yellow > orange.** Red is words Allah did not say; yellow is altered wording (bad, but still replaceable with the authentic text); orange is correct words with a wrong reference. Green and light blue are the clean cases.
 
 **Why:** Green must be reassuring without being overly strict — tashkeel and normal Arabic spelling drift MUST NOT downgrade the highlight, because that just trains users to ignore yellow/orange.
 
-### III. Orange Is the Product's Flagship Signal
+### III. Integrity Across the Severity Order (Red > Yellow > Orange)
 
-When designing matching logic, verifier output, tooltip text, popup/panel UI, or any user-facing surface, treat orange as the headline. The comparison that matters most is *"what the page says the ref is"* vs *"what global search says it is"* — disagreement = orange.
+The product's job is citation integrity: ensure no Quran ayah is altered on the page (intentionally or not), and — wherever the text can be verified — replace it with the authentic mushaf wording (Principle IV). No single highlight color is "the headline." All three problem cases matter, in severity order:
 
-A feature that does not make orange more reliable, more discoverable, or more actionable is below the line for V1.
+- **Red (most severe)** — words attributed to Allah that are not in the Quran. Fabrication or heavy paraphrase. Highest harm; nothing authentic to replace it with.
+- **Yellow** — altered wording of a real verse. Bad, but the authentic text can still be restored.
+- **Orange (least severe)** — correct divine words with a wrong written reference. Worth surfacing (no human catches it at scale) but the lowest-harm problem; usually an honest mistake. The orange comparison is still *"what the page says the ref is"* vs *"what global search says it is"* — disagreement = orange.
+
+The two co-equal workflows of Principle I both serve this: reader-side audit (detect + replace) AND writer-side prevention (offer an ayah autocomplete as the user types in any page text input, so the mistake never enters circulation in the first place).
+
+A feature is "above the line" for V1 if it makes integrity coverage, the authentic-text render, or writer-side prevention more reliable — not merely because it touches orange.
 
 ### IV. Authentic-Text Replacement Is the Default Render
 
@@ -85,7 +113,7 @@ The V1 success bar is parity with the advanced copy on the existing fixture set:
 
 ## Development Workflow
 
-1. **Anchor every change to a principle.** If a proposed change doesn't move orange reliability, integrity coverage, or the fixture pass rate forward, defer it.
+1. **Anchor every change to a principle.** If a proposed change doesn't move integrity coverage (across red/yellow/orange), the authentic-text render, writer-side prevention, or the fixture pass rate forward, defer it.
 2. **Read before you write.** When touching extraction, verification, or range handling, read the equivalent region in the advanced copy first to catalog cases — then redesign the shape in the rebuild.
 3. **Fixture-driven iteration.** After any verifier change, run the full Playwright fixture suite (`tests/run_tests.py`). A regression on a previously-passing fixture is a stop-the-line event.
 4. **No carve-outs in production code.** If a fixture forces an `if (url === ...)` or a hardcoded patch, the design is wrong. Step back and reshape.
@@ -111,4 +139,4 @@ This constitution supersedes ad-hoc practice, prior `fresh_start/` documents whe
 - Every implementation plan generated by `/speckit-plan` MUST pass a Constitution Check gate before Phase 0 research and again after Phase 1 design. Violations must be justified in the plan's Complexity Tracking table or the work does not proceed.
 - Reviewers reject changes that collapse the five-color taxonomy, weaken the integrity test for prioritization, port verbatim from the advanced copy without case-by-case redesign, or introduce hardcoded per-fixture carve-outs.
 
-**Version**: 1.0.0 | **Ratified**: 2026-05-16 | **Last Amended**: 2026-05-16
+**Version**: 2.0.0 | **Ratified**: 2026-05-16 | **Last Amended**: 2026-05-22

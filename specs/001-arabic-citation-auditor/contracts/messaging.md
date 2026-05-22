@@ -28,7 +28,7 @@ Responses share the same envelope with `type` suffixed `_RESPONSE` and an extra 
 
 #### `SCAN_PROGRESS`
 - **Direction**: content → popup + sidebar
-- **Payload**: `{scanId, finding: <Finding>, runningCount: int, perCategoryCount: {green, lightBlue, yellow, orange, red}}`
+- **Payload**: `{scanId, finding: <Finding>, runningCount: int, perCategoryCount: {green, lightBlue, lightGreen, yellow, orange, red}}` (`lightGreen` = corrected, a provenance color)
 - **Triggers**: FR-023 — emitted once per verified finding, in order; consumers paint highlights and append panel rows live.
 
 #### `SCAN_CAP_HIT`

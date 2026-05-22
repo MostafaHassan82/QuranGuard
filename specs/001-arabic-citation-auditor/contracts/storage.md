@@ -28,11 +28,12 @@ Single object. Schema-driven; absent fields fall back to defaults.
   "lang": "ar",                                  // T087: ar | en (default browser ar/en, else en)
   "scanTrigger": "manual",                       // FR-026: manual | autoscan
   "panelFilter": {                               // FR-010 default: orange only
-    "orange":    true,
-    "green":     false,
-    "lightBlue": false,
-    "yellow":    false,
-    "red":       false
+    "orange":     true,
+    "green":      false,
+    "lightBlue":  false,
+    "lightGreen": false,                          // corrected (provenance color)
+    "yellow":     false,
+    "red":        false
   }
 }
 ```

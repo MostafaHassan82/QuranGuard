@@ -18,11 +18,12 @@ The latest completed scan's summary.
   "durationMs": 2333,
   "totalCount": 24,
   "perCategoryCount": {
-    "green":     17,
-    "lightBlue":  2,
-    "yellow":     3,
-    "orange":     1,
-    "red":        1
+    "green":      17,
+    "lightBlue":   2,
+    "lightGreen":  0,
+    "yellow":      3,
+    "orange":      1,
+    "red":         1
   },
   "finalState": "defects",      // "clean" | "defects" | "notArabic" | "empty"
   "capHit": false,              // FR-031

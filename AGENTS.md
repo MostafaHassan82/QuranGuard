@@ -19,7 +19,7 @@ modules) and answers verification + persistence + prefs messages.
 - `js/verifier/references.js` — `QuranReferences.resolve`: parse a cited ref
   string → {surahNum, ayahNums, isRange}.
 - `js/verifier/orange.js` — `QuranOrange.classify`: the reference-mismatch
-  (flagship) decision.
+  decision.
 - `js/verifier/classify.js` — `QuranClassify`: the frozen 5-color taxonomy,
   `makeResult` (with `authenticExcerpt`), FR-015/017 guard rails.
 - `js/storage/prefs.js` — `QuranPrefs`: `prefs.v1` defaults + validation.

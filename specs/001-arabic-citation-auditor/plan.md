@@ -111,7 +111,7 @@ js/
 │   ├── normalize.js           # Tashkeel/drift normalization (FR-003); ported clean from advanced copy
 │   ├── indexes.js             # Build byRef / surahNameIndex / normalizedVerseIndex / wordIndex / skeletonWordIndex
 │   ├── classify.js            # The five-color decision function (green / blue / yellow / orange / red), enforcing FR-017 / FR-018 / FR-015
-│   ├── orange.js              # NEW: explicit-ref vs global-search disagreement detector — the V1 headline pipeline
+│   ├── orange.js              # NEW: explicit-ref vs global-search disagreement detector (reference-mismatch pipeline)
 │   └── references.js          # Reference parsing (surah:ayah, ranges, surah-name variants)
 ├── render/                    # NEW — authentic-text swap engine (FR-008)
 │   ├── swap.js                # Wrap/unwrap; bounded line-box absorption (≤ 1.5×); reversible on toggle

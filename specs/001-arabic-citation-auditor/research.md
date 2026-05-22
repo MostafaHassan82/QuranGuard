@@ -209,7 +209,7 @@ The 20 clarifications recorded in [spec.md](./spec.md) Clarifications resolved e
 ### Decision 7.1 — Findings panel scope is all 5 colors with filters; default orange-only
 
 - **Decision**: FR-010 — panel aggregates all five categories; per-category filter toggles; default filter is orange-only.
-- **Rationale**: Reader-auditor wants to see the headline (orange) immediately without losing the ability to drill into yellow/red for full audit coverage.
+- **Rationale**: Reader-auditor wants to see orange (the case a reader can't catch unaided) immediately without losing the ability to drill into yellow/red for full audit coverage.
 - **Alternatives considered**: orange-only (loses auditor value), all-five-always (visual noise on first open), orange+red only (artificially groups yellow with verified).
 
 ### Decision 7.2 — Authentic-text swap layout absorption is span-local, line-box ≤ 1.5×
@@ -276,7 +276,7 @@ The 20 clarifications recorded in [spec.md](./spec.md) Clarifications resolved e
 
 ### Decision 7.13 — Stateful badge with glyph + severity color
 
-- **Decision**: FR-028 — ● idle/scanning, ✓ clean, ! defects present; ! is colored by highest-severity defect (orange > red > yellow); tooltip names state + per-category counts; FR-020 error clears badge.
+- **Decision**: FR-028 — ● idle/scanning, ✓ clean, ! defects present; ! is colored by highest-severity defect (red > yellow > orange); tooltip names state + per-category counts; FR-020 error clears badge.
 - **Rationale**: Counts in the badge get noisy on long articles; state-glyph + severity color compresses the information into one signal.
 
 ### Decision 7.14 — Language check runs at scan time only
@@ -303,7 +303,7 @@ The 20 clarifications recorded in [spec.md](./spec.md) Clarifications resolved e
 ### Decision 7.18 — Tooltip activation across modalities
 
 - **Decision**: FR-032 — highlights are focusable (`tabindex="0"`); tooltip activates on hover, keyboard focus, or touch long-press; `aria-describedby` for screen readers; Esc dismisses.
-- **Rationale**: Hover-only excludes keyboard and touch users from the headline orange signal entirely.
+- **Rationale**: Hover-only excludes keyboard and touch users from the findings entirely.
 
 ### Decision 7.19 — Per-color replacement defaults: all four non-red ON
 
