@@ -105,50 +105,54 @@
   border: none;
 }
 
-/* ── Tooltip via data-tooltip attribute ─────────────────────────────────── */
-/* T035 — Activate on :hover (mouse), :focus (keyboard tab traversal), and
-   the .quran-pressed class (long-press on touch). Keyboard users and touch
-   users get the same tooltip as mouse users. */
-.quran-green[data-tooltip]:hover::after,
-.quran-green[data-tooltip]:focus::after,
-.quran-green[data-tooltip].quran-pressed::after,
-.quran-lightblue[data-tooltip]:hover::after,
-.quran-lightblue[data-tooltip]:focus::after,
-.quran-lightblue[data-tooltip].quran-pressed::after,
-.quran-lightgreen[data-tooltip]:hover::after,
-.quran-lightgreen[data-tooltip]:focus::after,
-.quran-lightgreen[data-tooltip].quran-pressed::after,
-.quran-yellow[data-tooltip]:hover::after,
-.quran-yellow[data-tooltip]:focus::after,
-.quran-yellow[data-tooltip].quran-pressed::after,
-.quran-orange[data-tooltip]:hover::after,
-.quran-orange[data-tooltip]:focus::after,
-.quran-orange[data-tooltip].quran-pressed::after,
-.quran-red[data-tooltip]:hover::after,
-.quran-red[data-tooltip]:focus::after,
-.quran-red[data-tooltip].quran-pressed::after {
-  content: attr(data-tooltip);
-  position: absolute;
-  top: calc(100% + 6px);
-  right: 0;
+/* ── Tooltips ─────────────────────────────────────────────────────────────
+   Both the reference hover (full ayah text) and the highlight verdict tooltip
+   (T035) are rendered as a single position:fixed element on document.body,
+   JS-positioned next to the anchor. Using a real element rather than a CSS
+   ::after means no ancestor overflow:hidden or stacking context can clip or
+   bury the tooltip — it always paints on top. Activated on hover (mouse),
+   focus (keyboard), and the touch long-press path (which calls show/hide). */
+.quran-ext-ref-tip {
+  display: none;
+  position: fixed;
+  z-index: 2147483647;
+  width: max-content;
+  max-width: 380px;
   background: #0b5d3b;
   color: #f4f1e9;
   padding: 9px 13px;
   border: 1px solid #c8a24a;
   border-radius: 8px;
-  font-size: 15px;
+  /* Default = reference tooltip: the user's selected Quran font, ayah-sized. */
+  font-family: var(--quran-ref-tooltip-font), "Segoe UI", Tahoma, Arial, sans-serif;
+  font-size: 20px;
   font-weight: 500;
-  font-family: "Segoe UI", Tahoma, Arial, sans-serif;
-  line-height: 1.45;
+  line-height: 1.95;
   letter-spacing: 0.1px;
-  white-space: pre-line;
   direction: rtl;
   text-align: right;
-  z-index: 2147483647;
-  width: max-content;
-  max-width: 320px;
   pointer-events: none;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+}
+/* Verdict variant — the highlight's classification tooltip uses the UI font,
+   smaller, and preserves the multi-line breaks from buildTooltip(). */
+.quran-ext-ref-tip.quran-ext-tip-verdict {
+  font-family: "Segoe UI", Tahoma, Arial, sans-serif;
+  font-size: 15px;
+  line-height: 1.45;
+  max-width: 320px;
+  white-space: pre-line;
+}
+/* Downscale variant — mirrors the swap engine (applyBoundedSizing): the legacy
+   uthmaniHafs font renders ~25-30% large, so it's shrunk to 0.8 with tight
+   line-height. The other bundled fonts are metrically well-behaved and stay at
+   natural size. Applied to the reference (ayah-text) tooltip only. */
+.quran-ext-ref-tip.quran-ext-tip-downscale {
+  font-size: 16px; /* 0.8 × 20px base */
+  /* Keep a readable line-height: the swap uses line-height:1 because it's a
+     single inline span, but this tooltip wraps multiple lines and would
+     overlap at 1. Scale the base 1.95 down proportionally for the smaller text. */
+  line-height: 1.7;
 }
 
 
@@ -180,8 +184,24 @@
      the original (T058c). */
 }
 
-/* T065 — corrected-in-place reference. The marker itself is invisible until a
-   correction lands, then the new reference is shown with a subtle confirm. */
+/* Reference marker — the cited reference, always highlighted (any color). It
+   carries the full-ayah hover tooltip and (when prefs.refLinks) links to
+   quran.com. position:relative anchors the data-tooltip ::after bubble. */
+.quran-ref-marker {
+  position: relative;
+  background-color: rgba(200, 162, 74, 0.18);
+  border-bottom: 1px dashed #c8a24a;
+  border-radius: 2px;
+}
+.quran-ref-marker.quran-ref-link {
+  cursor: pointer;
+}
+.quran-ref-marker.quran-ref-link:hover {
+  background-color: rgba(200, 162, 74, 0.34);
+}
+
+/* T065 — corrected-in-place reference. The marker shows the new reference with
+   a subtle confirm tint layered over the base marker style. */
 .quran-ref-corrected {
   background-color: rgba(46, 160, 67, 0.18);
   border-radius: 2px;

@@ -1251,12 +1251,12 @@ function setupMutationObserver() {
       // Ignore mutations inside our own sidebar (or its collapsed tab) — their
       // mount/render/collapse churn must not trigger a rescan that would re-mount
       // the sidebar or re-extract on a single pass (producing different matches).
-      const OWN_UI = '.quran-ext-panel, .quran-ext-panel-tab';
+      const OWN_UI = '.quran-ext-panel, .quran-ext-panel-tab, .quran-ext-ref-tip';
       if (m.target && m.target.closest && m.target.closest(OWN_UI)) continue;
-      // Ignore the body-level mutation that ADDS the sidebar or the tab itself.
+      // Ignore the body-level mutation that ADDS the sidebar, tab, or ref tooltip.
       let isOurOwnAdd = true;
       for (const n of m.addedNodes) {
-        if (n.nodeType === 1 && (n.classList?.contains('quran-ext-panel') || n.classList?.contains('quran-ext-panel-tab') || n.closest?.(OWN_UI))) continue;
+        if (n.nodeType === 1 && (n.classList?.contains('quran-ext-panel') || n.classList?.contains('quran-ext-panel-tab') || n.classList?.contains('quran-ext-ref-tip') || n.closest?.(OWN_UI))) continue;
         isOurOwnAdd = false; break;
       }
       if (isOurOwnAdd) continue;
@@ -1313,12 +1313,12 @@ document.addEventListener('touchstart', (e) => {
   longPressTarget = t;
   if (longPressTimer) clearTimeout(longPressTimer);
   longPressTimer = setTimeout(() => {
-    if (longPressTarget) longPressTarget.classList.add('quran-pressed');
+    if (longPressTarget) { longPressTarget.classList.add('quran-pressed'); showTipFor(longPressTarget, true); }
   }, LONG_PRESS_MS);
 }, { passive: true });
 function cancelLongPress() {
   if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
-  if (longPressTarget) { longPressTarget.classList.remove('quran-pressed'); longPressTarget = null; }
+  if (longPressTarget) { longPressTarget.classList.remove('quran-pressed'); longPressTarget = null; hideRefTip(); }
 }
 document.addEventListener('touchend', cancelLongPress, { passive: true });
 document.addEventListener('touchmove', cancelLongPress, { passive: true });
@@ -1327,6 +1327,7 @@ document.addEventListener('touchcancel', cancelLongPress, { passive: true });
 document.addEventListener('click', (e) => {
   if (!isHighlightSpan(e.target && e.target.closest && e.target.closest(HIGHLIGHT_SELECTOR))) {
     for (const el of document.querySelectorAll('.quran-pressed')) el.classList.remove('quran-pressed');
+    hideRefTip();
   }
 }, true);
 
@@ -1340,6 +1341,7 @@ document.addEventListener('keydown', (e) => {
   if (!isHighlightSpan(focused)) return;
   if (focused.classList.contains('quran-pressed')) {
     focused.classList.remove('quran-pressed');
+    hideRefTip();
     escWasUsedForTooltip = true;
     e.preventDefault();
     return;
@@ -1464,16 +1466,57 @@ function wrapRefAfter(ayahSpan, refText, findingId) {
   return false;
 }
 
-// Place reference markers for orange findings (the correct-in-place targets:
-// real verse, wrong reference). Idempotent — skips findings already marked.
+// Place reference markers for every finding that carries a cited reference on
+// the page (any color), so the reference is always highlighted, hover-shows the
+// full ayah text, and (when prefs.refLinks) links to quran.com. Orange findings
+// double as the correct-in-place targets. Idempotent — skips marked findings.
 function placeRefMarkers() {
   for (const f of STATE.findings) {
-    if (f.category !== 'orange' || !f.refText || !f.matchedRef) continue;
+    if (!f.refText) continue;
     if (document.querySelector(`[data-quran-ref-for="${cssEscapeId(f.id)}"]`)) continue;
     const ayahSpan = document.querySelector(`[data-finding-id="${cssEscapeId(f.id)}"]`);
     if (!ayahSpan) continue;
-    try { wrapRefAfter(ayahSpan, f.refText, f.id); } catch (_) {}
+    try {
+      if (wrapRefAfter(ayahSpan, f.refText, f.id)) {
+        const marker = document.querySelector(`[data-quran-ref-for="${cssEscapeId(f.id)}"]`);
+        if (marker) decorateRefMarker(marker, f.refText);
+      }
+    } catch (_) {}
   }
+}
+
+// Resolve the cited reference to its surah/ayah numbers + full ayah text, then
+// stash both on the marker: data-tooltip carries the complete ayah(s) for the
+// hover/focus tooltip, and the surah/ayah numbers drive the quran.com link.
+// The link is enabled by toggling the .quran-ref-link class (gated by prefs).
+async function decorateRefMarker(marker, refString) {
+  if (!marker || !refString) return;
+  let resolved = null;
+  try { resolved = await sendToBackground({ type: 'resolveReference', ref: refString }); } catch (_) {}
+  if (!resolved || !resolved.surahNum || !Array.isArray(resolved.ayahNums) || resolved.ayahNums.length === 0) return;
+  const texts = Array.isArray(resolved.ayahTexts) ? resolved.ayahTexts.filter(Boolean) : [];
+  if (texts.length) marker.dataset.tooltip = texts.join(' ۝ ');
+  // Render the ayah text in the user's selected Quran font (independent of
+  // whether authentic-text swap is enabled). The tooltip reads this var; the
+  // font key drives the downscale rule that mirrors the swap engine.
+  if (typeof QuranFonts !== 'undefined') {
+    marker.style.setProperty('--quran-ref-tooltip-font', QuranFonts.familyFor(STATE.prefs?.font));
+  }
+  marker.dataset.quranFont = STATE.prefs?.font || 'uthmaniHafs';
+  marker.dataset.quranSurah = String(resolved.surahNum);
+  marker.dataset.quranAyahFirst = String(resolved.ayahNums[0]);
+  marker.dataset.quranAyahLast = String(resolved.ayahNums[resolved.ayahNums.length - 1]);
+  if (STATE.prefs?.refLinks !== false) marker.classList.add('quran-ref-link');
+}
+
+// Build the quran.com URL for a surah + ayah range, honoring the Arabic UI
+// locale. Format per product spec: quran.com/2/3-4 (and quran.com/ar/2/3-4).
+function quranComUrl(surah, first, last) {
+  const isAr = (typeof QuranI18n !== 'undefined')
+    ? QuranI18n.detect(STATE.prefs?.lang) === 'ar'
+    : (STATE.prefs?.lang !== 'en');
+  const ayahPart = (last && last !== first) ? `${first}-${last}` : `${first}`;
+  return `https://quran.com/${isAr ? 'ar/' : ''}${surah}/${ayahPart}`;
 }
 
 // FR-012 + FR-022: replace the cited reference in the page with the true one,
@@ -1519,6 +1562,9 @@ async function correctInPlace(findingId, options = {}) {
       marker.textContent = corrected;
       marker.dataset.quranRefFor = successorId;
       marker.classList.add('quran-ref-corrected');
+      // The marker now shows the TRUE reference — re-resolve so its tooltip and
+      // quran.com link follow the corrected reference rather than the old one.
+      decorateRefMarker(marker, successorMatchedRef);
       const ayahSpan = document.querySelector(`[data-finding-id="${cssEscapeId(findingId)}"]`);
       if (ayahSpan) {
         for (const c of ALL_HIGHLIGHT_CLASSES) ayahSpan.classList.remove(c);
@@ -1736,6 +1782,18 @@ if (chrome?.runtime?.onMessage) {
         try { QuranSwap.reconcile(STATE.findings, prefs); } catch (_) {}
         setTimeout(() => { STATE.swapInProgress = false; }, 50);
       }
+      // Live ref-link toggle: add/remove the clickable affordance on every
+      // already-placed reference marker without needing a rescan.
+      try {
+        const enable = prefs.refLinks !== false;
+        const fontFamily = (typeof QuranFonts !== 'undefined') ? QuranFonts.familyFor(prefs.font) : null;
+        for (const m of document.querySelectorAll('.' + REF_MARKER_CLASS)) {
+          if (enable && m.dataset.quranSurah) m.classList.add('quran-ref-link');
+          else m.classList.remove('quran-ref-link');
+          if (fontFamily) m.style.setProperty('--quran-ref-tooltip-font', fontFamily);
+          m.dataset.quranFont = prefs.font || 'uthmaniHafs';
+        }
+      } catch (_) {}
       // Live "auto-correct all orange" toggle: if it's now on and the current
       // scan still has uncorrected orange findings, correct them in place now
       // and re-sync the sidebar/badge (rather than waiting for the next scan).
@@ -1754,6 +1812,18 @@ document.addEventListener('click', (e) => {
   const t = e.target;
   if (!t || typeof t.closest !== 'function') return;
   if (t.closest('.quran-ext-panel')) return; // ignore clicks inside the panel
+
+  // Reference marker → open quran.com (gated by prefs.refLinks). The surah/ayah
+  // numbers were resolved + stashed when the marker was placed (decorateRefMarker).
+  const refMarker = t.closest('.' + REF_MARKER_CLASS);
+  if (refMarker && STATE.prefs?.refLinks !== false && refMarker.dataset.quranSurah) {
+    e.preventDefault();
+    e.stopPropagation();
+    const url = quranComUrl(refMarker.dataset.quranSurah, refMarker.dataset.quranAyahFirst, refMarker.dataset.quranAyahLast);
+    window.open(url, '_blank', 'noopener');
+    return;
+  }
+
   const span = t.closest(HIGHLIGHT_SELECTOR);
   const id = span && span.dataset.findingId;
   if (!id) return;
@@ -1761,6 +1831,76 @@ document.addEventListener('click', (e) => {
     QuranPanelSidebar.focusRow(id);
   }
 });
+
+// ── Hover/focus tooltips (reference ayah text + highlight verdict) ───────────
+// Both are rendered as a single position:fixed element on document.body — NOT a
+// CSS ::after — so no ancestor's overflow:hidden or stacking context can clip or
+// bury them. Always paints on top (max z-index in the root stacking context).
+//   - Reference markers  → full ayah text in the selected Quran font.
+//   - Highlight spans     → the classification tooltip (verdict) in the UI font.
+let refTipEl = null;
+function ensureRefTip() {
+  if (refTipEl && document.body.contains(refTipEl)) return refTipEl;
+  refTipEl = document.createElement('div');
+  refTipEl.className = 'quran-ext-ref-tip';
+  refTipEl.setAttribute('role', 'tooltip');
+  (document.body || document.documentElement).appendChild(refTipEl);
+  return refTipEl;
+}
+// Show the tooltip for an anchor element. `verdict` selects the highlight
+// styling (UI font, multi-line) vs. the reference styling (Quran font).
+function showTipFor(anchor, verdict) {
+  const text = anchor.dataset.tooltip;
+  if (!text) return;
+  const tip = ensureRefTip();
+  tip.textContent = text;
+  tip.classList.toggle('quran-ext-tip-verdict', !!verdict);
+  const font = anchor.style.getPropertyValue('--quran-ref-tooltip-font');
+  if (font) tip.style.setProperty('--quran-ref-tooltip-font', font);
+  // Mirror the swap engine: downscale only the legacy uthmaniHafs font, and only
+  // for the reference (ayah-text) tooltip — the verdict tooltip uses the UI font.
+  tip.classList.toggle('quran-ext-tip-downscale', !verdict && anchor.dataset.quranFont === 'uthmaniHafs');
+  tip.style.visibility = 'hidden';
+  tip.style.display = 'block';
+  const a = anchor.getBoundingClientRect();
+  const t = tip.getBoundingClientRect();
+  let top = a.bottom + 6;
+  if (top + t.height > window.innerHeight - 8) top = Math.max(8, a.top - t.height - 6);
+  let left = a.right - t.width; // align to the anchor's right edge (RTL)
+  left = Math.min(Math.max(8, left), window.innerWidth - 8 - t.width);
+  tip.style.top = `${top}px`;
+  tip.style.left = `${left}px`;
+  tip.style.visibility = 'visible';
+}
+function hideRefTip() { if (refTipEl) refTipEl.style.display = 'none'; }
+
+// Resolve an event target to a tooltip anchor: a reference marker (verdict
+// false) or a highlight span (verdict true). Returns null for neither.
+function tipAnchorFor(target) {
+  if (!target || typeof target.closest !== 'function') return null;
+  const ref = target.closest('.' + REF_MARKER_CLASS);
+  if (ref) return { anchor: ref, verdict: false };
+  const hl = target.closest(HIGHLIGHT_SELECTOR);
+  if (hl) return { anchor: hl, verdict: true };
+  return null;
+}
+
+document.addEventListener('mouseover', (e) => {
+  const a = tipAnchorFor(e.target);
+  if (a) showTipFor(a.anchor, a.verdict);
+});
+document.addEventListener('mouseout', (e) => {
+  if (tipAnchorFor(e.target)) hideRefTip();
+});
+document.addEventListener('focusin', (e) => {
+  const a = tipAnchorFor(e.target);
+  if (a) showTipFor(a.anchor, a.verdict);
+});
+document.addEventListener('focusout', (e) => {
+  if (tipAnchorFor(e.target)) hideRefTip();
+});
+// The tooltip is fixed-positioned; scrolling moves the anchor out from under it.
+window.addEventListener('scroll', hideRefTip, { passive: true, capture: true });
 
 // ── Startup ───────────────────────────────────────────────────────────────────
 
