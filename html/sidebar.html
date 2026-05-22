@@ -8,10 +8,16 @@
   <div class="quran-ext-panel-resize" role="separator" aria-orientation="vertical" data-i18n-aria="resize_aria" aria-label="تغيير العرض"></div>
   <header class="quran-ext-panel-header">
     <h2 class="quran-ext-panel-title" data-i18n="sidebar_title">نتائج التحقق</h2>
-    <button class="quran-ext-panel-collapse" type="button" data-i18n-aria="collapse_aria" data-i18n-title="collapse" aria-label="طيّ اللوحة" title="طيّ">⟨</button>
   </header>
   <div class="quran-ext-panel-hint" data-i18n-title="hint_title" data-i18n="hint" title="اضغط Alt+Shift+Q من أي مكان في الصفحة للعودة إلى اللوحة">
-    Alt+Shift+Q ← اللوحة
+    اختصار: Alt+Shift+Q لإظهار/إخفاء اللوحة
+  </div>
+
+  <!-- Results summary / stats table (moved from popup; T094). Counts are
+       computed from the panel model and rendered by sidebar-surface.js. -->
+  <div class="quran-ext-summary">
+    <div class="quran-ext-summary-title" data-i18n="summary_title">ملخّص النتائج</div>
+    <div class="quran-ext-summary-grid"></div>
   </div>
 
   <div class="quran-ext-filter-chips" role="group" aria-label="تصفية حسب الفئة">
@@ -24,6 +30,9 @@
     <label class="quran-ext-filter-chip quran-ext-filter-lightBlue" tabindex="0">
       <input type="checkbox" data-color="lightBlue"><span data-i18n="chip_lightBlue">✓ بدون مرجع</span>
     </label>
+    <label class="quran-ext-filter-chip quran-ext-filter-lightGreen" tabindex="0">
+      <input type="checkbox" data-color="lightGreen"><span data-i18n="chip_lightGreen">✎ مُصحَّح</span>
+    </label>
     <label class="quran-ext-filter-chip quran-ext-filter-yellow" tabindex="0">
       <input type="checkbox" data-color="yellow"><span data-i18n="chip_yellow">~ اختلاف لفظي</span>
     </label>
@@ -32,43 +41,12 @@
     </label>
   </div>
 
-  <!-- Authentic-text swap controls (moved from popup; T061, FR-009) -->
-  <details class="quran-ext-swap">
-    <summary data-i18n="swap_summary">عرض النص القرآني الأصلي</summary>
-    <label class="quran-ext-swap-row">
-      <input type="checkbox" class="quran-ext-swap-master"><span data-i18n="swap_master">تفعيل (رئيسي)</span>
-    </label>
-    <div class="quran-ext-swap-per-color">
-      <label class="quran-ext-swap-row"><input type="checkbox" data-swap-color="green"><span data-i18n="swap_green">تطابق تام</span></label>
-      <label class="quran-ext-swap-row"><input type="checkbox" data-swap-color="lightBlue"><span data-i18n="swap_lightBlue">تطابق بدون مرجع</span></label>
-      <label class="quran-ext-swap-row"><input type="checkbox" data-swap-color="yellow"><span data-i18n="swap_yellow">اختلاف لفظي</span></label>
-      <label class="quran-ext-swap-row"><input type="checkbox" data-swap-color="orange"><span data-i18n="swap_orange">مرجع غير مطابق</span></label>
-      <label class="quran-ext-swap-row" data-i18n-title="swap_red_title" title="الأحمر دائمًا معطّل">
-        <input type="checkbox" data-swap-color="red" disabled><span data-i18n="swap_red">لم يُتحقَّق — دائمًا معطّل</span>
-      </label>
-    </div>
-    <div class="quran-ext-swap-font">
-      <label data-i18n="font_label">الخط:</label>
-      <select class="quran-ext-font-select">
-        <option value="uthmaniHafs" data-i18n="font_uthmani">عثماني — حفص</option>
-        <option value="qpcHafs" data-i18n="font_qpcHafs">QPC حفص (عثماني رسمي)</option>
-        <option value="qpcV2" data-i18n="font_qpcV2">QPC إصدار 2</option>
-        <option value="qpcV4Tajweed" data-i18n="font_qpcV4Tajweed">QPC إصدار 4 — تجويد</option>
-        <option value="digitalKhattIndopak" data-i18n="font_digitalKhattIndopak">Digital Khatt — هندي/باكستاني</option>
-        <option value="digitalKhattV1" data-i18n="font_digitalKhattV1">Digital Khatt إصدار 1</option>
-        <option value="digitalKhattV2" data-i18n="font_digitalKhattV2">Digital Khatt إصدار 2</option>
-        <option value="indopakNastaleeq" data-i18n="font_indopakNastaleeq">هندي/باكستاني — نستعليق</option>
-        <option value="kfgqpcNastaleeq" data-i18n="font_kfgqpcNastaleeq">KFGQPC نستعليق</option>
-      </select>
-    </div>
-  </details>
-
-  <!-- Saved corrections/dismissals (moved from popup; T072, FR-024) -->
-  <details class="quran-ext-persist">
-    <summary data-i18n="persist_summary">التصحيحات والتجاهلات المحفوظة</summary>
-    <button type="button" class="quran-ext-clear-persisted" data-i18n="clear_persisted">مسح التصحيحات والتجاهلات المحفوظة</button>
-    <div class="quran-ext-persist-status" role="status" aria-live="polite"></div>
-  </details>
+  <!-- Quick access to the global authentic-text swap master toggle (the same
+       prefs.v1 setting the options page exposes; per-color + font defaults live
+       in the options page; T094, FR-009). -->
+  <label class="quran-ext-swap-row quran-ext-swap-quick">
+    <input type="checkbox" class="quran-ext-swap-master"><span data-i18n="swap_summary">عرض النص القرآني الأصلي</span>
+  </label>
 
   <div class="quran-ext-panel-container"></div>
 </aside>

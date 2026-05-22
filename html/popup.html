@@ -6,18 +6,9 @@
   <link rel="stylesheet" href="../css/popup.css">
 </head>
 <body>
-  <!-- Language picker -->
-  <div id="lang-picker">
-    <label id="lang-label" data-i18n="lang_label">اللغة:</label>
-    <label class="toggle-option">
-      <input type="radio" name="uiLang" value="ar" id="lang-ar" checked>
-      <span>العربية</span>
-    </label>
-    <label class="toggle-option">
-      <input type="radio" name="uiLang" value="en" id="lang-en">
-      <span>English</span>
-    </label>
-  </div>
+  <header id="popup-header">
+    <h1 data-i18n="popup_title">تدقيق آيات القرآن</h1>
+  </header>
 
   <!-- Scan trigger toggle (T020) -->
   <div id="trigger-row">
@@ -44,46 +35,8 @@
     <span id="progress-count">0</span> <span id="progress-suffix" data-i18n="progress_suffix">نتيجة حتى الآن…</span>
   </div>
 
-  <div id="stats" hidden>
-    <div class="stat-row">
-      <span class="stat-label" data-i18n="stat_total">إجمالي النتائج</span>
-      <span id="s-total" class="stat-value">0</span>
-    </div>
-    <div class="stat-row stat-orange">
-      <span class="stat-label" data-i18n="stat_orange">⚠ مرجع خاطئ</span>
-      <span id="s-orange" class="stat-value">0</span>
-    </div>
-    <div class="stat-row">
-      <span class="stat-label" data-i18n="stat_green">✓ تطابق تام</span>
-      <span id="s-green" class="stat-value">0</span>
-    </div>
-    <div class="stat-row">
-      <span class="stat-label" data-i18n="stat_lightblue">✓ تطابق بدون مرجع</span>
-      <span id="s-lightblue" class="stat-value">0</span>
-    </div>
-    <div class="stat-row">
-      <span class="stat-label" data-i18n="stat_yellow">~ اختلاف لفظي</span>
-      <span id="s-yellow" class="stat-value">0</span>
-    </div>
-    <div class="stat-row">
-      <span class="stat-label" data-i18n="stat_red">✗ لم يُتحقَّق</span>
-      <span id="s-red" class="stat-value">0</span>
-    </div>
-  </div>
-
-  <!-- Initial sidebar panel state. The findings panel, filters, swap controls,
-       and saved-corrections settings all live in the page-injected sidebar. -->
-  <div id="panel-state-picker">
-    <label id="panel-state-label" data-i18n="panel_start">لوحة النتائج تبدأ:</label>
-    <label class="toggle-option">
-      <input type="radio" name="panelInitialState" value="expanded" id="state-expanded" checked>
-      <span data-i18n="expanded">مفتوحة</span>
-    </label>
-    <label class="toggle-option">
-      <input type="radio" name="panelInitialState" value="collapsed" id="state-collapsed">
-      <span data-i18n="collapsed">مطوية</span>
-    </label>
-  </div>
+  <!-- Settings → dedicated options page (T094) -->
+  <button id="btn-settings" data-i18n="settings_btn">⚙ الإعدادات</button>
 
   <script src="../js/shared/messaging.js"></script>
   <script src="../js/shared/i18n.js"></script>

@@ -1,0 +1,161 @@
+/* T095 — Options page theme. Shares the popup's deep-green + gold palette,
+   light/dark via prefers-color-scheme. Home for global, persistent settings. */
+
+:root {
+  --q-primary: #0b5d3b;
+  --q-primary-strong: #08482e;
+  --q-on-primary: #f7f5ef;
+  --q-gold: #c8a24a;
+  --q-gold-soft: #ece0bf;
+  --q-bg: #f7f5ef;
+  --q-card: #ffffff;
+  --q-border: #e3ddcf;
+  --q-text: #2a2a2a;
+  --q-muted: #6b6b6b;
+  --q-danger: #c0392b;
+  --q-focus: var(--q-gold);
+  --q-motif: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='44' height='44' viewBox='0 0 44 44'%3E%3Cg fill='none' stroke='%23ffffff' stroke-opacity='0.14' stroke-width='1'%3E%3Crect x='10' y='10' width='24' height='24'/%3E%3Crect x='10' y='10' width='24' height='24' transform='rotate(45 22 22)'/%3E%3C/g%3E%3C/svg%3E");
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --q-primary: #1f7a52;
+    --q-primary-strong: #166041;
+    --q-on-primary: #f3f7f4;
+    --q-gold: #d4b262;
+    --q-gold-soft: #3a3526;
+    --q-bg: #14181a;
+    --q-card: #1d2326;
+    --q-border: #2c3438;
+    --q-text: #e8e6df;
+    --q-muted: #9aa0a0;
+    --q-danger: #e06a5c;
+  }
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: "Segoe UI", Tahoma, Arial, sans-serif;
+  background: var(--q-bg);
+  color: var(--q-text);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+#options-shell {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 0 0 32px;
+}
+
+#options-header {
+  background: var(--q-primary);
+  background-image: var(--q-motif);
+  background-repeat: repeat;
+  border-bottom: 2px solid var(--q-gold);
+  padding: 20px 24px;
+}
+#options-header h1 {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--q-on-primary);
+  letter-spacing: 0.3px;
+}
+
+#options-main {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 24px;
+}
+
+/* ── Cards ──────────────────────────────────────────────────────────────── */
+.opt-card {
+  background: var(--q-card);
+  border: 1px solid var(--q-border);
+  border-radius: 8px;
+  padding: 16px 18px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+.opt-card-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--q-primary);
+  margin-bottom: 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--q-gold-soft);
+}
+
+/* ── Fields, rows, radios ───────────────────────────────────────────────── */
+.opt-field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.opt-field-label { font-weight: 600; min-width: 90px; }
+
+.opt-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  cursor: pointer;
+}
+.opt-row input,
+.opt-radio input { accent-color: var(--q-primary); }
+.opt-row-disabled { color: var(--q-muted); cursor: not-allowed; }
+
+.opt-hint {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--q-muted);
+}
+
+.opt-per-color {
+  margin: 6px 0 10px;
+  padding-inline-start: 16px;
+  border-inline-start: 2px solid var(--q-gold-soft);
+}
+
+.opt-radio { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; }
+
+select {
+  padding: 6px 8px;
+  font-size: 13px;
+  border: 1px solid var(--q-border);
+  border-radius: 6px;
+  background: var(--q-card);
+  color: var(--q-text);
+  min-width: 160px;
+  cursor: pointer;
+}
+select:focus-visible { outline: 2px solid var(--q-focus); outline-offset: 1px; }
+
+#font-select { flex: 1; }
+
+/* ── Buttons ────────────────────────────────────────────────────────────── */
+button {
+  padding: 9px 14px;
+  border-radius: 6px;
+  border: 1px solid var(--q-border);
+  background: var(--q-card);
+  color: var(--q-text);
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+button:hover { background: var(--q-gold-soft); }
+button:focus-visible { outline: 2px solid var(--q-focus); outline-offset: 1px; }
+
+#btn-clear-persisted {
+  border-color: var(--q-danger);
+  color: var(--q-danger);
+}
+#btn-clear-persisted:hover { background: rgba(192, 57, 43, 0.08); }
+#persist-status {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--q-primary);
+}

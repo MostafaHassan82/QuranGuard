@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+  <meta charset="UTF-8">
+  <title data-i18n="options_title">إعدادات مُدقّق آيات القرآن</title>
+  <link rel="stylesheet" href="../css/options.css">
+</head>
+<body>
+  <div id="options-shell">
+    <header id="options-header">
+      <h1 data-i18n="options_heading">الإعدادات</h1>
+    </header>
+
+    <main id="options-main">
+      <!-- Language (T096) -->
+      <section class="opt-card">
+        <label class="opt-field">
+          <span class="opt-field-label" data-i18n="lang_label">اللغة:</span>
+          <select id="lang-select">
+            <option value="ar">العربية</option>
+            <option value="en">English</option>
+          </select>
+        </label>
+      </section>
+
+      <!-- Authentic-text swap defaults (FR-009) -->
+      <section class="opt-card">
+        <h2 class="opt-card-title" data-i18n="swap_heading">النص القرآني الأصلي (الإعدادات الافتراضية)</h2>
+        <label class="opt-row">
+          <input type="checkbox" id="swap-master"><span data-i18n="swap_master">تفعيل (رئيسي)</span>
+        </label>
+        <div class="opt-per-color">
+          <label class="opt-row"><input type="checkbox" data-swap-color="green"><span data-i18n="swap_green">تطابق تام</span></label>
+          <label class="opt-row"><input type="checkbox" data-swap-color="lightBlue"><span data-i18n="swap_lightBlue">تطابق بدون مرجع</span></label>
+          <label class="opt-row"><input type="checkbox" data-swap-color="yellow"><span data-i18n="swap_yellow">اختلاف لفظي</span></label>
+          <label class="opt-row"><input type="checkbox" data-swap-color="orange"><span data-i18n="swap_orange">مرجع غير مطابق</span></label>
+          <label class="opt-row opt-row-disabled" data-i18n-title="swap_red_title" title="الأحمر دائمًا معطّل">
+            <input type="checkbox" data-swap-color="red" disabled><span data-i18n="swap_red">لم يُتحقَّق — دائمًا معطّل</span>
+          </label>
+        </div>
+        <label class="opt-field">
+          <span class="opt-field-label" data-i18n="font_label">الخط:</span>
+          <select id="font-select">
+            <option value="uthmaniHafs" data-i18n="font_uthmani">عثماني — حفص</option>
+            <option value="qpcHafs" data-i18n="font_qpcHafs">QPC حفص (عثماني رسمي)</option>
+            <option value="qpcV2" data-i18n="font_qpcV2">QPC إصدار 2</option>
+            <option value="qpcV4Tajweed" data-i18n="font_qpcV4Tajweed">QPC إصدار 4 — تجويد</option>
+            <option value="digitalKhattIndopak" data-i18n="font_digitalKhattIndopak">Digital Khatt — هندي/باكستاني</option>
+            <option value="digitalKhattV1" data-i18n="font_digitalKhattV1">Digital Khatt إصدار 1</option>
+            <option value="digitalKhattV2" data-i18n="font_digitalKhattV2">Digital Khatt إصدار 2</option>
+            <option value="indopakNastaleeq" data-i18n="font_indopakNastaleeq">هندي/باكستاني — نستعليق</option>
+            <option value="kfgqpcNastaleeq" data-i18n="font_kfgqpcNastaleeq">KFGQPC نستعليق</option>
+          </select>
+        </label>
+      </section>
+
+      <!-- Auto-correct all orange (reference-mismatch) findings -->
+      <section class="opt-card">
+        <label class="opt-row">
+          <input type="checkbox" id="autocorrect-orange"><span data-i18n="autocorrect_orange">تصحيح كل المراجع الخاطئة (البرتقالي) تلقائيًا</span>
+        </label>
+        <div class="opt-hint" data-i18n="autocorrect_orange_hint">يستبدل المرجع الخاطئ بالمرجع الصحيح في الصفحة عند كل فحص.</div>
+      </section>
+
+      <!-- Initial panel state -->
+      <section class="opt-card">
+        <div class="opt-field">
+          <span class="opt-field-label" data-i18n="panel_start">لوحة النتائج تبدأ:</span>
+          <label class="opt-radio">
+            <input type="radio" name="panelInitialState" value="expanded" id="state-expanded" checked>
+            <span data-i18n="expanded">مفتوحة</span>
+          </label>
+          <label class="opt-radio">
+            <input type="radio" name="panelInitialState" value="collapsed" id="state-collapsed">
+            <span data-i18n="collapsed">مطوية</span>
+          </label>
+        </div>
+      </section>
+
+      <!-- Saved corrections/dismissals (FR-024) -->
+      <section class="opt-card">
+        <button type="button" id="btn-clear-persisted" data-i18n="clear_persisted">مسح التصحيحات والتجاهلات المحفوظة</button>
+        <div id="persist-status" role="status" aria-live="polite"></div>
+      </section>
+    </main>
+  </div>
+
+  <script src="../js/shared/messaging.js"></script>
+  <script src="../js/shared/i18n.js"></script>
+  <script src="../js/options.js"></script>
+</body>
+</html>

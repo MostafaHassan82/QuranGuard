@@ -32,6 +32,10 @@
     "default_popup": "html/popup.html",
     "default_icon": "icons/quran_PNG52.png"
   },
+  "options_ui": {
+    "page": "html/options.html",
+    "open_in_tab": true
+  },
   "permissions": ["storage", "activeTab", "scripting"],
   "web_accessible_resources": [
     {

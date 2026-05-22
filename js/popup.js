@@ -1,29 +1,17 @@
 'use strict';
-// popup.js — loaded after js/shared/messaging.js so QuranMsg is available.
-// The popup is scan-only: scan trigger, scan/clear buttons, live status + stats,
-// and the sidebar's initial state. The findings panel, filters, swap controls,
-// and saved-corrections settings all live in the page-injected sidebar surface.
+// popup.js — loaded after js/shared/messaging.js + i18n.js. The popup is
+// ACTION-ONLY (T094): scan trigger, scan/continue/clear, the transient status
+// line, and a Settings button that opens the dedicated options page. All
+// persistent settings live in the options page; the findings list, filters,
+// results summary, and per-session swap toggle live in the page-injected
+// sidebar surface.
 
 // ── State ─────────────────────────────────────────────────────────────────────
 let activeScanId = null;
 
-// Shared with sidebar-surface.js — the sidebar's persisted width/collapsed state.
-const SIDEBAR_UI_KEY = 'quran.sidebar.ui';
-
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function setStatus(msg) { document.getElementById('status').textContent = msg; }
-
-function displayStats(perCategoryCount, totalCount) {
-  const total = totalCount ?? Object.values(perCategoryCount || {}).reduce((a, b) => a + b, 0);
-  document.getElementById('s-total').textContent     = total;
-  document.getElementById('s-orange').textContent    = perCategoryCount?.orange     ?? 0;
-  document.getElementById('s-green').textContent     = perCategoryCount?.green      ?? 0;
-  document.getElementById('s-lightblue').textContent = perCategoryCount?.lightBlue  ?? 0;
-  document.getElementById('s-yellow').textContent    = perCategoryCount?.yellow     ?? 0;
-  document.getElementById('s-red').textContent       = perCategoryCount?.red        ?? 0;
-  document.getElementById('stats').hidden = false;
-}
 
 async function getActiveTab() {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -52,26 +40,7 @@ async function savePrefs(patch) {
   try { await QuranMsg.sendRequest('PREFS_WRITE', { patch }); } catch (_) {}
 }
 
-// The sidebar's collapsed state lives in chrome.storage.local (set by the
-// sidebar when the user drags/collapses); the popup just seeds the initial value.
-async function loadSidebarCollapsed() {
-  try {
-    const r = await chrome.storage.local.get(SIDEBAR_UI_KEY);
-    return !!(r?.[SIDEBAR_UI_KEY]?.collapsed);
-  } catch (_) { return false; }
-}
-
-async function saveSidebarCollapsed(collapsed) {
-  try {
-    const r = await chrome.storage.local.get(SIDEBAR_UI_KEY);
-    const ui = r?.[SIDEBAR_UI_KEY] || {};
-    ui.collapsed = collapsed;
-    await chrome.storage.local.set({ [SIDEBAR_UI_KEY]: ui });
-  } catch (_) {}
-}
-
-// Apply a UI language: switch the catalog, flip dir/lang on <html>, refill all
-// [data-i18n] nodes. Dynamic strings (status) read QuranI18n.t() at call time.
+// Localize the popup chrome from the saved UI language (set in the options page).
 function applyLang(lang) {
   QuranI18n.setLang(lang);
   document.documentElement.lang = lang;
@@ -81,18 +50,12 @@ function applyLang(lang) {
 
 async function applyPrefsToUI(prefs) {
   applyLang(QuranI18n.detect(prefs.lang));
-  const elLang = document.getElementById(QuranI18n.getLang() === 'en' ? 'lang-en' : 'lang-ar');
-  if (elLang) elLang.checked = true;
 
   const trigger = prefs.scanTrigger || 'manual';
   (trigger === 'autoscan'
     ? document.getElementById('trigger-auto')
     : document.getElementById('trigger-manual')).checked = true;
   document.getElementById('btn-scan').hidden = false;
-
-  const collapsed = await loadSidebarCollapsed();
-  const elState = document.getElementById(collapsed ? 'state-collapsed' : 'state-expanded');
-  if (elState) elState.checked = true;
 }
 
 // ── Scan trigger (T021) ───────────────────────────────────────────────────────
@@ -125,10 +88,7 @@ async function onScanClick(liftCap = false) {
         // Fallback: legacy direct-to-content path for older SW versions.
         sendToContent(tab.id, { type: 'scan' })
           .then(resp => {
-            if (resp?.perCategoryCount) {
-              displayStats(resp.perCategoryCount, resp.totalCount);
-              setStatus(QuranI18n.t('status_done'));
-            }
+            if (resp?.perCategoryCount) setStatus(QuranI18n.t('status_done'));
           })
           .catch(err => setStatus(QuranI18n.t('status_error', { msg: err.message })))
           .finally(() => {
@@ -149,7 +109,6 @@ async function onClearClick() {
     const tab = await getActiveTab();
     if (!tab) { setStatus(QuranI18n.t('status_no_tab')); return; }
     await sendToContent(tab.id, { type: 'clear' });
-    document.getElementById('stats').hidden = true;
     document.getElementById('progress').hidden = true;
     document.getElementById('btn-continue').hidden = true;
     setStatus(QuranI18n.t('status_cleared'));
@@ -174,7 +133,6 @@ chrome.runtime.onMessage.addListener((msg) => {
     document.getElementById('progress').hidden = true;
     document.getElementById('btn-continue').hidden = false;
     document.getElementById('btn-continue').disabled = false;
-    displayStats(payload.perCategoryCount, payload.cap);
   }
 
   if (type === 'SCAN_COMPLETE') {
@@ -183,19 +141,10 @@ chrome.runtime.onMessage.addListener((msg) => {
     document.getElementById('btn-continue').disabled = false;
     document.getElementById('progress').hidden = true;
 
-    if (payload.finalState === 'notArabic') {
-      setStatus(QuranI18n.t('status_not_arabic'));
-      document.getElementById('stats').hidden = true;
-      return;
-    }
-    if (payload.finalState === 'empty') {
-      setStatus(QuranI18n.t('status_empty'));
-      document.getElementById('stats').hidden = true;
-      return;
-    }
+    if (payload.finalState === 'notArabic') { setStatus(QuranI18n.t('status_not_arabic')); return; }
+    if (payload.finalState === 'empty')     { setStatus(QuranI18n.t('status_empty'));      return; }
 
     setStatus(QuranI18n.t('status_done'));
-    displayStats(payload.perCategoryCount, payload.totalCount);
   }
 });
 
@@ -222,12 +171,8 @@ async function hydrateFromActiveTab() {
         setStatus(QuranI18n.t('status_not_arabic'));
         return;
       }
-      if (state.totalCount === 0) {
-        setStatus(QuranI18n.t('status_empty'));
-        return;
-      }
+      if (state.totalCount === 0) { setStatus(QuranI18n.t('status_empty')); return; }
       setStatus(QuranI18n.t('status_done'));
-      displayStats(state.perCategoryCount, state.totalCount);
       if (state.capHit) {
         document.getElementById('btn-continue').hidden = false;
         document.getElementById('btn-continue').disabled = false;
@@ -245,28 +190,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('btn-scan').addEventListener('click', () => onScanClick(false));
   document.getElementById('btn-continue').addEventListener('click', () => onScanClick(true));
   document.getElementById('btn-clear').addEventListener('click', onClearClick);
+  document.getElementById('btn-settings').addEventListener('click', () => chrome.runtime.openOptionsPage());
 
   // Persist scanTrigger changes (T020)
   document.querySelectorAll('input[name="scanTrigger"]').forEach(radio => {
     radio.addEventListener('change', () => {
       if (radio.checked) savePrefs({ scanTrigger: radio.value });
-    });
-  });
-
-  // Initial sidebar state (collapsed / expanded).
-  document.querySelectorAll('input[name="panelInitialState"]').forEach(radio => {
-    radio.addEventListener('change', () => {
-      if (radio.checked) saveSidebarCollapsed(radio.value === 'collapsed');
-    });
-  });
-
-  // UI language (ar/en). Persist via prefs.lang → PREFS_CHANGED re-localizes the
-  // open sidebar; the popup re-localizes itself immediately.
-  document.querySelectorAll('input[name="uiLang"]').forEach(radio => {
-    radio.addEventListener('change', () => {
-      if (!radio.checked) return;
-      applyLang(radio.value);
-      savePrefs({ lang: radio.value });
     });
   });
 
