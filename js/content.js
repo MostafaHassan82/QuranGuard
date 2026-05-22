@@ -176,6 +176,12 @@ const STRONG_BRACE_RE = new RegExp(
 );
 // AR_CHAR_NAME includes tatweel U+0640 so surah names like يــس are matched.
 const AR_CHAR_NAME = '[\\u0621-\\u063A\\u0640-\\u064A\\u066E\\u066F\\u0671-\\u06D3\\u06FA-\\u06FF\\uFB50-\\uFDFF\\uFE70-\\uFEFF]';
+// One surah-name "word": letters each optionally followed by tashkeel, so
+// vocalized names like "الحِجْر" match (the kasra/sukun would otherwise break
+// the run). Grouped so the repetition is valid (a bare `[...]*+` is an illegal
+// JS quantifier). Captured marks are harmless — QuranReferences.resolve
+// tier1-normalizes them away.
+const AR_NAME_WORD = '(?:' + AR_CHAR_NAME + AR_TASHKEEL + '*)+';
 // Opening bracket is optional so we also catch the common typo `Surah:N)` where
 // the user dropped the opening paren (e.g. `{ayah} الواقعة:82) أي: ...`).
 // The closing bracket remains required so the pattern still anchors on real
@@ -184,7 +190,7 @@ const AR_CHAR_NAME = '[\\u0621-\\u063A\\u0640-\\u064A\\u066E\\u066F\\u0671-\\u06
 // QuranReferences.resolve(), which validates the captured name against the
 // surah index — unknown names fall back to the no-ref verifier path.
 const REF_RE = new RegExp(
-  '[({«﴿\\[]?\\s*(' + AR_CHAR_NAME + '+(?:\\s+' + AR_CHAR_NAME + '+)*)\\s*[:：]\\s*' +
+  '[({«﴿\\[]?\\s*(' + AR_NAME_WORD + '(?:\\s+' + AR_NAME_WORD + ')*)\\s*[:：]\\s*' +
   '([\\d\\u0660-\\u0669\\u06F0-\\u06F9]+(?:\\s*[-–]\\s*[\\d\\u0660-\\u0669\\u06F0-\\u06F9]+)?(?:\\s*[،,]\\s*[\\d\\u0660-\\u0669\\u06F0-\\u06F9]+)*)' +
   '\\s*[.,]?\\s*[)}»﴾\\]]',
   'gu'
