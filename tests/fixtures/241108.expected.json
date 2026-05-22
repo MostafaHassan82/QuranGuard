@@ -1,11 +1,11 @@
 {
   "stats": {
     "greenMatches": 23,
-    "lightBlueMatches": 8,
+    "lightBlueMatches": 9,
     "yellowMatches": 0,
     "orangeMatches": 0,
     "redMatches": 0,
-    "totalFindings": 31
+    "totalFindings": 32
   },
   "matches": [
     {
@@ -163,6 +163,12 @@
       "color": "green",
       "matchedRef": "غافر:69",
       "claimedRef": "(غافر:69)"
+    },
+    {
+      "text": "أنى يُصْرَفُون",
+      "color": "lightBlue",
+      "matchedRef": "غافر:69",
+      "claimedRef": ""
     },
     {
       "text": "عم يتساءلون",

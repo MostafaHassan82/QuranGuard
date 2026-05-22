@@ -1,11 +1,11 @@
 {
   "stats": {
     "greenMatches": 25,
-    "lightBlueMatches": 11,
+    "lightBlueMatches": 12,
     "yellowMatches": 0,
     "orangeMatches": 0,
     "redMatches": 0,
-    "totalFindings": 36
+    "totalFindings": 37
   },
   "matches": [
     {
@@ -70,6 +70,12 @@
     },
     {
       "text": "يومئذ يتذكر",
+      "color": "lightBlue",
+      "matchedRef": "الفجر:23",
+      "claimedRef": ""
+    },
+    {
+      "text": "وأنى له الذكرى",
       "color": "lightBlue",
       "matchedRef": "الفجر:23",
       "claimedRef": ""

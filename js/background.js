@@ -397,11 +397,47 @@ function softWordIndexLookup(word, wordIdx) {
   return combined;
 }
 
+// Union of every ayah key whose word soft-equals `word`: the exact key set PLUS
+// the one-drift-letter (ا/و/ي/ء) insertion/deletion variants. Unlike
+// softWordIndexLookup — which early-returns on an exact hit as a match-time
+// optimization — candidate GENERATION must keep the variants too. Otherwise a
+// citation word that happens to exist verbatim elsewhere (e.g. "موسي", spelled
+// without the superscript alef in some ayahs) hides every ayah that spells it
+// "موسيا" (طه:49's يَٰمُوسَىٰ), dropping the true match before alignment runs.
+function softWordKeysUnion(word, wordIdx) {
+  const out = new Set();
+  const add = s => { if (s) for (const k of s) out.add(k); };
+  add(wordIdx.get(word));
+  for (let i = 0; i <= word.length; i++) {
+    for (const c of ['ا', 'و', 'ي', 'ء']) add(wordIdx.get(word.slice(0, i) + c + word.slice(i)));
+  }
+  for (let i = 0; i < word.length; i++) {
+    const ch = word[i];
+    if (ch === 'ا' || ch === 'و' || ch === 'ي' || ch === 'ء') add(wordIdx.get(word.slice(0, i) + word.slice(i + 1)));
+  }
+  return out;
+}
+
+// Soft anchor keys for the ordered-contiguous candidate set. Unions the
+// drift-variant lookups for the first/last word, and also for the first/last
+// 2..MAX_MERGE words joined — mirroring alignSoftWithMerge's k:1 merge tolerance
+// so a word the mushaf fuses with a neighbour (e.g. "يا بن أم" ↔ "يبنؤم") still
+// surfaces its ayah as a candidate the alignment step can accept.
+function softAnchorKeys(words, fromEnd) {
+  const out = new Set();
+  const n = Math.min(MAX_MERGE, words.length);
+  for (let m = 1; m <= n; m++) {
+    const slice = fromEnd ? words.slice(words.length - m) : words.slice(0, m);
+    for (const k of softWordKeysUnion(slice.join(''), indexes.wordIndex)) out.add(k);
+  }
+  return out;
+}
+
 // Like findOrderedContiguousGlobal but uses soft word lookup + soft subsequence check.
 function findOrderedContiguousSoftGlobal(t1Words) {
   if (t1Words.length < 2) return [];
-  const first = softWordIndexLookup(t1Words[0], indexes.wordIndex);
-  const last = softWordIndexLookup(t1Words[t1Words.length - 1], indexes.wordIndex);
+  const first = softAnchorKeys(t1Words, false);
+  const last = softAnchorKeys(t1Words, true);
   const candidates = new Set();
   for (const k of first) if (last.has(k)) candidates.add(k);
   const results = [];
