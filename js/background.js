@@ -892,6 +892,36 @@ function verifyFragmentByRef(candidateText, refString, candidateConfidence = 'me
     if (wlInRange) { tr(`wordLevelInRange: HIT → yellow`); const authenticExcerpt = authenticExcerptForCandidate(recordsFor(rangeResolved), words); return wrap(makeResult({ color: 'yellow', matchedRef: wlInRange.rec.ref, claimedRef: refString, authenticText: wlInRange.rec.text, authenticExcerpt, deviation: 'wordLevel', candidateConfidence, matchType: 'partial' })); }
   }
 
+  // Multi-segment `*` citation the claimed-range matchers couldn't place — e.g.
+  // the cited range undercounts the actual span (the quote runs a verse past the
+  // cited end, like الشورى:39-42 for text that spans 39-43). The boundary-aware
+  // matcher recovers the true span; verbatim multi-verse Quran must never fall
+  // through to red. The words are authentic, so the only question is the ref:
+  //   - matched range == claimed range  → green (authentic + ref correct; we only
+  //     reach here if concat drift defeated the precise matcher above).
+  //   - matched range != claimed range  → orange (correct words, wrong reference)
+  //     so it gets flagged + corrected to the true range. matchedRef carries that
+  //     true range, which the correct-in-place flow writes over the cited one.
+  const multiSeg = matchMultiSegmentCitation(candidateText);
+  if (multiSeg) {
+    const claimedSet = new Set(resolved.ayahNums || []);
+    const sameRange = multiSeg.surahNum === resolved.surahNum &&
+      multiSeg.ayahs.length === claimedSet.size &&
+      multiSeg.ayahs.every(a => claimedSet.has(a));
+    tr(`multiSegment: HIT (${multiSeg.displayRef}) sameRange=${sameRange} → ${sameRange ? 'green' : 'orange'}`);
+    return wrap(makeResult({
+      color: sameRange ? 'green' : 'orange',
+      matchedRef: multiSeg.displayRef,
+      matchedRefs: [multiSeg.displayRef],
+      claimedRef: refString,
+      authenticText: multiSeg.firstRec.text,
+      deviation: sameRange ? 'spellingDrift' : 'none',
+      candidateConfidence,
+      matchType: 'orderedContiguous',
+    }));
+  }
+  tr(`multiSegment: MISS`);
+
   // Single-word orange: text is a single word that doesn't appear in the claimed
   // verse(s) but appears elsewhere in the Quran. QuranOrange.findElsewhere bails
   // on <2-word candidates, so handle 1-word here. High-confidence only — same
