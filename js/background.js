@@ -664,6 +664,18 @@ function verifyFragment(candidateText, candidateConfidence = 'medium') {
     return makeResult({ color: 'lightBlue', matchedRef: sorted[0].ref, matchedRefs: sorted.map(r => r.ref), authenticText: sorted[0].text, authenticExcerpt: authenticExcerptForCandidate([sorted[0]], words), deviation: classifyDeviation(sorted[0].text, candidateText), candidateConfidence, matchType: 'exact' });
   }
 
+  // Multi-segment match for `*`-separated citations MUST run before the
+  // single-verse contiguous search. The `*` marks an ayah boundary, so the
+  // excerpt spans multiple verses (e.g. "أحد * الله" = الإخلاص 112:1→112:2,
+  // used with "إلى قوله" for "from … to …", sometimes skipping middle verses
+  // like الواقعة:10*11*13). If we searched single-verse contiguity first, the
+  // boundary-spanning excerpt would be wrongly collapsed onto an unrelated
+  // verse that happens to contain the joined words in a row.
+  const multi = matchMultiSegmentCitation(candidateText);
+  if (multi) {
+    return makeResult({ color: 'lightBlue', matchedRef: multi.displayRef, authenticText: multi.firstRec.text, deviation: 'spellingDrift', candidateConfidence, matchType: 'orderedContiguous' });
+  }
+
   // Strict first (matchedRef is the cleaner spelling); fall back to soft (handles
   // ولكن vs ولاكن — Quran's superscript alef expands to an extra ا that strict
   // equality rejects but softEqualWord tolerates).
@@ -672,14 +684,6 @@ function verifyFragment(candidateText, candidateConfidence = 'medium') {
   if (orderedRecs.length > 0) {
     const sorted = orderedRecs.slice().sort((a, b) => a.surahNum - b.surahNum || a.ayahNum - b.ayahNum);
     return makeResult({ color: 'lightBlue', matchedRef: sorted[0].ref, matchedRefs: sorted.map(r => r.ref), authenticText: sorted[0].text, authenticExcerpt: authenticExcerptForCandidate([sorted[0]], words), deviation: 'spellingDrift', candidateConfidence, matchType: 'orderedContiguous' });
-  }
-
-  // Multi-segment fallback for `*`-separated multi-verse citations (often used
-  // with "إلى قوله" to indicate "the passage from … to …", sometimes skipping
-  // intermediate verses entirely — e.g. الواقعة:10*11*13).
-  const multi = matchMultiSegmentCitation(candidateText);
-  if (multi) {
-    return makeResult({ color: 'lightBlue', matchedRef: multi.displayRef, authenticText: multi.firstRec.text, deviation: 'spellingDrift', candidateConfidence, matchType: 'orderedContiguous' });
   }
 
   // Single-word brace with no ref (e.g. `قوله سبحانه: {أرني}` — a primary lead-in
@@ -954,7 +958,13 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   // CLEAR_PERSISTED (T010)
   if (type === 'CLEAR_PERSISTED') {
     QuranPersisted.clearAll()
-      .then(r => sendResponse(QuranMsg.okResponse(requestId, r)))
+      .then(async r => {
+        // Tell open sidebars to drop their now-stale persisted badges and
+        // re-render. The clear button moved to the options page (T094), so it
+        // can no longer reach the content-script panel model directly.
+        await broadcastToContent('PERSISTED_CLEARED', {});
+        sendResponse(QuranMsg.okResponse(requestId, r));
+      })
       .catch(e => sendResponse(QuranMsg.errResponse(requestId, 'INTERNAL', e.message)));
     return true;
   }

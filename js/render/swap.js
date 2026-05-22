@@ -24,10 +24,28 @@ const QuranSwap = (() => {
     return finding.authenticExcerpt || finding.authenticText || '';
   }
 
+  // A match too shaky to safely replace the page text with. Replacing text on a
+  // wrong match silently corrupts a possibly-correct citation, so we refuse:
+  //  - `*`-separated excerpts that resolved to a SINGLE verse (the separator
+  //    means the excerpt spans ayahs, so a one-verse match likely collapsed it
+  //    onto the wrong verse — e.g. "أحد * الله" wrongly matched to a single ayah);
+  //  - ambiguous matches (the text is found at more than one reference).
+  function isShakyMatch(finding) {
+    const text = String(finding.text || finding.rawText || '');
+    const matchedRef = String(finding.matchedRef || finding.matchedReference || '');
+    if (text.includes('*') && matchedRef && !matchedRef.includes('-')) return true;
+    if (Array.isArray(finding.matchedRefs) && finding.matchedRefs.length > 1) return true;
+    return false;
+  }
+
   function isEligible(finding, prefs) {
     if (!finding || finding.color === 'red') return false; // FR-015
     if (!prefs?.master?.authenticTextReplacement) return false; // FR-009 master
-    if (prefs.perColor?.[finding.color] !== true) return false; // FR-009 per-color
+    // lightGreen is a provenance color (a corrected, now-verified citation); it
+    // follows green's per-color swap setting rather than needing its own toggle.
+    const swapKey = finding.color === 'lightGreen' ? 'green' : finding.color;
+    if (prefs.perColor?.[swapKey] !== true) return false; // FR-009 per-color
+    if (isShakyMatch(finding)) return false; // don't replace text on an unreliable match
     if (!swapTextFor(finding)) return false;
     return true;
   }
