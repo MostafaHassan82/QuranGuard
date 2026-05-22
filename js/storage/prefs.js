@@ -9,8 +9,9 @@ const QuranPrefs = (() => {
     perColor: { green: true, lightBlue: true, yellow: true, orange: true, red: false },
     font: 'uthmaniHafs',
     scanTrigger: 'manual',
+    autoCorrectOrange: false,
     lang: 'ar',
-    panelFilter: { orange: true, green: false, lightBlue: false, yellow: false, red: false },
+    panelFilter: { orange: true, green: false, lightBlue: false, lightGreen: false, yellow: false, red: false },
   };
 
   const VALID_FONTS = new Set(['uthmaniHafs', 'qpcHafs', 'qpcV2', 'qpcV4Tajweed', 'digitalKhattIndopak', 'digitalKhattV1', 'digitalKhattV2', 'indopakNastaleeq', 'kfgqpcNastaleeq']);
@@ -31,10 +32,11 @@ const QuranPrefs = (() => {
 
     if (!VALID_FONTS.has(p.font)) p.font = DEFAULTS.font;
     if (!VALID_SCAN_TRIGGERS.has(p.scanTrigger)) p.scanTrigger = DEFAULTS.scanTrigger;
+    if (typeof p.autoCorrectOrange !== 'boolean') p.autoCorrectOrange = DEFAULTS.autoCorrectOrange;
     if (!VALID_LANGS.has(p.lang)) p.lang = DEFAULTS.lang;
 
     if (!p.panelFilter || typeof p.panelFilter !== 'object') p.panelFilter = {};
-    for (const color of ['orange', 'green', 'lightBlue', 'yellow', 'red']) {
+    for (const color of ['orange', 'green', 'lightBlue', 'lightGreen', 'yellow', 'red']) {
       if (typeof p.panelFilter[color] !== 'boolean') p.panelFilter[color] = DEFAULTS.panelFilter[color];
     }
 
