@@ -66,6 +66,9 @@ async function applyPrefsToUI(prefs) {
   const auto = document.getElementById('autocorrect-orange');
   if (auto) auto.checked = prefs?.autoCorrectOrange === true;
 
+  const refLinks = document.getElementById('ref-links');
+  if (refLinks) refLinks.checked = prefs?.refLinks !== false;
+
   const collapsed = await loadSidebarCollapsed();
   const elState = document.getElementById(collapsed ? 'state-collapsed' : 'state-expanded');
   if (elState) elState.checked = true;
@@ -103,6 +106,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Auto-correct all orange (reference-mismatch) findings.
   document.getElementById('autocorrect-orange').addEventListener('change', (e) => {
     savePrefs({ autoCorrectOrange: e.target.checked });
+  });
+
+  // Make references clickable quran.com links.
+  document.getElementById('ref-links').addEventListener('change', (e) => {
+    savePrefs({ refLinks: e.target.checked });
   });
 
   // Initial sidebar state (collapsed / expanded).

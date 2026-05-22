@@ -27,6 +27,8 @@ Single object. Schema-driven; absent fields fall back to defaults.
   "font": "uthmaniHafs",                         // see font set below; default uthmaniHafs
   "lang": "ar",                                  // T087: ar | en (default browser ar/en, else en)
   "scanTrigger": "manual",                       // FR-026: manual | autoscan
+  "autoCorrectOrange": false,                    // FR-024b: auto-correct every orange on scan
+  "refLinks": true,                              // ref markers link to quran.com (default on)
   "panelFilter": {                               // FR-010 default: orange only
     "orange":     true,
     "green":      false,

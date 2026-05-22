@@ -53,6 +53,8 @@ const QuranI18n = (() => {
       summary_title: 'ملخّص النتائج',
       autocorrect_orange: 'تصحيح كل المراجع الخاطئة (البرتقالي) تلقائيًا',
       autocorrect_orange_hint: 'يستبدل المرجع الخاطئ بالمرجع الصحيح في الصفحة عند كل فحص.',
+      ref_links: 'جعل المراجع روابط قابلة للنقر (quran.com)',
+      ref_links_hint: 'يُبرز مرجع كل آية ويعرض نصّها الكامل عند المرور، والنقر يفتح quran.com في تبويب جديد.',
       // popup status
       status_scanning: 'جارٍ الفحص…',
       status_done: 'اكتمل الفحص',
@@ -170,6 +172,8 @@ const QuranI18n = (() => {
       summary_title: 'Results summary',
       autocorrect_orange: 'Auto-correct all wrong references (orange)',
       autocorrect_orange_hint: 'Replaces the wrong reference with the correct one on the page on every scan.',
+      ref_links: 'Make references clickable links (quran.com)',
+      ref_links_hint: 'Highlights each ayah reference and shows its full text on hover; clicking opens quran.com in a new tab.',
       status_scanning: 'Scanning…',
       status_done: 'Scan complete',
       status_clearing: 'Clearing…',

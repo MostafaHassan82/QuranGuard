@@ -10,6 +10,7 @@ const QuranPrefs = (() => {
     font: 'uthmaniHafs',
     scanTrigger: 'manual',
     autoCorrectOrange: false,
+    refLinks: true,
     lang: 'ar',
     panelFilter: { orange: true, green: false, lightBlue: false, lightGreen: false, yellow: false, red: false },
   };
@@ -33,6 +34,7 @@ const QuranPrefs = (() => {
     if (!VALID_FONTS.has(p.font)) p.font = DEFAULTS.font;
     if (!VALID_SCAN_TRIGGERS.has(p.scanTrigger)) p.scanTrigger = DEFAULTS.scanTrigger;
     if (typeof p.autoCorrectOrange !== 'boolean') p.autoCorrectOrange = DEFAULTS.autoCorrectOrange;
+    if (typeof p.refLinks !== 'boolean') p.refLinks = DEFAULTS.refLinks;
     if (!VALID_LANGS.has(p.lang)) p.lang = DEFAULTS.lang;
 
     if (!p.panelFilter || typeof p.panelFilter !== 'object') p.panelFilter = {};
