@@ -853,6 +853,35 @@ function verifyFragmentByRef(candidateText, refString, candidateConfidence = 'me
     }
   }
 
+  // Verbatim FULL-ayah match at a DIFFERENT ref than claimed → orange (correct
+  // words, wrong reference), and it must outrank the partial word-level match at
+  // the claimed ayah below: the author quoted another verse verbatim with the
+  // wrong reference (e.g. "الذين يقيمون الصلاة ومما رزقناهم ينفقون" cited
+  // البقرة:3 but it is الأنفال:3), which is a wrong-reference case, not an
+  // altered-wording (yellow) one. Covers strict-exact AND soft full-verse
+  // matches (Uthmani drift like الصلاة↔الصلوٰة defeats strict equality). Limited
+  // to FULL-ayah coverage (candidate spans the whole verse) so a sub-excerpt
+  // that also sits inside the claimed ayah isn't mislabeled. The claimed-ayah
+  // case was already returned green above.
+  const claimedKeys = new Set((resolved.ayahNums || []).map(n => `${resolved.surahNum}:${n}`));
+  const notClaimed = r => !claimedKeys.has(`${r.surahNum}:${r.ayahNum}`);
+  let verbatimElsewhere = findExactGlobal(t1).filter(notClaimed);
+  if (verbatimElsewhere.length === 0) {
+    verbatimElsewhere = findOrderedContiguousSoftGlobal(words)
+      .filter(notClaimed)
+      .filter(r => r.tier1Words.length === words.length); // whole verse, not a fragment
+  }
+  if (verbatimElsewhere.length > 0) {
+    const sorted = verbatimElsewhere.slice().sort((a, b) => a.surahNum - b.surahNum || a.ayahNum - b.ayahNum);
+    tr(`verbatimElsewhere: HIT (${sorted[0].ref}) → orange`);
+    return wrap(makeResult({
+      color: 'orange', matchedRef: sorted[0].ref, matchedRefs: sorted.map(r => r.ref),
+      claimedRef: refString, authenticText: sorted[0].text,
+      authenticExcerpt: authenticExcerptForCandidate([sorted[0]], words),
+      deviation: 'none', candidateConfidence, matchType: 'exact',
+    }));
+  }
+
   const wlInClaimed = wordLevelMatchInClaimedAyahs(words, resolved);
   if (wlInClaimed) { tr(`wordLevelInClaimed: HIT (${wlInClaimed.rec.ref}, diffs=${wlInClaimed.diffs}) → yellow`); const authenticExcerpt = authenticExcerptForCandidate(recordsFor(resolved), words); return wrap(makeResult({ color: 'yellow', matchedRef: preferClaimedSpelling(wlInClaimed.rec.ref, refString), claimedRef: refString, authenticText: wlInClaimed.rec.text, authenticExcerpt, deviation: 'wordLevel', candidateConfidence, matchType: 'partial' })); }
   tr(`wordLevelInClaimed: MISS`);
