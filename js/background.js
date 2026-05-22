@@ -1008,7 +1008,9 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         case 'verifyFragmentByRef':
           return verifyFragmentByRef(msg.text, msg.ref, msg.candidateConfidence, !!msg.debug);
         case 'resolveReference': {
-          const r = QuranReferences.resolve(msg.ref, indexes);
+          // Accept the ref at top level (legacy sendToBackground) or inside the
+          // envelope payload (QuranMsg.sendRequest from the panel).
+          const r = QuranReferences.resolve(msg.ref ?? msg.payload?.ref, indexes);
           if (!r) return null;
           const ayahs = r.ayahNums.map(n => indexes.byRef[r.surahNum]?.[n]).filter(Boolean);
           return {
