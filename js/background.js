@@ -722,18 +722,29 @@ function verifyFragment(candidateText, candidateConfidence = 'medium') {
     return makeResult({ color: 'lightBlue', matchedRef: sorted[0].ref, matchedRefs: sorted.map(r => r.ref), authenticText: sorted[0].text, authenticExcerpt: authenticExcerptForCandidate([sorted[0]], words), deviation: 'spellingDrift', candidateConfidence, matchType: 'orderedContiguous' });
   }
 
-  // Single-word brace with no ref (e.g. `قوله سبحانه: {أرني}` — a primary lead-in
-  // pointing at a single Quranic word). The ordered/wordLevel global searches all
-  // bail for 1-word candidates; consult the wordIndex directly. Gated by maxHits
-  // so common particles (الله, من, ما, …) don't spawn noisy lightBlue findings.
+  // Single-word brace with no ref (e.g. `قوله سبحانه: {أرني}` or `{عندك}`).
+  // The ordered/wordLevel global searches all bail for 1-word candidates, so
+  // consult the wordIndex directly. Confidence drives the gate:
+  //   - HIGH (an explicit primary lead-in like "قوله تعالى:" precedes the brace):
+  //     citation intent is explicit, so verify even a common word — present
+  //     anywhere in the Quran → lightBlue (cap the reported refs for the
+  //     tooltip); present nowhere → red (the lead-in claimed Quran that isn't).
+  //   - MEDIUM (no lead-in): keep the maxHits gate so common particles (الله,
+  //     من, ما, …) don't spawn noisy findings; otherwise drop it (no highlight).
   if (words.length === 1) {
-    const recs = findElsewhereForSingleWord(words[0], new Set(), 8);
+    const highConf = candidateConfidence === 'high';
+    const recs = findElsewhereForSingleWord(words[0], new Set(), highConf ? Infinity : 8);
     if (recs && recs.length > 0) {
+      const top = recs.slice(0, 8);
       return makeResult({
-        color: 'lightBlue', matchedRef: recs[0].ref, matchedRefs: recs.map(r => r.ref),
-        authenticText: recs[0].text, deviation: 'spellingDrift', candidateConfidence, matchType: 'partial',
+        color: 'lightBlue', matchedRef: top[0].ref, matchedRefs: top.map(r => r.ref),
+        authenticText: top[0].text, deviation: 'spellingDrift', candidateConfidence, matchType: 'partial',
       });
     }
+    // Not found anywhere: a high-confidence lead-in over a non-Quran word is a
+    // fabricated single-word citation → red; otherwise just drop it.
+    if (highConf) return makeResult({ color: 'red', candidateConfidence, matchType: 'none' });
+    return makeResult({ color: null, candidateConfidence, matchType: 'none' });
   }
 
   const wlRecs = wordLevelMatchGlobal(words);
