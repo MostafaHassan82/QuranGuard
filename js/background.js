@@ -66,10 +66,21 @@ async function loadAndIndex() {
   // fetch+parse. Regenerate via `python scripts/build-min-json.py`.
   const url = chrome.runtime.getURL('resources/quran-uthmani_min-v2.json');
   let data;
+  // Cold-start instrumentation: split fetch (download the JSON) from parse
+  // (JSON.parse it) from build (below) so a slow cold start is attributable.
+  // resp.text() + JSON.parse instead of resp.json() only to time the two
+  // halves separately. Every worker wake rebuilds (module globals reset on
+  // eviction), so this line prints once per wake.
+  const tFetch = performance.now();
+  let fetchMs = 0, parseMs = 0;
   try {
     const resp = await fetch(url);
     if (!resp.ok) throw { reason: 'unreadable', detail: `HTTP ${resp.status}` };
-    data = await resp.json();
+    const text = await resp.text();
+    fetchMs = performance.now() - tFetch;
+    const tParse = performance.now();
+    data = JSON.parse(text);
+    parseMs = performance.now() - tParse;
   } catch (e) {
     const err = { reason: e.reason || 'unreadable', detail: e.detail || String(e) };
     dataState = 'unavailable';
@@ -91,11 +102,13 @@ async function loadAndIndex() {
 
   const tBuild = performance.now();
   indexes = QuranIndexes.build(data);
-  const buildMs = Math.round(performance.now() - tBuild);
+  const buildMs = performance.now() - tBuild;
   dataState = 'ready';
   dataError = null;
+  const totalMs = performance.now() - tFetch;
   console.log(
-    `[QuranExt] Index ready in ${buildMs}ms — verses: ${indexes.byTier1Norm.size}, ` +
+    `[QuranExt] Index ready — cold start: fetch=${Math.round(fetchMs)}ms parse=${Math.round(parseMs)}ms ` +
+    `build=${Math.round(buildMs)}ms total=${Math.round(totalMs)}ms — verses: ${indexes.byTier1Norm.size}, ` +
     `tier1 words: ${indexes.wordIndex.size}, surahs: ${Object.keys(indexes.byRef).length}`
   );
 }
@@ -1283,4 +1296,8 @@ self.addEventListener('activate', () => {
 // the index synchronously mid-scan (the ~6s cold-start spike). Kicking off the
 // build at top-level script evaluation runs on every wake; ensureInitialized()
 // awaits the same initPromise, so verify calls never trigger a second build.
+// One line per worker wake — pair it with the "Index ready — cold start"
+// line below to see how often the worker is being evicted/restarted and what
+// each rebuild costs.
+console.log(`[QuranExt] worker boot @ ${new Date().toISOString()}`);
 ensureInitialized().catch(() => {});
