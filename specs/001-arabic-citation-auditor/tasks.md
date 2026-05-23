@@ -629,6 +629,17 @@ the five-color taxonomy changed; the Node suite stayed 16/16 throughout.
   (added-node sample) for diagnosis. Overlaps the Codex T099 observer rework but
   is a distinct stability fix.
 
+- [X] T129 **`tests/sync_fixtures.py` — batch tab→fixture converter.** Automates
+  the per-page flow: paste the extension's `[QuranExt][stats]` console lines and
+  it parses+dedupes them, then per id: NEW → fetch the page HTML
+  (`tests/fixtures/<id>.html`, TLS-verify off by default since some hosts fail
+  local cert checks) + write a stats-only `<id>.expected.json` (sourceUrl +
+  fixture + stats); EXISTING → compare live vs saved stats (MATCH/DIFF) and
+  backfill missing metadata. Then runs `run_tests_node.js --all` to validate each
+  fetched fixture reproduces its stats and prints a box-drawing summary table.
+  Stats-only fixtures are supported by the T128-era compare() (skips match check
+  when `matches` absent). Replaces the manual create/compare/validate loop.
+
 ### Open follow-up (Phase 11)
 - [ ] T125 **Decide whether to precompute normalized index fields.** Measured:
   shipping precomputed `tier1Words`/`skelWords`/`uthmaniWords` cuts build
