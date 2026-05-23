@@ -1362,15 +1362,27 @@ function setupMutationObserver() {
 // ── Autoscan path (T022) ──────────────────────────────────────────────────────
 
 async function maybeAutoscan() {
-  try {
-    // QuranMsg.sendRequest handles requestId internally (works in non-secure contexts).
-    const resp = await QuranMsg.sendRequest('PREFS_READ', {});
-    const prefs = resp?.payload?.result || resp?.result;
-    if (prefs?.scanTrigger === 'autoscan') {
+  // A refocused tab's reload commonly races a just-evicted MV3 service worker:
+  // the first PREFS_READ can reject ("Could not establish connection") or come
+  // back empty while the worker boots. The old single-shot read swallowed that
+  // failure, so autoscan silently never fired until the worker was woken some
+  // other way (e.g. opening the popup) — the "stalls until I click the
+  // extension" bug. Retry with a short backoff so reload reliably scans.
+  // QuranMsg.sendRequest handles requestId internally (works in non-secure contexts).
+  let prefs = null;
+  for (let attempt = 0; attempt < 4 && !prefs; attempt++) {
+    if (attempt > 0) await new Promise(r => setTimeout(r, 120 * attempt));
+    try {
+      const resp = await QuranMsg.sendRequest('PREFS_READ', {});
+      prefs = resp?.payload?.result || resp?.result || null;
+    } catch (_) { /* worker still waking — fall through and retry */ }
+  }
+  if (prefs?.scanTrigger === 'autoscan') {
+    try {
       await scanPage();
       setupMutationObserver();
-    }
-  } catch (_) {}
+    } catch (e) { console.warn('[QuranExt] autoscan failed:', e); }
+  }
 }
 
 // ── Highlight clearing ────────────────────────────────────────────────────────
