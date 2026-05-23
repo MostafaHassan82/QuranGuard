@@ -1156,7 +1156,7 @@ async function scanPage({ liftCap = false, subtreeRoot = null } = {}) {
   );
 
   emitComplete(scanId, startedAt, startTime);
-  await sendToBackground({ type: 'logFindings', findings: STATE.findings }).catch(() => {});
+  await sendToBackground({ type: 'logFindings', findings: STATE.findings, url: location.href }).catch(() => {});
 }
 
 function computeFinalState() {

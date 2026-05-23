@@ -601,6 +601,17 @@ the five-color taxonomy changed; the Node suite stayed 16/16 throughout.
   unaffected). Reduces concurrent worker load; does not fix CPU starvation from
   non-extension load (the ~92-tab environment is the ceiling).
 
+- [X] T127 **One-line fixture-stats console log (fixture-authoring aid).**
+  `logFindings` now emits an info-level `[QuranExt][stats]` line per scan:
+  one-line JSON mirroring `tests/fixtures/<id>.expected.json` — `{ id, sourceUrl,
+  fixture, stats:{greenMatches,…,totalFindings} }`. `id` is the numeric article
+  id parsed from the URL (`/article/<id>` or first long numeric path segment),
+  matching the fixture-name convention. Lets the maintainer copy the SW-console
+  output to (a) create a new `<id>.expected.json` (HTML via
+  `tests/add_fixture.py "<sourceUrl>" --name <id>`) or (b) diff stats against an
+  existing fixture. Per-match detail (text/refs/color for the `matches` array)
+  comes from the `[findings]` debug dump.
+
 ### Open follow-up (Phase 11)
 - [ ] T125 **Decide whether to precompute normalized index fields.** Measured:
   shipping precomputed `tier1Words`/`skelWords`/`uthmaniWords` cuts build

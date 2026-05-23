@@ -1220,11 +1220,28 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         case 'ping':
           return { ok: true, indexReady: indexes !== null };
         case 'logFindings': {
+          const findings = msg.findings || [];
+          // One-line, copy-pasteable fixture summary (info level). Shape mirrors
+          // tests/fixtures/<id>.expected.json so it can be diffed/created
+          // directly; `id` is the numeric article id in the URL (the fixture
+          // name convention), `fixture` the expected .html filename.
+          {
+            const c = { green: 0, lightBlue: 0, yellow: 0, orange: 0, red: 0, lightGreen: 0 };
+            for (const f of findings) if (c[f.color] !== undefined) c[f.color]++;
+            const url = msg.url || '';
+            const m = url.match(/\/article\/(\d+)/) || url.match(/\/(\d{3,})(?:[/?#]|$)/);
+            const id = m ? m[1] : null;
+            const stats = {
+              greenMatches: c.green, lightBlueMatches: c.lightBlue, yellowMatches: c.yellow,
+              orangeMatches: c.orange, redMatches: c.red, totalFindings: findings.length,
+            };
+            if (c.lightGreen) stats.lightGreenMatches = c.lightGreen;
+            QuranLog.scope('stats').info(JSON.stringify({ id, sourceUrl: url, fixture: id ? `${id}.html` : null, stats }));
+          }
           // Findings dump is its own (debug) level — guard so the strings
           // aren't built when the level is below debug.
           if (QuranLog.enabled('debug')) {
             const flog = QuranLog.scope('findings');
-            const findings = msg.findings || [];
             flog.debug(`${findings.length} total ─────────────`);
             for (const f of findings) {
               flog.debug(
