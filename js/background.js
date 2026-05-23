@@ -24,6 +24,12 @@ let dataError = null;      // {reason, detail} when dataState === 'unavailable'
 const DEBUG = true;
 function dlog(...args) { if (DEBUG) console.log('[QuranExt]', ...args); }
 
+// Per-batch verify profiling → [QuranExt][bgprofile] in the SERVICE-WORKER
+// console (chrome://extensions → Inspect views: service worker). Independent
+// of the page-side __quranDebug toggle, which needs a MAIN-world shim that
+// strict-CSP pages block. Flip to false to silence once profiling is done.
+const PROFILE_BATCH = false;
+
 // ── Index build helpers (using extracted modules) ─────────────────────────────
 
 const { tier1: tier1Normalize, toSkeleton, classifyDeviation, toAsciiDigits } = QuranNormalize;
@@ -820,9 +826,13 @@ function verifyFragmentByRef(candidateText, refString, candidateConfidence = 'me
   const t1InClaimed = tier1MatchInClaimedAyahs(candidateText, words, resolved, tr);
   if (t1InClaimed) {
     tr(`tier1MatchInClaimed: HIT (${t1InClaimed.displayRef}, deviation=${t1InClaimed.deviation}) → green`);
-    const { allExactRefs, allPartialRefs } = findAllGlobalMatches(t1, words);
+    // allExactRefs/allPartialRefs (the "also/partially appears in …" tooltip
+    // lines) are NOT computed here: findAllGlobalMatches is O(words²) per
+    // candidate verse and dominated bgCompute on long verses, yet the verdict
+    // is already green. The content script fetches them lazily on hover via
+    // the 'alternateRefs' message.
     const authenticExcerpt = authenticExcerptForCandidate(recordsFor(resolved), words);
-    return wrap(makeResult({ color: 'green', matchedRef: preferClaimedSpelling(t1InClaimed.displayRef, refString), claimedRef: refString, authenticText: t1InClaimed.rec.text, authenticExcerpt, deviation: t1InClaimed.deviation, candidateConfidence, matchType: 'exact', allExactRefs, allPartialRefs }));
+    return wrap(makeResult({ color: 'green', matchedRef: preferClaimedSpelling(t1InClaimed.displayRef, refString), claimedRef: refString, authenticText: t1InClaimed.rec.text, authenticExcerpt, deviation: t1InClaimed.deviation, candidateConfidence, matchType: 'exact' }));
   }
   tr(`tier1MatchInClaimed: MISS`);
 
@@ -833,9 +843,8 @@ function verifyFragmentByRef(candidateText, refString, candidateConfidence = 'me
     const t1InRange = tier1MatchInClaimedAyahs(candidateText, words, rangeResolved, tr);
     if (t1InRange) {
       tr(`tier1MatchInRange: HIT → green`);
-      const { allExactRefs, allPartialRefs } = findAllGlobalMatches(t1, words);
       const authenticExcerpt = authenticExcerptForCandidate(recordsFor(rangeResolved), words);
-      return wrap(makeResult({ color: 'green', matchedRef: preferClaimedSpelling(t1InRange.displayRef, refString), claimedRef: refString, authenticText: t1InRange.rec.text, authenticExcerpt, deviation: t1InRange.deviation, candidateConfidence, matchType: 'exact', allExactRefs, allPartialRefs }));
+      return wrap(makeResult({ color: 'green', matchedRef: preferClaimedSpelling(t1InRange.displayRef, refString), claimedRef: refString, authenticText: t1InRange.rec.text, authenticExcerpt, deviation: t1InRange.deviation, candidateConfidence, matchType: 'exact' }));
     }
   }
 
@@ -845,18 +854,16 @@ function verifyFragmentByRef(candidateText, refString, candidateConfidence = 'me
   const ellInClaimed = ellipsisMatchInClaimedAyahs(candidateText, resolved, tr);
   if (ellInClaimed) {
     tr(`ellipsisMatchInClaimed: HIT (${ellInClaimed.displayRef}) → green`);
-    const { allExactRefs, allPartialRefs } = findAllGlobalMatches(t1, words);
     const authenticExcerpt = authenticEllipsisExcerptForSegments(recordsFor(resolved), ellSegWords());
-    return wrap(makeResult({ color: 'green', matchedRef: preferClaimedSpelling(ellInClaimed.displayRef, refString), claimedRef: refString, authenticText: ellInClaimed.rec.text, authenticExcerpt, deviation: 'spellingDrift', candidateConfidence, matchType: 'exact', allExactRefs, allPartialRefs }));
+    return wrap(makeResult({ color: 'green', matchedRef: preferClaimedSpelling(ellInClaimed.displayRef, refString), claimedRef: refString, authenticText: ellInClaimed.rec.text, authenticExcerpt, deviation: 'spellingDrift', candidateConfidence, matchType: 'exact' }));
   }
   if (resolved.rangeAyahNums) {
     const rangeResolved = { surahNum: resolved.surahNum, ayahNums: resolved.rangeAyahNums, isRange: true };
     const ellInRange = ellipsisMatchInClaimedAyahs(candidateText, rangeResolved, tr);
     if (ellInRange) {
       tr(`ellipsisMatchInRange: HIT → green`);
-      const { allExactRefs, allPartialRefs } = findAllGlobalMatches(t1, words);
       const authenticExcerpt = authenticEllipsisExcerptForSegments(recordsFor(rangeResolved), ellSegWords());
-      return wrap(makeResult({ color: 'green', matchedRef: preferClaimedSpelling(ellInRange.displayRef, refString), claimedRef: refString, authenticText: ellInRange.rec.text, authenticExcerpt, deviation: 'spellingDrift', candidateConfidence, matchType: 'exact', allExactRefs, allPartialRefs }));
+      return wrap(makeResult({ color: 'green', matchedRef: preferClaimedSpelling(ellInRange.displayRef, refString), claimedRef: refString, authenticText: ellInRange.rec.text, authenticExcerpt, deviation: 'spellingDrift', candidateConfidence, matchType: 'exact' }));
     }
   }
 
@@ -1128,6 +1135,49 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           if (r) r._bgMs = +(performance.now() - t0).toFixed(2);
           return r;
         }
+        case 'verifyFragmentBatch': {
+          // One round-trip for a whole scan pass: verify every cache-miss
+          // candidate server-side and return the verdicts in input order.
+          // Collapsing N postMessages into 1 is the dominant scan-latency win
+          // under service-worker contention (per-call round-trip queueing far
+          // outweighs the verify compute itself). _bgMs is the batch total.
+          const t0 = performance.now();
+          const items = Array.isArray(msg.items) ? msg.items : [];
+          // When debug is on, time each item so we can see where the now-
+          // dominant bgCompute goes. Cost tracks how far through the strategy
+          // gauntlet a candidate runs: exact/lightBlue short-circuit cheaply;
+          // none/yellow ran every search (exact→multi→ordered→soft→wordLevel).
+          const prof = (PROFILE_BATCH || msg.debug) ? [] : null;
+          const results = items.map(it => {
+            const ts = prof ? performance.now() : 0;
+            const r = it.type === 'verifyFragmentByRef'
+              ? verifyFragmentByRef(it.text, it.ref, it.candidateConfidence, !!it.debug)
+              : verifyFragment(it.text, it.candidateConfidence);
+            if (prof) prof.push({ ms: performance.now() - ts, type: it.type, matchType: r?.matchType || 'none', color: r?.color ?? 'null', text: it.text || '' });
+            return r;
+          });
+          const bgMs = +(performance.now() - t0).toFixed(2);
+          if (prof) {
+            const byKey = {};
+            for (const p of prof) {
+              const k = `${p.type === 'verifyFragmentByRef' ? 'byRef' : 'noRef'}/${p.matchType}/${p.color}`;
+              (byKey[k] ||= { n: 0, ms: 0, max: 0 });
+              byKey[k].n++; byKey[k].ms += p.ms; if (p.ms > byKey[k].max) byKey[k].max = p.ms;
+            }
+            // Emit the whole report as ONE log entry (every line carries the
+            // [bgprofile] tag) so a console filter on the tag keeps all of it
+            // and it copies as a single block.
+            const lines = [`[QuranExt][bgprofile] items=${items.length} total=${bgMs}ms`];
+            for (const [k, v] of Object.entries(byKey).sort((a, b) => b[1].ms - a[1].ms)) {
+              lines.push(`[bgprofile]   ${k}: n=${v.n} sum=${v.ms.toFixed(1)}ms avg=${(v.ms / v.n).toFixed(2)}ms max=${v.max.toFixed(1)}ms`);
+            }
+            for (const p of prof.slice().sort((a, b) => b.ms - a.ms).slice(0, 5)) {
+              lines.push(`[bgprofile]   slow ${p.ms.toFixed(1)}ms [${p.matchType}/${p.color}] ${p.text.slice(0, 60)}`);
+            }
+            console.log(lines.join('\n'));
+          }
+          return { results, _bgMs: bgMs };
+        }
         case 'resolveReference': {
           // Accept the ref at top level (legacy sendToBackground) or inside the
           // envelope payload (QuranMsg.sendRequest from the panel).
@@ -1146,6 +1196,15 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         }
         case 'getAyahText':
           return getAyahText(msg.surahNum, msg.ayahNum);
+        case 'alternateRefs': {
+          // Lazy companion to the green verify path: where else this exact /
+          // near text appears, for the hover tooltip's "also/partially in …"
+          // lines. Deferred off the scan because it is O(words²) per verse.
+          const t1 = tier1Normalize(String(msg.text || '').replace(/\*/g, ' '));
+          const words = t1.split(' ').filter(w => w.length > 0);
+          if (words.length === 0) return { allExactRefs: [], allPartialRefs: [] };
+          return findAllGlobalMatches(t1, words);
+        }
         case 'ping':
           return { ok: true, indexReady: indexes !== null };
         case 'logFindings': {

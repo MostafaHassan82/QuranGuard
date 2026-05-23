@@ -950,7 +950,7 @@ async function scanPage({ liftCap = false, subtreeRoot = null } = {}) {
   let prevCount = -1;
 
   // ── Timing instrumentation (paste the [QuranExt][timing] summary to profile) ──
-  const T = { passes: 0, pingMs: 0, extractMs: 0, verifyMs: 0, bgMs: 0, verifyCalls: 0, cacheHits: 0, walkMs: 0, materializeMs: 0 };
+  const T = { passes: 0, pingMs: 0, extractMs: 0, verifyMs: 0, bgMs: 0, verifyCalls: 0, cacheHits: 0, roundTrips: 0, walkMs: 0, materializeMs: 0 };
 
   // Verdict memo for the convergence loop. A verdict is a pure function of
   // (type, text, ref, confidence) and the static Quran index, so candidates that
@@ -1038,51 +1038,78 @@ async function scanPage({ liftCap = false, subtreeRoot = null } = {}) {
       const perCategoryCount = { green: 0, lightBlue: 0, lightGreen: 0, yellow: 0, orange: 0, red: 0 };
 
       const tVerifyStart = performance.now();
-      for (const candidate of candidates) {
+
+      // Phase 1 — build the per-candidate verify message + cache key, and
+      // collect the unique cache misses into one batch. A verdict is a pure
+      // function of (type, text, ref, confidence) and the static index, so
+      // candidates already memoized (from a prior pass) or duplicated within
+      // this pass cost no round-trip. Everything else goes in ONE postMessage
+      // instead of one per candidate — the round-trip tax dominates scan
+      // time under worker contention, so this is the main latency win.
+      const candKeys = new Array(candidates.length);
+      const batchItems = [];
+      const batchKeys = [];
+      const seenMiss = new Set();
+      for (let i = 0; i < candidates.length; i++) {
+        const c = candidates[i];
+        const msg = c.ref
+          ? { type: 'verifyFragmentByRef', text: c.text, ref: c.ref, candidateConfidence: c.confidence, debug: QURAN_DEBUG_TRACE }
+          : { type: 'verifyFragment', text: c.text, candidateConfidence: c.confidence, debug: QURAN_DEBUG_TRACE };
+        const key = msg.type + ' ' + msg.text + ' ' +
+          (msg.ref ? JSON.stringify(msg.ref) : '') + ' ' + (msg.candidateConfidence || '');
+        candKeys[i] = key;
+        if (verdictCache.has(key)) { T.cacheHits++; continue; }
+        if (seenMiss.has(key)) continue;
+        seenMiss.add(key);
+        batchKeys.push(key);
+        batchItems.push(msg);
+      }
+
+      // Phase 2 — single round-trip for all cache misses this pass.
+      if (batchItems.length > 0) {
+        try {
+          const tCallStart = performance.now();
+          const resp = await sendToBackground({ type: 'verifyFragmentBatch', items: batchItems, debug: QURAN_DEBUG_TRACE });
+          T.verifyMs += performance.now() - tCallStart;
+          T.roundTrips++;
+          if (resp && typeof resp._bgMs === 'number') T.bgMs += resp._bgMs;
+          const results = (resp && Array.isArray(resp.results)) ? resp.results : [];
+          for (let b = 0; b < batchKeys.length; b++) {
+            verdictCache.set(batchKeys[b], results[b] ?? null);
+            T.verifyCalls++;
+          }
+        } catch (e) {
+          console.warn('[QuranExt] batch verification error:', e);
+        }
+      }
+
+      // Phase 3 — apply verdicts in candidate order so finding order, the
+      // SCAN_CAP cutoff, and live SCAN_PROGRESS all behave exactly as before.
+      for (let i = 0; i < candidates.length; i++) {
         if (!liftCap && STATE.findings.length >= SCAN_CAP) {
           STATE.capHit = true;
           break;
         }
-
-        try {
-          const msg = candidate.ref
-            ? { type: 'verifyFragmentByRef', text: candidate.text, ref: candidate.ref, candidateConfidence: candidate.confidence, debug: QURAN_DEBUG_TRACE }
-            : { type: 'verifyFragment', text: candidate.text, candidateConfidence: candidate.confidence, debug: QURAN_DEBUG_TRACE };
-          const cacheKey = msg.type + ' ' + msg.text + ' ' +
-            (msg.ref ? JSON.stringify(msg.ref) : '') + ' ' + (msg.candidateConfidence || '');
-          let result;
-          if (verdictCache.has(cacheKey)) {
-            result = verdictCache.get(cacheKey);
-            T.cacheHits++;
-          } else {
-            const tCallStart = performance.now();
-            result = await sendToBackground(msg);
-            T.verifyMs += performance.now() - tCallStart;
-            if (result && typeof result._bgMs === 'number') T.bgMs += result._bgMs;
-            T.verifyCalls++;
-            verdictCache.set(cacheKey, result);
-          }
-          if (QURAN_DEBUG_TRACE) {
-            const r = result || {};
-            dbg('verify', `ref=${JSON.stringify(candidate.ref || null)} → color=${r.color ?? 'null'} matchedRef=${JSON.stringify(r.matchedRef || null)} deviation=${r.deviation || '-'} matchType=${r.matchType || '-'}`);
-            if (Array.isArray(r._trace)) for (const t of r._trace) console.log(`[QD:bg] ${t}`);
-          }
-          if (result && !result.error && result.color) {
-            const span = applyHighlight(candidate, result, { hidden: useHidden });
-            if (span) {
-              const finding = STATE.findings[STATE.findings.length - 1];
-              if (finding && perCategoryCount[result.color] !== undefined) perCategoryCount[result.color]++;
-              // Only emit live progress for single-pass scans (liftCap / mutation rescan).
-              if (!useHidden) {
-                QuranMsg.emit('SCAN_PROGRESS', { scanId, finding, runningCount: STATE.findings.length, perCategoryCount: { ...perCategoryCount } });
-                window.__quranMatches = STATE.findings.slice();
-              }
+        const candidate = candidates[i];
+        const result = verdictCache.get(candKeys[i]) ?? null;
+        if (QURAN_DEBUG_TRACE) {
+          const r = result || {};
+          dbg('verify', `ref=${JSON.stringify(candidate.ref || null)} → color=${r.color ?? 'null'} matchedRef=${JSON.stringify(r.matchedRef || null)} deviation=${r.deviation || '-'} matchType=${r.matchType || '-'}`);
+          if (Array.isArray(r._trace)) for (const t of r._trace) console.log(`[QD:bg] ${t}`);
+        }
+        if (result && !result.error && result.color) {
+          const span = applyHighlight(candidate, result, { hidden: useHidden });
+          if (span) {
+            const finding = STATE.findings[STATE.findings.length - 1];
+            if (finding && perCategoryCount[result.color] !== undefined) perCategoryCount[result.color]++;
+            // Only emit live progress for single-pass scans (liftCap / mutation rescan).
+            if (!useHidden) {
+              QuranMsg.emit('SCAN_PROGRESS', { scanId, finding, runningCount: STATE.findings.length, perCategoryCount: { ...perCategoryCount } });
+              window.__quranMatches = STATE.findings.slice();
             }
-          } else if (result?.color === null || result?.color === undefined) {
-            STATS.candidatesDroppedSilently++;
           }
-        } catch (e) {
-          console.warn('[QuranExt] verification error:', candidate.text, e);
+        } else if (result?.color === null || result?.color === undefined) {
+          STATS.candidatesDroppedSilently++;
         }
       }
 
@@ -1124,7 +1151,7 @@ async function scanPage({ liftCap = false, subtreeRoot = null } = {}) {
     `walk=${Math.round(T.walkMs)}ms extract=${Math.round(T.extractMs)}ms ` +
     `verify=${Math.round(T.verifyMs)}ms (${T.verifyCalls} calls, ` +
     `avg=${T.verifyCalls ? (T.verifyMs / T.verifyCalls).toFixed(1) : 0}ms/call, ` +
-    `bgCompute=${Math.round(T.bgMs)}ms, ${T.cacheHits} cacheHits) ` +
+    `bgCompute=${Math.round(T.bgMs)}ms, ${T.cacheHits} cacheHits, ${T.roundTrips} roundTrips) ` +
     `findings=${STATE.findings.length}`
   );
 
@@ -1895,6 +1922,9 @@ document.addEventListener('click', (e) => {
 //   - Reference markers  → full ayah text in the selected Quran font.
 //   - Highlight spans     → the classification tooltip (verdict) in the UI font.
 let refTipEl = null;
+// The highlight span currently under the pointer/focus, so an async tooltip
+// enrichment (lazy alternate-ref lookup) only re-renders if still hovered.
+let currentTipAnchor = null;
 function ensureRefTip() {
   if (refTipEl && document.body.contains(refTipEl)) return refTipEl;
   refTipEl = document.createElement('div');
@@ -1906,6 +1936,7 @@ function ensureRefTip() {
 // Show the tooltip for an anchor element. `verdict` selects the highlight
 // styling (UI font, multi-line) vs. the reference styling (Quran font).
 function showTipFor(anchor, verdict) {
+  currentTipAnchor = anchor;
   const text = anchor.dataset.tooltip;
   if (!text) return;
   const tip = ensureRefTip();
@@ -1927,8 +1958,35 @@ function showTipFor(anchor, verdict) {
   tip.style.top = `${top}px`;
   tip.style.left = `${left}px`;
   tip.style.visibility = 'visible';
+  if (verdict) maybeEnrichGreenTip(anchor);
 }
-function hideRefTip() { if (refTipEl) refTipEl.style.display = 'none'; }
+function hideRefTip() { currentTipAnchor = null; if (refTipEl) refTipEl.style.display = 'none'; }
+
+// Lazy companion to the deferred green verify path: the "also/partially
+// appears in …" lines are computed on first hover (one cheap bg round-trip)
+// rather than during every scan, then cached back onto the span's tooltip so
+// later hovers are instant. Only green findings carry these extra lines.
+async function maybeEnrichGreenTip(anchor) {
+  if (anchor.dataset.color !== 'green' || anchor.dataset.tipEnriched) return;
+  anchor.dataset.tipEnriched = '1'; // also dedupes concurrent in-flight fetches
+  const text = anchor.dataset.originalText;
+  if (!text) return;
+  let resp;
+  try { resp = await sendToBackground({ type: 'alternateRefs', text }); }
+  catch (_) { delete anchor.dataset.tipEnriched; return; } // allow retry next hover
+  const matchedRef = anchor.dataset.matchedRef || '';
+  const otherExact = (resp?.allExactRefs || []).filter(r => r !== matchedRef);
+  const partial = resp?.allPartialRefs || [];
+  if (otherExact.length === 0 && partial.length === 0) return;
+  let tip = anchor.dataset.tooltip || matchedRef || tt('tip_match');
+  if (otherExact.length > 0) tip += '\n' + tt('tip_also_in', { refs: otherExact.join(' • ') });
+  if (partial.length > 0) tip += '\n' + tt('tip_partial_in', { refs: partial.join(' • ') });
+  anchor.dataset.tooltip = tip;
+  // Re-render only if this anchor is still the hovered one (the pointer may
+  // have moved away during the await); showTipFor short-circuits the re-entry
+  // because tipEnriched is now set.
+  if (currentTipAnchor === anchor) showTipFor(anchor, true);
+}
 
 // Resolve an event target to a tooltip anchor: a reference marker (verdict
 // false) or a highlight span (verdict true). Returns null for neither.
