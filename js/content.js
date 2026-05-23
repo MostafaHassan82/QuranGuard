@@ -1982,6 +1982,14 @@ async function maybeEnrichGreenTip(anchor) {
   if (otherExact.length > 0) tip += '\n' + tt('tip_also_in', { refs: otherExact.join(' • ') });
   if (partial.length > 0) tip += '\n' + tt('tip_partial_in', { refs: partial.join(' • ') });
   anchor.dataset.tooltip = tip;
+  // Keep the screen-reader label in sync (mirrors the scan-time construction):
+  // a keyboard/SR user focusing a green span should hear the "also/partially
+  // in …" lines too. The fetch is async, so the very first focus may announce
+  // the base label; the enriched label is in place for any later focus.
+  const color = anchor.dataset.color;
+  if (color && CATEGORY_LABEL_AR[color]) {
+    anchor.setAttribute('aria-label', tt('cat_' + color) + '. ' + tip);
+  }
   // Re-render only if this anchor is still the hovered one (the pointer may
   // have moved away during the await); showTipFor short-circuits the re-entry
   // because tipEnriched is now set.
