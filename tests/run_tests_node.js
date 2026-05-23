@@ -461,10 +461,15 @@ function compare(observed, expected) {
   for (const k of ['greenMatches', 'lightBlueMatches', 'yellowMatches', 'orangeMatches', 'redMatches', 'totalFindings']) {
     if ((os[k] || 0) !== (es[k] || 0)) diffs.push(`  stat ${k}: expected ${es[k] || 0}, got ${os[k] || 0}`);
   }
-  const ok = (arr) => new Set((arr || []).map(m => m.text + ' ' + m.color));
-  const obs = ok(observed.matches), exp = ok(expected.matches);
-  for (const k of exp) if (!obs.has(k)) diffs.push(`  MISSING [${k.split(' ')[1]}]: ${k.split(' ')[0].slice(0, 60)}`);
-  for (const k of obs) if (!exp.has(k)) diffs.push(`  EXTRA   [${k.split(' ')[1]}]: ${k.split(' ')[0].slice(0, 60)}`);
+  // Match-level check only when the fixture declares a `matches` array. Stats-
+  // only fixtures (omit `matches`) validate counts alone — the lightweight form
+  // used when bulk-converting verified pages from their console [stats] line.
+  if (expected.matches !== undefined) {
+    const ok = (arr) => new Set((arr || []).map(m => m.text + ' ' + m.color));
+    const obs = ok(observed.matches), exp = ok(expected.matches);
+    for (const k of exp) if (!obs.has(k)) diffs.push(`  MISSING [${k.split(' ')[1]}]: ${k.split(' ')[0].slice(0, 60)}`);
+    for (const k of obs) if (!exp.has(k)) diffs.push(`  EXTRA   [${k.split(' ')[1]}]: ${k.split(' ')[0].slice(0, 60)}`);
+  }
   return { passed: diffs.length === 0, diffs };
 }
 
