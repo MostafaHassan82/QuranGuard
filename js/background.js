@@ -1266,12 +1266,15 @@ chrome.runtime.onMessage.addListener((msg, sender) => {
 
 // ── Lifecycle ─────────────────────────────────────────────────────────────────
 
+// Go through ensureInitialized (NOT loadAndIndex directly) so install,
+// activate, and the top-level warm-up below all share the one initPromise —
+// otherwise a fresh install/reload races 2–3 concurrent full index builds.
 self.addEventListener('install', () => {
-  loadAndIndex().catch(err => console.error('[QuranExt] install index load failed:', err));
+  ensureInitialized().catch(err => console.error('[QuranExt] install index load failed:', err));
 });
 
 self.addEventListener('activate', () => {
-  loadAndIndex().catch(err => console.error('[QuranExt] activate index load failed:', err));
+  ensureInitialized().catch(err => console.error('[QuranExt] activate index load failed:', err));
 });
 
 // Eager warm-up on every worker startup. `install`/`activate` only fire on
