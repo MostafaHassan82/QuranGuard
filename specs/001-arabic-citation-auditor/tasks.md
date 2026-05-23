@@ -612,6 +612,18 @@ the five-color taxonomy changed; the Node suite stayed 16/16 throughout.
   existing fixture. Per-match detail (text/refs/color for the `matches` array)
   comes from the `[findings]` debug dump.
 
+- [X] T128 **MutationObserver runaway-rescan circuit breaker.** A page whose
+  framework (React/Vue/…) re-renders its DOM over our highlights creates a
+  rescan↔re-render loop: we wrap a citation → the page re-inserts its OWN nodes
+  (observed: `#text"" | a. | #text""` every ~500ms = our debounce) → our
+  observer rescans → re-wrap → … forever (the filter can't tell the page's
+  re-inserted nodes from genuine new content). Fix: (a) ignore mutations while
+  `STATE.scanning` (our own wrapping/decoration no longer queues a phantom
+  rescan); (b) circuit breaker — >`MUT_MAX_RESCANS` (8) rescans within
+  `MUT_WINDOW_MS` (5s) pauses the observer with a `[mutation]` warning. Added a
+  debug `[mutation]` trigger log (added-node sample) for diagnosis. Overlaps the
+  Codex T099 observer rework but is a distinct stability fix.
+
 ### Open follow-up (Phase 11)
 - [ ] T125 **Decide whether to precompute normalized index fields.** Measured:
   shipping precomputed `tier1Words`/`skelWords`/`uthmaniWords` cuts build

@@ -932,6 +932,11 @@ const SCAN_CAP = 500;
 // (stop when finding count is unchanged between passes); this cap prevents
 // runaway loops on pathological pages.
 const SCAN_SAFETY_MAX = 10;
+// MutationObserver circuit breaker: if more than MUT_MAX_RESCANS subtree
+// rescans fire within MUT_WINDOW_MS, pause the observer (a page framework is
+// re-rendering over our highlights in a loop we can't otherwise detect).
+const MUT_MAX_RESCANS = 8;
+const MUT_WINDOW_MS = 5000;
 
 // ── Main scan orchestrator (T017, T022, T023, T024, T025) ────────────────────
 
@@ -1323,6 +1328,10 @@ function setupMutationObserver() {
   if (STATE.mutationObserver) STATE.mutationObserver.disconnect();
 
   STATE.mutationObserver = new MutationObserver(mutations => {
+    // Ignore mutations we cause ourselves: those observed mid-scan (our own
+    // highlight wrapping / ref decoration) and swap-engine text edits. Without
+    // this they queue a phantom rescan after the scan finishes.
+    if (STATE.scanning) return;
     // T058z — ignore mutations the swap engine just generated. Without this
     // gate the swap text mutations would trigger a phantom rescan that
     // re-walks authentic text instead of the page's original wording.
@@ -1346,9 +1355,37 @@ function setupMutationObserver() {
       roots.add(m.target);
     }
     if (roots.size === 0) return;
+    // Diagnostic (debug): what's driving the rescan — our own highlight/swap
+    // nodes (a feedback loop) or the page's own dynamic content?
+    if (QuranLog.enabled('debug')) {
+      const sample = [];
+      for (const m of mutations) {
+        for (const n of m.addedNodes) {
+          if (sample.length >= 6) break;
+          sample.push(n.nodeType === 1 ? `${n.tagName.toLowerCase()}.${(n.className || '').toString().slice(0, 40)}` : `#text"${(n.textContent || '').trim().slice(0, 25)}"`);
+        }
+      }
+      QuranLog.scope('mutation').debug(`rescan trigger: ${mutations.length} mutations, ${roots.size} roots; added: ${sample.join(' | ')}`);
+    }
     clearTimeout(STATE.mutationDebounceTimer);
     STATE.mutationDebounceTimer = setTimeout(() => {
       if (STATE.scanning) return;
+      // Circuit breaker: a page framework (React/Vue/…) that re-renders its DOM
+      // over our highlights creates a rescan↔re-render loop our filter can't
+      // detect (the page re-inserts its OWN nodes, not ours). Cap rescans in a
+      // sliding window; if exceeded, pause the observer rather than spin forever.
+      const now = performance.now();
+      STATE.rescanTimes = (STATE.rescanTimes || []).filter(t => now - t < MUT_WINDOW_MS);
+      STATE.rescanTimes.push(now);
+      if (STATE.rescanTimes.length > MUT_MAX_RESCANS) {
+        QuranLog.scope('mutation').warn(
+          `runaway rescan loop (>${MUT_MAX_RESCANS}/${MUT_WINDOW_MS / 1000}s) — pausing the ` +
+          `MutationObserver; likely a page framework re-rendering over our highlights. Re-scan manually if needed.`
+        );
+        STATE.mutationObserver.disconnect();
+        STATE.mutationObserver = null;
+        return;
+      }
       STATS.mutationRescans++;
       for (const root of roots) {
         scanPage({ subtreeRoot: root }).catch(() => {});
