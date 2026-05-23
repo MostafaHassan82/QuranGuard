@@ -949,6 +949,14 @@ async function scanPage({ liftCap = false, subtreeRoot = null } = {}) {
   const maxPasses = isFreshFull ? SCAN_SAFETY_MAX : 1;
   let prevCount = -1;
 
+  // ── Timing instrumentation (paste the [QuranExt][timing] summary to profile) ──
+  const T = { passes: 0, pingMs: 0, extractMs: 0, verifyMs: 0, bgMs: 0, verifyCalls: 0, cacheHits: 0, walkMs: 0, materializeMs: 0 };
+
+  // Verdict memo for the convergence loop. A verdict is a pure function of
+  // (type, text, ref, confidence) and the static Quran index, so candidates that
+  // recur across passes (the common case) skip the service-worker round-trip.
+  const verdictCache = new Map();
+
   // Language gate — only needs to run once.
   if (isFreshFull) {
     const lang = detectLanguage();
@@ -992,8 +1000,13 @@ async function scanPage({ liftCap = false, subtreeRoot = null } = {}) {
     STATS = makeEmptyStats();
 
     try {
-      if (pass === 1) await sendToBackground({ type: 'ping' }).catch(() => {});
+      if (pass === 1) {
+        const tPing = performance.now();
+        await sendToBackground({ type: 'ping' }).catch(() => {});
+        T.pingMs = performance.now() - tPing;
+      }
 
+      const tExtractStart = performance.now();
       const root = subtreeRoot || document.body;
       const walker = createTextWalker(root);
       const textNodes = [];
@@ -1001,11 +1014,15 @@ async function scanPage({ liftCap = false, subtreeRoot = null } = {}) {
       while ((node = walker.nextNode())) textNodes.push(node);
 
       if (textNodes.length === 0) break;
+      const tWalkDone = performance.now();
 
       const { combined, map } = buildVirtualText(textNodes);
       const candidates = runExtractionStrategies(textNodes, combined, map);
+      const tExtractDone = performance.now();
+      T.walkMs += tWalkDone - tExtractStart;
+      T.extractMs += tExtractDone - tWalkDone;
       STATS.candidatesExtracted = candidates.length;
-      console.log(`[QuranExt] pass ${pass}: nodes=${textNodes.length} candidates=${candidates.length}`);
+      if (QURAN_DEBUG_TRACE) console.log(`[QuranExt] pass ${pass}: nodes=${textNodes.length} candidates=${candidates.length} walk=${Math.round(tWalkDone - tExtractStart)}ms extract=${Math.round(tExtractDone - tWalkDone)}ms`);
 
       if (QURAN_DEBUG_TRACE) {
         dbg('scan', `pass=${pass} nodes=${textNodes.length} combinedLen=${combined.length} candidates=${candidates.length}`);
@@ -1020,6 +1037,7 @@ async function scanPage({ liftCap = false, subtreeRoot = null } = {}) {
 
       const perCategoryCount = { green: 0, lightBlue: 0, lightGreen: 0, yellow: 0, orange: 0, red: 0 };
 
+      const tVerifyStart = performance.now();
       for (const candidate of candidates) {
         if (!liftCap && STATE.findings.length >= SCAN_CAP) {
           STATE.capHit = true;
@@ -1030,7 +1048,20 @@ async function scanPage({ liftCap = false, subtreeRoot = null } = {}) {
           const msg = candidate.ref
             ? { type: 'verifyFragmentByRef', text: candidate.text, ref: candidate.ref, candidateConfidence: candidate.confidence, debug: QURAN_DEBUG_TRACE }
             : { type: 'verifyFragment', text: candidate.text, candidateConfidence: candidate.confidence, debug: QURAN_DEBUG_TRACE };
-          const result = await sendToBackground(msg);
+          const cacheKey = msg.type + ' ' + msg.text + ' ' +
+            (msg.ref ? JSON.stringify(msg.ref) : '') + ' ' + (msg.candidateConfidence || '');
+          let result;
+          if (verdictCache.has(cacheKey)) {
+            result = verdictCache.get(cacheKey);
+            T.cacheHits++;
+          } else {
+            const tCallStart = performance.now();
+            result = await sendToBackground(msg);
+            T.verifyMs += performance.now() - tCallStart;
+            if (result && typeof result._bgMs === 'number') T.bgMs += result._bgMs;
+            T.verifyCalls++;
+            verdictCache.set(cacheKey, result);
+          }
           if (QURAN_DEBUG_TRACE) {
             const r = result || {};
             dbg('verify', `ref=${JSON.stringify(candidate.ref || null)} → color=${r.color ?? 'null'} matchedRef=${JSON.stringify(r.matchedRef || null)} deviation=${r.deviation || '-'} matchType=${r.matchType || '-'}`);
@@ -1055,6 +1086,10 @@ async function scanPage({ liftCap = false, subtreeRoot = null } = {}) {
         }
       }
 
+      const tVerifyDone = performance.now();
+      T.passes = pass;
+      if (QURAN_DEBUG_TRACE) console.log(`[QuranExt] pass ${pass}: verifyLoop=${Math.round(tVerifyDone - tVerifyStart)}ms over ${candidates.length} candidates`);
+
       // Converged? stop early. Otherwise record count and run another pass.
       const currentCount = STATE.findings.length;
       if (currentCount === prevCount) {
@@ -1070,13 +1105,28 @@ async function scanPage({ liftCap = false, subtreeRoot = null } = {}) {
   }
 
   // Reveal all hidden highlights at once — no flicker.
-  if (isFreshFull) materializeHighlights();
+  if (isFreshFull) {
+    const tMat = performance.now();
+    materializeHighlights();
+    T.materializeMs = performance.now() - tMat;
+  }
   // Cap notification (after materialization so it fires with visible highlights).
   if (STATE.capHit) {
     const perCategoryCount = { green: 0, lightBlue: 0, lightGreen: 0, yellow: 0, orange: 0, red: 0 };
     for (const f of STATE.findings) { if (perCategoryCount[f.color] !== undefined) perCategoryCount[f.color]++; }
     QuranMsg.emit('SCAN_CAP_HIT', { scanId, cap: SCAN_CAP, perCategoryCount });
   }
+
+  const totalMs = Math.round(Date.now() - startTime);
+  console.log(
+    `[QuranExt][timing] total=${totalMs}ms passes=${T.passes} ` +
+    `ping=${Math.round(T.pingMs)}ms materialize=${Math.round(T.materializeMs)}ms ` +
+    `walk=${Math.round(T.walkMs)}ms extract=${Math.round(T.extractMs)}ms ` +
+    `verify=${Math.round(T.verifyMs)}ms (${T.verifyCalls} calls, ` +
+    `avg=${T.verifyCalls ? (T.verifyMs / T.verifyCalls).toFixed(1) : 0}ms/call, ` +
+    `bgCompute=${Math.round(T.bgMs)}ms, ${T.cacheHits} cacheHits) ` +
+    `findings=${STATE.findings.length}`
+  );
 
   emitComplete(scanId, startedAt, startTime);
   await sendToBackground({ type: 'logFindings', findings: STATE.findings }).catch(() => {});

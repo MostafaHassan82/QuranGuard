@@ -53,7 +53,12 @@ async function broadcastToContent(type, payload) {
 // ── Data loading (T011 fail-loud + T015 wire indexes) ────────────────────────
 
 async function loadAndIndex() {
-  const url = chrome.runtime.getURL('resources/quran-uthmani_desc-v2.json');
+  // Minimal index source: only the fields QuranIndexes.build reads
+  // (sura index/name, aya index/text, meta.chaptersNames). The full
+  // *_desc-v2.json carries a per-ayah `words` breakdown nothing reads, which
+  // made it ~7.4× larger (11.3MB vs 1.5MB) and dominated cold-start
+  // fetch+parse. Regenerate via `python scripts/build-min-json.py`.
+  const url = chrome.runtime.getURL('resources/quran-uthmani_min-v2.json');
   let data;
   try {
     const resp = await fetch(url);
@@ -78,11 +83,13 @@ async function loadAndIndex() {
     throw err;
   }
 
+  const tBuild = performance.now();
   indexes = QuranIndexes.build(data);
+  const buildMs = Math.round(performance.now() - tBuild);
   dataState = 'ready';
   dataError = null;
   console.log(
-    `[QuranExt] Index ready — verses: ${indexes.byTier1Norm.size}, ` +
+    `[QuranExt] Index ready in ${buildMs}ms — verses: ${indexes.byTier1Norm.size}, ` +
     `tier1 words: ${indexes.wordIndex.size}, surahs: ${Object.keys(indexes.byRef).length}`
   );
 }
@@ -1109,10 +1116,18 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   ensureInitialized()
     .then(() => {
       switch (msg.type) {
-        case 'verifyFragment':
-          return verifyFragment(msg.text, msg.candidateConfidence);
-        case 'verifyFragmentByRef':
-          return verifyFragmentByRef(msg.text, msg.ref, msg.candidateConfidence, !!msg.debug);
+        case 'verifyFragment': {
+          const t0 = performance.now();
+          const r = verifyFragment(msg.text, msg.candidateConfidence);
+          if (r) r._bgMs = +(performance.now() - t0).toFixed(2);
+          return r;
+        }
+        case 'verifyFragmentByRef': {
+          const t0 = performance.now();
+          const r = verifyFragmentByRef(msg.text, msg.ref, msg.candidateConfidence, !!msg.debug);
+          if (r) r._bgMs = +(performance.now() - t0).toFixed(2);
+          return r;
+        }
         case 'resolveReference': {
           // Accept the ref at top level (legacy sendToBackground) or inside the
           // envelope payload (QuranMsg.sendRequest from the panel).
@@ -1199,3 +1214,11 @@ self.addEventListener('install', () => {
 self.addEventListener('activate', () => {
   loadAndIndex().catch(err => console.error('[QuranExt] activate index load failed:', err));
 });
+
+// Eager warm-up on every worker startup. `install`/`activate` only fire on
+// (re)install, NOT when the worker is woken from eviction by an incoming
+// message — so without this, the first scan after an idle eviction would build
+// the index synchronously mid-scan (the ~6s cold-start spike). Kicking off the
+// build at top-level script evaluation runs on every wake; ensureInitialized()
+// awaits the same initPromise, so verify calls never trigger a second build.
+ensureInitialized().catch(() => {});
