@@ -620,9 +620,14 @@ the five-color taxonomy changed; the Node suite stayed 16/16 throughout.
   re-inserted nodes from genuine new content). Fix: (a) ignore mutations while
   `STATE.scanning` (our own wrapping/decoration no longer queues a phantom
   rescan); (b) circuit breaker — >`MUT_MAX_RESCANS` (8) rescans within
-  `MUT_WINDOW_MS` (5s) pauses the observer with a `[mutation]` warning. Added a
-  debug `[mutation]` trigger log (added-node sample) for diagnosis. Overlaps the
-  Codex T099 observer rework but is a distinct stability fix.
+  `MUT_WINDOW_MS` (5s) pauses the observer with a `[mutation]` warning; (c)
+  no-progress breaker — the rate cap missed *slow* loops, so if the finding set
+  (ids+colors) is identical for `MUT_MAX_NOPROGRESS` (2) consecutive rescans,
+  pause (a re-render fight produces no new findings; a genuinely-updating page
+  changes them and keeps rescanning). Verified on a jQuery page: settles at
+  initial + 2 rescans then pauses. Added a debug `[mutation]` trigger log
+  (added-node sample) for diagnosis. Overlaps the Codex T099 observer rework but
+  is a distinct stability fix.
 
 ### Open follow-up (Phase 11)
 - [ ] T125 **Decide whether to precompute normalized index fields.** Measured:

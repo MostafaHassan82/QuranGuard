@@ -937,6 +937,10 @@ const SCAN_SAFETY_MAX = 10;
 // re-rendering over our highlights in a loop we can't otherwise detect).
 const MUT_MAX_RESCANS = 8;
 const MUT_WINDOW_MS = 5000;
+// Pause the observer after this many consecutive rescans that produce the
+// IDENTICAL finding set — that's a page re-rendering over our highlights (a
+// no-win fight), not real new content. Catches slow loops the rate cap misses.
+const MUT_MAX_NOPROGRESS = 2;
 
 // ── Main scan orchestrator (T017, T022, T023, T024, T025) ────────────────────
 
@@ -1326,6 +1330,11 @@ function updateWindowGlobals(scanId, startedAt, payload) {
 
 function setupMutationObserver() {
   if (STATE.mutationObserver) STATE.mutationObserver.disconnect();
+  // Seed the no-progress baseline with the initial scan's findings so the first
+  // rescan that changes nothing already counts toward the no-progress streak.
+  STATE.lastRescanSig = STATE.findings.map(f => `${f.id}:${f.color}`).sort().join('|');
+  STATE.noProgressRescans = 0;
+  STATE.rescanTimes = [];
 
   STATE.mutationObserver = new MutationObserver(mutations => {
     // Ignore mutations we cause ourselves: those observed mid-scan (our own
@@ -1368,27 +1377,39 @@ function setupMutationObserver() {
       QuranLog.scope('mutation').debug(`rescan trigger: ${mutations.length} mutations, ${roots.size} roots; added: ${sample.join(' | ')}`);
     }
     clearTimeout(STATE.mutationDebounceTimer);
-    STATE.mutationDebounceTimer = setTimeout(() => {
+    STATE.mutationDebounceTimer = setTimeout(async () => {
       if (STATE.scanning) return;
-      // Circuit breaker: a page framework (React/Vue/…) that re-renders its DOM
-      // over our highlights creates a rescan↔re-render loop our filter can't
-      // detect (the page re-inserts its OWN nodes, not ours). Cap rescans in a
-      // sliding window; if exceeded, pause the observer rather than spin forever.
+      const pause = (why) => {
+        // info, not warn: pausing is a normal, handled outcome (not an error),
+        // and console.warn renders an alarming stack trace for it.
+        QuranLog.scope('mutation').info(`${why} — pausing the MutationObserver; re-scan manually if needed.`);
+        if (STATE.mutationObserver) { STATE.mutationObserver.disconnect(); STATE.mutationObserver = null; }
+      };
+      // Rate breaker: a fast rescan↔re-render loop (page framework re-inserting
+      // its OWN nodes over our highlights — our filter can't detect those).
       const now = performance.now();
       STATE.rescanTimes = (STATE.rescanTimes || []).filter(t => now - t < MUT_WINDOW_MS);
       STATE.rescanTimes.push(now);
       if (STATE.rescanTimes.length > MUT_MAX_RESCANS) {
-        QuranLog.scope('mutation').warn(
-          `runaway rescan loop (>${MUT_MAX_RESCANS}/${MUT_WINDOW_MS / 1000}s) — pausing the ` +
-          `MutationObserver; likely a page framework re-rendering over our highlights. Re-scan manually if needed.`
-        );
-        STATE.mutationObserver.disconnect();
-        STATE.mutationObserver = null;
+        pause(`runaway rescan loop (>${MUT_MAX_RESCANS}/${MUT_WINDOW_MS / 1000}s)`);
         return;
       }
       STATS.mutationRescans++;
       for (const root of roots) {
-        scanPage({ subtreeRoot: root }).catch(() => {});
+        await scanPage({ subtreeRoot: root }).catch(() => {});
+      }
+      // No-progress breaker: a SLOW re-render fight evades the rate cap, but its
+      // rescans never change the findings. If the finding set is identical for
+      // MUT_MAX_NOPROGRESS consecutive rescans, stop. A genuinely-updating page
+      // changes findings → resets the streak → keeps rescanning.
+      const sig = STATE.findings.map(f => `${f.id}:${f.color}`).sort().join('|');
+      if (sig === STATE.lastRescanSig) {
+        if ((STATE.noProgressRescans = (STATE.noProgressRescans || 0) + 1) >= MUT_MAX_NOPROGRESS) {
+          pause('rescans are not changing the findings (page re-rendering over our highlights)');
+        }
+      } else {
+        STATE.noProgressRescans = 0;
+        STATE.lastRescanSig = sig;
       }
     }, 500);
   });
