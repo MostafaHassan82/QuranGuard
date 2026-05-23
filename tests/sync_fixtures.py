@@ -253,10 +253,12 @@ def main():
     if not staged:
         print('\n  Nothing to commit (all fixtures already present and identical).')
         return 0
-    ids = ' '.join(fid for fid, _ in created) or '(metadata only)'
-    msg = (f'test: sync {len(created)} fixture(s) via sync_fixtures.py\n\n'
-           f'created/validated: {ids}\n'
-           f'matched (metadata ok): {", ".join(fid for fid, _ in matched) or "none"}\n\n'
+    # Message reflects what's actually staged (robust to re-runs, where the
+    # `created` list is empty but files from a prior run are now committed).
+    staged_ids = sorted({os.path.basename(f).split('.')[0] for f in staged.splitlines()
+                         if f.endswith('.expected.json')})
+    msg = (f'test: sync {len(staged_ids)} fixture(s) via sync_fixtures.py\n\n'
+           f'fixtures: {" ".join(staged_ids)}\n\n'
            f'Co-Authored-By: Claude Opus 4.7 <noreply@anthropic.com>')
     r = subprocess.run(['git', 'commit', '-F', '-'], cwd=PROJECT_DIR, input=msg,
                        capture_output=True, text=True)
