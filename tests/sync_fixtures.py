@@ -139,7 +139,14 @@ def main():
     ap.add_argument('input', nargs='?', help='File with [stats] lines (default: stdin)')
     ap.add_argument('--secure', action='store_true', help='Enable TLS verification on fetch (off by default)')
     ap.add_argument('--no-validate', action='store_true', help='Skip running the Node harness')
+    ap.add_argument('--commit', action='store_true',
+                    help='git add tests/fixtures + commit IFF the run is clean '
+                         '(every created fixture validated, no DIFF/ERROR rows). '
+                         'Implies validation. Refuses to commit a dirty run.')
     args = ap.parse_args()
+    if args.commit and args.no_validate:
+        print('--commit requires validation; ignoring --no-validate.')
+        args.no_validate = False
 
     text = open(args.input, encoding='utf-8').read() if args.input else sys.stdin.read()
     items = parse_batch(text)
@@ -214,8 +221,39 @@ def main():
     if not args.no_validate:
         total = sum(1 for v in harness.values() if v == 'PASS')
         print(f'  harness: {total}/{len(harness)} fixtures passed')
-    if created or matched:
-        print('\n  Review the new/updated files, then commit tests/fixtures/.')
+
+    created_ok = all(harness.get(fid) == 'PASS' for fid, _ in created)
+    clean = (not diffs) and (not errors) and created_ok
+    if not args.commit:
+        if created or matched:
+            print('\n  Review the new/updated files, then commit tests/fixtures/ (or re-run with --commit).')
+        return 0 if clean else 1
+
+    # --commit: only on a clean run; never commit a dirty/uncertain one.
+    if not clean:
+        print('\n  NOT committing — run is not clean (see DIFF/ERROR/validation rows above). '
+              'Fix the flagged items, then re-run.')
+        return 1
+    git = lambda *a: subprocess.run(['git', *a], cwd=PROJECT_DIR, capture_output=True, text=True)
+    git('add', 'tests/fixtures')
+    staged = git('diff', '--cached', '--name-only').stdout.strip()
+    if not staged:
+        print('\n  Nothing to commit (all fixtures already present and identical).')
+        return 0
+    ids = ' '.join(fid for fid, _ in created) or '(metadata only)'
+    msg = (f'test: sync {len(created)} fixture(s) via sync_fixtures.py\n\n'
+           f'created/validated: {ids}\n'
+           f'matched (metadata ok): {", ".join(fid for fid, _ in matched) or "none"}\n\n'
+           f'Co-Authored-By: Claude Opus 4.7 <noreply@anthropic.com>')
+    r = subprocess.run(['git', 'commit', '-F', '-'], cwd=PROJECT_DIR, input=msg,
+                       capture_output=True, text=True)
+    if r.returncode == 0:
+        head = subprocess.run(['git', 'log', '--oneline', '-1'], cwd=PROJECT_DIR,
+                              capture_output=True, text=True).stdout.strip()
+        print(f'\n  committed: {head}')
+    else:
+        print(f'\n  commit failed:\n{r.stdout}\n{r.stderr}')
+        return 1
     return 0
 
 

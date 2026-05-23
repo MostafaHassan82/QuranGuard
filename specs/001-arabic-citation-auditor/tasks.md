@@ -639,6 +639,11 @@ the five-color taxonomy changed; the Node suite stayed 16/16 throughout.
   fetched fixture reproduces its stats and prints a box-drawing summary table.
   Stats-only fixtures are supported by the T128-era compare() (skips match check
   when `matches` absent). Replaces the manual create/compare/validate loop.
+  `--commit` commits tests/fixtures itself IFF the run is clean (every created
+  fixture validated, no DIFF/ERROR), refusing a dirty run — so a batch is one
+  command end-to-end. Process: paste the [stats] lines verbatim into a file
+  (never retype/truncate the URLs — the script fetches sourceUrl), then run with
+  --commit.
 
 ### Open follow-up (Phase 11)
 - [ ] T125 **Decide whether to precompute normalized index fields.** Measured:
