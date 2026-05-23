@@ -575,10 +575,15 @@ async function main() {
       const r = await runOne(context, html, '--text', {});
       console.log(JSON.stringify(r, null, 2));
     } else {
+      const walk = (d) => fs.readdirSync(d, { withFileTypes: true }).flatMap(e =>
+        e.isDirectory() ? walk(path.join(d, e.name)) : (e.name.endsWith('.html') ? [path.join(d, e.name)] : []));
+      // --all walks fixtures/; a path arg may be a single .html OR a directory
+      // (e.g. tests/fixtures/pages) which is walked recursively.
       const files = all
-        ? (function walk(d){ return fs.readdirSync(d, { withFileTypes: true }).flatMap(e =>
-            e.isDirectory() ? walk(path.join(d, e.name)) : (e.name.endsWith('.html') ? [path.join(d, e.name)] : [])); })(FIXTURES_DIR)
-        : fixtureArg ? [path.resolve(fixtureArg)] : [];
+        ? walk(FIXTURES_DIR)
+        : fixtureArg
+          ? (fs.statSync(path.resolve(fixtureArg)).isDirectory() ? walk(path.resolve(fixtureArg)) : [path.resolve(fixtureArg)])
+          : [];
       if (files.length === 0) { console.error('Usage: node tests/run_tests_node.js [--all | <fixture.html> | --text "…"]'); process.exit(1); }
       for (const fx of files) {
         const label = path.basename(fx, '.html');
