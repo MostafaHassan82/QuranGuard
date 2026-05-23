@@ -4,6 +4,7 @@
 // Paths are relative to this file's URL (chrome-extension://<id>/js/background.js),
 // so they resolve inside the js/ directory — no 'js/' prefix needed.
 importScripts(
+  'shared/log.js',            // QuranLog (leveled logger)
   'shared/messaging.js',      // QuranMsg
   'verifier/normalize.js',    // QuranNormalize
   'verifier/indexes.js',      // QuranIndexes
@@ -21,14 +22,12 @@ let initPromise = null;
 let dataState = 'pending'; // 'pending' | 'ready' | 'unavailable'
 let dataError = null;      // {reason, detail} when dataState === 'unavailable'
 
-const DEBUG = true;
-function dlog(...args) { if (DEBUG) console.log('[QuranExt]', ...args); }
-
-// Per-batch verify profiling → [QuranExt][bgprofile] in the SERVICE-WORKER
-// console (chrome://extensions → Inspect views: service worker). Independent
-// of the page-side __quranDebug toggle, which needs a MAIN-world shim that
-// strict-CSP pages block. Flip to false to silence once profiling is done.
-const PROFILE_BATCH = false;
+// Lifecycle/diagnostic logging now goes through QuranLog levels (shared/log.js):
+//   info  = worker boot, "Index ready", findings count
+//   debug = per-finding dump, per-batch [bgprofile] breakdown
+//   trace = SW eval marker
+// Raise at runtime in the service-worker console: QuranLog.setLevel('debug').
+function dlog(...args) { QuranLog.debug(...args); }
 
 // ── Index build helpers (using extracted modules) ─────────────────────────────
 
@@ -106,8 +105,8 @@ async function loadAndIndex() {
   dataState = 'ready';
   dataError = null;
   const totalMs = performance.now() - tFetch;
-  console.log(
-    `[QuranExt] Index ready — cold start: fetch=${Math.round(fetchMs)}ms parse=${Math.round(parseMs)}ms ` +
+  QuranLog.scope('index').info(
+    `ready — cold start: fetch=${Math.round(fetchMs)}ms parse=${Math.round(parseMs)}ms ` +
     `build=${Math.round(buildMs)}ms total=${Math.round(totalMs)}ms — verses: ${indexes.byTier1Norm.size}, ` +
     `tier1 words: ${indexes.wordIndex.size}, surahs: ${Object.keys(indexes.byRef).length}`
   );
@@ -1156,11 +1155,11 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           // outweighs the verify compute itself). _bgMs is the batch total.
           const t0 = performance.now();
           const items = Array.isArray(msg.items) ? msg.items : [];
-          // When debug is on, time each item so we can see where the now-
+          // At debug level, time each item so we can see where the now-
           // dominant bgCompute goes. Cost tracks how far through the strategy
           // gauntlet a candidate runs: exact/lightBlue short-circuit cheaply;
           // none/yellow ran every search (exact→multi→ordered→soft→wordLevel).
-          const prof = (PROFILE_BATCH || msg.debug) ? [] : null;
+          const prof = QuranLog.enabled('debug') ? [] : null;
           const results = items.map(it => {
             const ts = prof ? performance.now() : 0;
             const r = it.type === 'verifyFragmentByRef'
@@ -1177,17 +1176,17 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
               (byKey[k] ||= { n: 0, ms: 0, max: 0 });
               byKey[k].n++; byKey[k].ms += p.ms; if (p.ms > byKey[k].max) byKey[k].max = p.ms;
             }
-            // Emit the whole report as ONE log entry (every line carries the
-            // [bgprofile] tag) so a console filter on the tag keeps all of it
-            // and it copies as a single block.
-            const lines = [`[QuranExt][bgprofile] items=${items.length} total=${bgMs}ms`];
+            // Emit the whole report as ONE log entry under the [bgprofile] tag
+            // (the scope prefixes the entry) so a console filter on the tag
+            // keeps all of it and it copies as a single block.
+            const lines = [`items=${items.length} total=${bgMs}ms`];
             for (const [k, v] of Object.entries(byKey).sort((a, b) => b[1].ms - a[1].ms)) {
-              lines.push(`[bgprofile]   ${k}: n=${v.n} sum=${v.ms.toFixed(1)}ms avg=${(v.ms / v.n).toFixed(2)}ms max=${v.max.toFixed(1)}ms`);
+              lines.push(`  ${k}: n=${v.n} sum=${v.ms.toFixed(1)}ms avg=${(v.ms / v.n).toFixed(2)}ms max=${v.max.toFixed(1)}ms`);
             }
             for (const p of prof.slice().sort((a, b) => b.ms - a.ms).slice(0, 5)) {
-              lines.push(`[bgprofile]   slow ${p.ms.toFixed(1)}ms [${p.matchType}/${p.color}] ${p.text.slice(0, 60)}`);
+              lines.push(`  slow ${p.ms.toFixed(1)}ms [${p.matchType}/${p.color}] ${p.text.slice(0, 60)}`);
             }
-            console.log(lines.join('\n'));
+            QuranLog.scope('bgprofile').debug(lines.join('\n'));
           }
           return { results, _bgMs: bgMs };
         }
@@ -1221,20 +1220,25 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         case 'ping':
           return { ok: true, indexReady: indexes !== null };
         case 'logFindings': {
-          const findings = msg.findings || [];
-          console.log(`[QuranExt findings] ${findings.length} total ─────────────`);
-          for (const f of findings) {
-            console.log(
-              `─ #${f.id} [${f.color}]\n` +
-              `  text       : ${f.text}\n` +
-              `  claimedRef : ${f.claimedRef ?? '(none)'}\n` +
-              `  matchedRef : ${f.matchedRef ?? '(none)'}\n` +
-              (f.matchedRefs && f.matchedRefs.length > 1 ? `  matchedRefs: ${f.matchedRefs.join(' • ')}\n` : '') +
-              `  deviation  : ${f.deviation ?? '(none)'}\n` +
-              `  confidence : ${f.confidence}\n` +
-              `  strategy   : ${f.strategy}\n` +
-              (f.authenticText ? `  authentic  : ${f.authenticText}\n` : '')
-            );
+          // Findings dump is its own (debug) level — guard so the strings
+          // aren't built when the level is below debug.
+          if (QuranLog.enabled('debug')) {
+            const flog = QuranLog.scope('findings');
+            const findings = msg.findings || [];
+            flog.debug(`${findings.length} total ─────────────`);
+            for (const f of findings) {
+              flog.debug(
+                `─ #${f.id} [${f.color}]\n` +
+                `  text       : ${f.text}\n` +
+                `  claimedRef : ${f.claimedRef ?? '(none)'}\n` +
+                `  matchedRef : ${f.matchedRef ?? '(none)'}\n` +
+                (f.matchedRefs && f.matchedRefs.length > 1 ? `  matchedRefs: ${f.matchedRefs.join(' • ')}\n` : '') +
+                `  deviation  : ${f.deviation ?? '(none)'}\n` +
+                `  confidence : ${f.confidence}\n` +
+                `  strategy   : ${f.strategy}\n` +
+                (f.authenticText ? `  authentic  : ${f.authenticText}\n` : '')
+              );
+            }
           }
           return { ok: true };
         }
@@ -1283,11 +1287,22 @@ chrome.runtime.onMessage.addListener((msg, sender) => {
 // activate, and the top-level warm-up below all share the one initPromise —
 // otherwise a fresh install/reload races 2–3 concurrent full index builds.
 self.addEventListener('install', () => {
-  ensureInitialized().catch(err => console.error('[QuranExt] install index load failed:', err));
+  ensureInitialized().catch(err => QuranLog.error('install index load failed:', err));
 });
 
 self.addEventListener('activate', () => {
-  ensureInitialized().catch(err => console.error('[QuranExt] activate index load failed:', err));
+  ensureInitialized().catch(err => QuranLog.error('activate index load failed:', err));
+});
+
+// Keep-alive: content scripts hold a long-lived port (see content.js). An open
+// port resets the worker's idle-eviction timer, so while any page with the
+// extension is visible the worker stays warm and skips the cold-start latency
+// (which on a resource-starved browser — e.g. many tabs — was observed at
+// 20–90s). The port carries no messages; its mere existence is the keep-alive.
+chrome.runtime.onConnect.addListener((port) => {
+  if (port.name !== 'quran-keepalive') return;
+  // Listening for disconnect is enough to hold the reference; no work to do.
+  port.onDisconnect.addListener(() => { void chrome.runtime.lastError; });
 });
 
 // Eager warm-up on every worker startup. `install`/`activate` only fire on
@@ -1296,8 +1311,11 @@ self.addEventListener('activate', () => {
 // the index synchronously mid-scan (the ~6s cold-start spike). Kicking off the
 // build at top-level script evaluation runs on every wake; ensureInitialized()
 // awaits the same initPromise, so verify calls never trigger a second build.
-// One line per worker wake — pair it with the "Index ready — cold start"
-// line below to see how often the worker is being evicted/restarted and what
-// each rebuild costs.
-console.log(`[QuranExt] worker boot @ ${new Date().toISOString()}`);
+// info: one line per worker wake — pair it with the "Index ready — cold start"
+// line to see how often the worker is evicted/restarted and what each rebuild
+// costs. trace: a marker right after importScripts; comparing it with the
+// content script's "maybeAutoscan @ …" send time isolates Chrome's
+// worker-START latency (the dominant cold-start cost on a busy browser).
+QuranLog.scope('sw-eval').trace(`post-importScripts @ ${new Date().toISOString()}`);
+QuranLog.scope('boot').info(`worker boot @ ${new Date().toISOString()}`);
 ensureInitialized().catch(() => {});

@@ -526,6 +526,80 @@ for traceability.
 - [X] T112 **Sixth highlight color: Light Green = "corrected" (constitution 2.0.0).** Project owner ratified a sixth highlight color so corrected citations are distinguishable from natively-correct green, separately filterable, and show the prior (wrong) reference → true reference. Light Green is a **provenance** color applied by the correction pathway (`correctInPlace` sets `color: 'lightGreen'` when the verdict is green, keeps `category: 'green'`, and stores `correctedFromRef`); the classifier still freezes the five verdicts. Touched: `content.js` (CSS_BY_COLOR, CATEGORY_LABEL_AR, buildTooltip `tip_corrected`, computeFinalState verified-set, correctInPlace, perCategoryCount tally by color), `render/swap.js` (lightGreen follows green's swap toggle), `storage/prefs.js` (panelFilter.lightGreen), `panel/sidebar-surface.js` (glyph ✎, summary cell, before/after row), `html/sidebar.html` (filter chip), `css/content.css` + `css/sidebar.css` (lime-green styling, dashed underline, swatch/row/chip), `badge.js` (tooltip line), `shared/i18n.js` (cat/chip/stat/tip keys). Docs: constitution Principle II (now "Five Verdicts + One Provenance Color", v2.0.0), CLAUDE.md, data-model.md, contracts/storage.md, window-globals.md, messaging.md.
 - [X] T111 **Badge stops showing finding counts (FR-028).** `js/badge/badge.js` `onScanProgress` now renders the `●` glyph (count moved to tooltip), and `correctInPlace` emits `SCAN_COMPLETE` (not `SCAN_PROGRESS`) so the badge re-settles to `✓`/`!` after a correction instead of getting stuck on a count. (Remaining T104 item: `✗`-on-data-error glyph.)
 
+## Phase 11: Performance, cold-start & observability (2026-05-23)
+
+**Purpose**: a profiling-driven pass on scan latency and service-worker
+cold-start, plus a leveled logger so the diagnostics added along the way stay
+in the tree without spamming the console. Driven by a user report that scans
+sometimes stalled for many seconds (worst observed: 60–91s) before highlights
+appeared. Root cause turned out to be **MV3 service-worker startup latency on a
+resource-starved browser** (user had ~92 tabs), not the verifier — but the
+investigation produced several genuine wins along the way. No verifier logic or
+the five-color taxonomy changed; the Node suite stayed 16/16 throughout.
+
+- [X] T116 **Stripped index JSON (cold start).** The shipped
+  `quran-uthmani_desc-v2.json` (11.3MB) carried a per-ayah `words` array nothing
+  in `js/` reads. Ship `resources/quran-uthmani_min-v2.json` (1.5MB, 7.4×
+  smaller) with only the fields `QuranIndexes.build` consumes; consumed fields
+  are byte-identical so the built index is unchanged. Generator:
+  `scripts/build-min-json.py`. Cut fetch+parse from seconds to ~50ms. (e79c182)
+- [X] T117 **Batch verify into one round-trip.** The scan loop sent one
+  `chrome.runtime` message per candidate (~64 sequential awaits); under worker
+  contention the per-call queueing dominated (verify swung 300ms→5700ms while
+  other pages loaded). New `verifyFragmentBatch` handler verifies all
+  cache-miss candidates server-side in one message; per-pass verdict cache and
+  finding order/cap/progress unchanged. roundTrips ~64→1. (425b106)
+- [X] T118 **Defer green tooltip enrichment to hover.** `verifyFragmentByRef`'s
+  green paths eagerly called `findAllGlobalMatches` (O(words²)-per-verse global
+  fuzzy scan) only to populate the "also/partially appears in …" tooltip lines
+  — ~all of bgCompute (one long verse hit 257ms). Dropped from the verdict
+  path; `content.js` fetches it lazily via a new `alternateRefs` message on
+  first hover and caches it onto the span. bgCompute on a 64-item page ~330ms→25ms.
+  Green span `aria-label` is re-enriched on focus so screen-reader users still
+  get the lines. (425b106, 88a2669)
+- [X] T119 **Dedupe index build on install/activate.** `install`/`activate`
+  called `loadAndIndex()` directly, bypassing the `initPromise` guard, so a
+  fresh install raced 2–3 concurrent builds with the top-level warm-up. Routed
+  both through `ensureInitialized()`. (358b267)
+- [X] T120 **Cold-start fetch/parse/build instrumentation.** Split the "Index
+  ready" log into fetch / parse / build / total + a per-wake "worker boot"
+  marker, so a slow cold start is attributable. Revealed the index build (not
+  fetch/parse) is ~95% of cold start. (f1eed0d)
+- [X] T121 **Cheaper index build (`hasContent`).** The build called the 9-pass
+  `tier1()` on every word (~82k calls) just to drop annotation-only tokens from
+  `uthmaniWords`. Added `QuranNormalize.hasContent(token)` — the cheap
+  equivalent of `tier1(w).length > 0` (verified byte-identical across all
+  82,357 words). Build ~20–25% faster; index unchanged. (fce7b53)
+- [X] T122 **Service-worker keep-alive port.** Diagnosis (timestamp
+  correlation): on a resource-starved browser Chrome took 20–91s to *start* the
+  worker after the content script's first message — the dominant "stall before
+  highlights" cost, entirely upstream of our code. Each VISIBLE page now holds a
+  long-lived `quran-keepalive` port (`chrome.runtime.connect` + `onConnect` in
+  the SW) which resets the worker's idle-eviction timer so it stays warm and
+  skips the cold start. Visible-only (no pinning many idle ports); reconnects on
+  disconnect. Caveat: under real memory pressure Chrome may still evict.
+- [X] T123 **Resilient autoscan PREFS_READ.** Autoscan's single-shot `PREFS_READ`
+  on a cold/slow worker was swallowed (silently no scan) or blocked for the full
+  20–91s hang. `readPrefsResilient` re-kicks `PREFS_READ` every 3s with a fresh
+  message (a new send can start a stuck worker sooner) without abandoning earlier
+  attempts, resolving on the first reply (90s give-up). Recovers the scan reliably.
+- [X] T124 **Leveled, tagged logger (`js/shared/log.js`, `QuranLog`).** Replaces
+  the always-on `DEBUG`/`dlog` and `PROFILE_BATCH` flags. Levels: `info` =
+  lifecycle + per-scan summaries (`[boot]`, `[index]`, `[timing]`, `[autoscan]`),
+  `debug` = heavy diagnostics (`[findings]`, `[bgprofile]`, autoscan per-attempt,
+  `[scan]` convergence), `trace` = `[sw-eval]` marker. `QuranLog.scope(tag)`
+  prefixes `[QuranExt][tag]` for console filtering; raise live with
+  `QuranLog.setLevel('debug')`. Registered in `content_scripts`, background
+  `importScripts`, and the Node harness deps.
+
+### Open follow-up (Phase 11)
+- [ ] T125 **Decide whether to precompute normalized index fields.** Measured:
+  shipping precomputed `tier1Words`/`skelWords`/`uthmaniWords` cuts build
+  220ms→66ms (−70%) but grows the file 1.5MB→4.8MB (parse +26ms; fetch is local
+  so cheap). Deferred because cold start turned out to be worker-START latency,
+  not build — revisit only if the build (not the worker wake) is the bottleneck
+  on a healthy browser.
+
 ## Notes
 
 - **Constitution Principle V** (porting discipline) governs every verifier task. Read the advanced copy at `C:\Users\mosta\PycharmProjects\QuranChromePlugin` to catalog *cases*; redesign the *shape* in the rebuild. Small clean ports of pure data (surah-variant map, normalization tables) are allowed.

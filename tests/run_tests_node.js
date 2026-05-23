@@ -62,6 +62,7 @@ const ORIGIN = 'http://quran.test';
 // background.js would importScripts. We inject the verifier modules FIRST so
 // their globals exist, then neutralize importScripts before background.js runs.
 const BACKGROUND_DEPS = [
+  'js/shared/log.js',
   'js/shared/messaging.js',
   'js/verifier/normalize.js',
   'js/verifier/indexes.js',

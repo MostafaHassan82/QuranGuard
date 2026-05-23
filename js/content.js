@@ -789,7 +789,7 @@ function wrapTextNodes(nodes, startOffset, endOffset, cssClass, dataAttrs) {
     }
     return span;
   } catch (e) {
-    console.warn('[QuranExt] wrapTextNodes error:', e);
+    QuranLog.warn('wrapTextNodes error:', e);
     return null;
   }
 }
@@ -1022,7 +1022,7 @@ async function scanPage({ liftCap = false, subtreeRoot = null } = {}) {
       T.walkMs += tWalkDone - tExtractStart;
       T.extractMs += tExtractDone - tWalkDone;
       STATS.candidatesExtracted = candidates.length;
-      if (QURAN_DEBUG_TRACE) console.log(`[QuranExt] pass ${pass}: nodes=${textNodes.length} candidates=${candidates.length} walk=${Math.round(tWalkDone - tExtractStart)}ms extract=${Math.round(tExtractDone - tWalkDone)}ms`);
+      QuranLog.scope('scan').debug(`pass ${pass}: nodes=${textNodes.length} candidates=${candidates.length} walk=${Math.round(tWalkDone - tExtractStart)}ms extract=${Math.round(tExtractDone - tWalkDone)}ms`);
 
       if (QURAN_DEBUG_TRACE) {
         dbg('scan', `pass=${pass} nodes=${textNodes.length} combinedLen=${combined.length} candidates=${candidates.length}`);
@@ -1079,7 +1079,7 @@ async function scanPage({ liftCap = false, subtreeRoot = null } = {}) {
             T.verifyCalls++;
           }
         } catch (e) {
-          console.warn('[QuranExt] batch verification error:', e);
+          QuranLog.warn('batch verification error:', e);
         }
       }
 
@@ -1115,18 +1115,18 @@ async function scanPage({ liftCap = false, subtreeRoot = null } = {}) {
 
       const tVerifyDone = performance.now();
       T.passes = pass;
-      if (QURAN_DEBUG_TRACE) console.log(`[QuranExt] pass ${pass}: verifyLoop=${Math.round(tVerifyDone - tVerifyStart)}ms over ${candidates.length} candidates`);
+      QuranLog.scope('scan').debug(`pass ${pass}: verifyLoop=${Math.round(tVerifyDone - tVerifyStart)}ms over ${candidates.length} candidates`);
 
       // Converged? stop early. Otherwise record count and run another pass.
       const currentCount = STATE.findings.length;
       if (currentCount === prevCount) {
-        console.log(`[QuranExt] stable at ${currentCount} after pass ${pass}, stopping`);
+        QuranLog.scope('scan').debug(`stable at ${currentCount} after pass ${pass}, stopping`);
         break;
       }
       prevCount = currentCount;
 
     } catch (e) {
-      console.error('[QuranExt] scan error (pass ' + pass + '):', e);
+      QuranLog.error('scan error (pass ' + pass + '):', e);
       break;
     }
   }
@@ -1145,8 +1145,8 @@ async function scanPage({ liftCap = false, subtreeRoot = null } = {}) {
   }
 
   const totalMs = Math.round(Date.now() - startTime);
-  console.log(
-    `[QuranExt][timing] total=${totalMs}ms passes=${T.passes} ` +
+  QuranLog.scope('timing').info(
+    `total=${totalMs}ms passes=${T.passes} ` +
     `ping=${Math.round(T.pingMs)}ms materialize=${Math.round(T.materializeMs)}ms ` +
     `walk=${Math.round(T.walkMs)}ms extract=${Math.round(T.extractMs)}ms ` +
     `verify=${Math.round(T.verifyMs)}ms (${T.verifyCalls} calls, ` +
@@ -1361,27 +1361,55 @@ function setupMutationObserver() {
 
 // ── Autoscan path (T022) ──────────────────────────────────────────────────────
 
+// Resilient PREFS_READ: a refocused tab's reload races a (sometimes very slow
+// to start) MV3 service worker — on a resource-starved browser the first
+// message has been observed to hang 20–90s or reject with "Could not establish
+// connection" before the worker wakes. Rather than one shot (which then never
+// scanned) or one slow attempt (which blocks for the whole hang), fire
+// PREFS_READ and RE-KICK every few seconds with a fresh message — a new send
+// can start a stuck/cold worker sooner — without abandoning earlier attempts,
+// so an eventually-slow worker still yields a scan. Resolve on the first reply.
+function readPrefsResilient({ kickEveryMs = 3000, giveUpMs = 90000 } = {}) {
+  const log = QuranLog.scope('autoscan');
+  return new Promise((resolve) => {
+    const t0 = performance.now();
+    let done = false, attempts = 0, iv = null, giveUp = null;
+    const finish = (prefs) => {
+      if (done) return;
+      done = true; clearInterval(iv); clearTimeout(giveUp);
+      log.debug(`prefs after ${Math.round(performance.now() - t0)}ms (${attempts} attempts)`);
+      resolve(prefs);
+    };
+    const tryOnce = () => {
+      attempts++;
+      const a = attempts;
+      const tA = performance.now();
+      QuranMsg.sendRequest('PREFS_READ', {})
+        .then(resp => {
+          const prefs = resp?.payload?.result || resp?.result || null;
+          log.debug(`  attempt ${a}: ${Math.round(performance.now() - tA)}ms → ${prefs ? 'prefs' : 'empty'}`);
+          if (prefs) finish(prefs);
+        })
+        .catch(e => log.debug(`  attempt ${a}: ${Math.round(performance.now() - tA)}ms → rejected (${e.message})`));
+    };
+    tryOnce();
+    iv = setInterval(() => { if (!done) tryOnce(); }, kickEveryMs);
+    giveUp = setTimeout(() => finish(null), giveUpMs);
+  });
+}
+
 async function maybeAutoscan() {
-  // A refocused tab's reload commonly races a just-evicted MV3 service worker:
-  // the first PREFS_READ can reject ("Could not establish connection") or come
-  // back empty while the worker boots. The old single-shot read swallowed that
-  // failure, so autoscan silently never fired until the worker was woken some
-  // other way (e.g. opening the popup) — the "stalls until I click the
-  // extension" bug. Retry with a short backoff so reload reliably scans.
-  // QuranMsg.sendRequest handles requestId internally (works in non-secure contexts).
-  let prefs = null;
-  for (let attempt = 0; attempt < 4 && !prefs; attempt++) {
-    if (attempt > 0) await new Promise(r => setTimeout(r, 120 * attempt));
-    try {
-      const resp = await QuranMsg.sendRequest('PREFS_READ', {});
-      prefs = resp?.payload?.result || resp?.result || null;
-    } catch (_) { /* worker still waking — fall through and retry */ }
-  }
+  const log = QuranLog.scope('autoscan');
+  log.debug(`start @ ${new Date().toISOString()} (readyState=${document.readyState})`);
+  const tStart = performance.now();
+  const prefs = await readPrefsResilient();
+  const prefsWaitMs = performance.now() - tStart;
   if (prefs?.scanTrigger === 'autoscan') {
+    log.info(`prefsWait=${Math.round(prefsWaitMs)}ms — scan starting`);
     try {
       await scanPage();
       setupMutationObserver();
-    } catch (e) { console.warn('[QuranExt] autoscan failed:', e); }
+    } catch (e) { log.warn('autoscan failed:', e); }
   }
 }
 
@@ -1457,7 +1485,7 @@ document.addEventListener('keydown', (e) => {
 
 document.addEventListener('__quranBridgeScan', async () => {
   if (!document.body || document.readyState === 'loading') return;
-  try { await scanPage(); } catch (e) { console.error('[QuranExt] bridge scan error:', e); }
+  try { await scanPage(); } catch (e) { QuranLog.error('bridge scan error:', e); }
   document.dispatchEvent(new CustomEvent('__quranBridgeDone', {
     detail: {
       stats: { ...STATS },
@@ -1821,7 +1849,7 @@ if (chrome?.runtime?.onMessage) {
 
     // DATA_UNAVAILABLE — refuse to scan
     if (type === 'DATA_UNAVAILABLE') {
-      console.warn('[QuranExt] Data unavailable:', payload);
+      QuranLog.warn('Data unavailable:', payload);
       return;
     }
     // DATA_AVAILABLE — re-enable
@@ -2035,6 +2063,33 @@ document.addEventListener('focusout', (e) => {
 });
 // The tooltip is fixed-positioned; scrolling moves the anchor out from under it.
 window.addEventListener('scroll', hideRefTip, { passive: true, capture: true });
+
+// ── Keep the service worker warm ──────────────────────────────────────────────
+// Cold-starting the MV3 worker on a resource-starved browser (e.g. very many
+// tabs) was measured at 20–90s, which is the dominant "stall before highlights"
+// cost. Holding an open port resets the worker's idle-eviction timer, so while
+// this page is VISIBLE the worker stays warm and the next scan skips the cold
+// start. Visible-only so we don't pin 90+ idle ports; reconnect on disconnect
+// (eviction / Chrome's periodic port recycle).
+(function keepWorkerWarm() {
+  let port = null;
+  function connect() {
+    if (port || document.visibilityState !== 'visible') return;
+    try {
+      port = chrome.runtime.connect({ name: 'quran-keepalive' });
+      port.onDisconnect.addListener(() => {
+        void chrome.runtime.lastError; // swallow "worker stopped" noise
+        port = null;
+        if (document.visibilityState === 'visible') setTimeout(connect, 1000);
+      });
+    } catch (_) { port = null; }
+  }
+  function disconnect() { if (port) { try { port.disconnect(); } catch (_) {} port = null; } }
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') connect(); else disconnect();
+  });
+  connect();
+})();
 
 // ── Startup ───────────────────────────────────────────────────────────────────
 
