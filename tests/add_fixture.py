@@ -12,7 +12,9 @@ import time
 from pathlib import Path
 
 TESTS_DIR = Path(__file__).parent
-FIXTURES_DIR = TESTS_DIR / 'fixtures'
+# Real captured pages live under fixtures/pages/ (synthetic sets under
+# fixtures/synthetic/). add_fixture only saves real pages.
+FIXTURES_DIR = TESTS_DIR / 'fixtures' / 'pages'
 
 try:
     import requests

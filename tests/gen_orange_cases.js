@@ -125,7 +125,7 @@ ${cases.map(para).join('\n\n')}
 </body>
 </html>
 `;
-fs.writeFileSync(path.join(ROOT, 'tests', 'fixtures', 'orange_cases.html'), html, 'utf8');
+fs.writeFileSync(path.join(ROOT, 'tests', 'fixtures', 'synthetic', 'orange_cases.html'), html, 'utf8');
 
 const stats = {
   greenMatches: GREEN_N, lightBlueMatches: LB_N, yellowMatches: 0,
@@ -139,6 +139,6 @@ const matches = cases.map(c => ({
 }));
 // The harness compares text+color only; matchedRef/claimedRef are retained so
 // tests/orange_pr_check.js can score precision/recall against the true ref.
-fs.writeFileSync(path.join(ROOT, 'tests', 'fixtures', 'orange_cases.expected.json'), JSON.stringify({ stats, matches }, null, 2), 'utf8');
+fs.writeFileSync(path.join(ROOT, 'tests', 'fixtures', 'synthetic', 'orange_cases.expected.json'), JSON.stringify({ stats, matches }, null, 2), 'utf8');
 console.log(`Generated ${cases.length} cases (${ORANGE_N} orange, ${GREEN_N} green, ${LB_N} lightBlue).`);
 console.log(`Eligible unique consistent verses: ${eligible.length}; stride ${stride}.`);

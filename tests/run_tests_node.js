@@ -576,7 +576,8 @@ async function main() {
       console.log(JSON.stringify(r, null, 2));
     } else {
       const files = all
-        ? fs.readdirSync(FIXTURES_DIR).filter(f => f.endsWith('.html')).map(f => path.join(FIXTURES_DIR, f))
+        ? (function walk(d){ return fs.readdirSync(d, { withFileTypes: true }).flatMap(e =>
+            e.isDirectory() ? walk(path.join(d, e.name)) : (e.name.endsWith('.html') ? [path.join(d, e.name)] : [])); })(FIXTURES_DIR)
         : fixtureArg ? [path.resolve(fixtureArg)] : [];
       if (files.length === 0) { console.error('Usage: node tests/run_tests_node.js [--all | <fixture.html> | --text "…"]'); process.exit(1); }
       for (const fx of files) {

@@ -41,6 +41,9 @@ sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='repla
 TESTS_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_DIR = os.path.dirname(TESTS_DIR)
 FIXTURES_DIR = os.path.join(TESTS_DIR, 'fixtures')
+# Real captured pages live under fixtures/pages/ (synthetic generated sets are
+# under fixtures/synthetic/). sync_fixtures only ever creates real pages.
+PAGES_DIR = os.path.join(FIXTURES_DIR, 'pages')
 STAT_KEYS = ['greenMatches', 'lightBlueMatches', 'yellowMatches', 'orangeMatches', 'redMatches', 'totalFindings']
 UA = ('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
       '(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
@@ -166,13 +169,13 @@ def main():
         print('No [stats] lines found in input.')
         return 1
 
-    os.makedirs(FIXTURES_DIR, exist_ok=True)
+    os.makedirs(PAGES_DIR, exist_ok=True)
     created, matched, diffs, errors = [], [], [], []
 
     for it in items:
         fid, url, stats = it['id'], it.get('sourceUrl', ''), stats_only(it['stats'])
-        exp_path = os.path.join(FIXTURES_DIR, f'{fid}.expected.json')
-        html_path = os.path.join(FIXTURES_DIR, f'{fid}.html')
+        exp_path = os.path.join(PAGES_DIR, f'{fid}.expected.json')
+        html_path = os.path.join(PAGES_DIR, f'{fid}.html')
 
         if os.path.exists(exp_path):
             cur = json.load(open(exp_path, encoding='utf-8'))

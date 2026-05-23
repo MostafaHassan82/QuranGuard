@@ -206,8 +206,8 @@ def update_expected(fixture_path: Path):
 # ── Main entry ────────────────────────────────────────────────────────────────
 
 def run_all_fixtures(context, args) -> tuple[int, int]:
-    """Run all fixtures/*.html. Returns (passed, total)."""
-    fixtures = sorted(FIXTURES_DIR.glob('*.html'))
+    """Run all fixtures/**/*.html (recurses into pages/ + synthetic/). Returns (passed, total)."""
+    fixtures = sorted(FIXTURES_DIR.rglob('*.html'))
     if not fixtures:
         print("No fixtures found in tests/fixtures/")
         return 0, 0
