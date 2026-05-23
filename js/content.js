@@ -2093,8 +2093,25 @@ window.addEventListener('scroll', hideRefTip, { passive: true, capture: true });
 
 // ── Startup ───────────────────────────────────────────────────────────────────
 
+// Autoscan only once the tab is VISIBLE. A backgrounded tab (e.g. session
+// restore of many tabs at once) shouldn't pile a scan onto the single shared
+// service worker before the user looks at it — dozens of simultaneous scans
+// starve the worker (observed: bgCompute stretched to ~16s for ~200ms of real
+// work). Deferring keeps the worker free for the foreground tab; hidden tabs
+// scan when first shown.
+function autoscanWhenVisible() {
+  if (document.visibilityState === 'visible') { maybeAutoscan(); return; }
+  QuranLog.scope('autoscan').debug('tab hidden — deferring scan until visible');
+  const onVisible = () => {
+    if (document.visibilityState !== 'visible') return;
+    document.removeEventListener('visibilitychange', onVisible);
+    maybeAutoscan();
+  };
+  document.addEventListener('visibilitychange', onVisible);
+}
+
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', maybeAutoscan);
+  document.addEventListener('DOMContentLoaded', autoscanWhenVisible);
 } else {
-  maybeAutoscan();
+  autoscanWhenVisible();
 }

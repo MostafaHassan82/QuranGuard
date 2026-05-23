@@ -592,6 +592,15 @@ the five-color taxonomy changed; the Node suite stayed 16/16 throughout.
   `QuranLog.setLevel('debug')`. Registered in `content_scripts`, background
   `importScripts`, and the Node harness deps.
 
+- [X] T126 **Autoscan only when the tab is visible.** Every tab autoscanned on
+  `DOMContentLoaded`, so a session restore of many tabs fired dozens of scans at
+  the single worker at once — contention starved it (observed `bgCompute`
+  stretched to ~16s for ~200ms of real work). `autoscanWhenVisible` defers the
+  scan for a hidden tab until its first `visibilitychange` to visible; the
+  foreground tab still scans immediately (the refocus+refresh repro is
+  unaffected). Reduces concurrent worker load; does not fix CPU starvation from
+  non-extension load (the ~92-tab environment is the ceiling).
+
 ### Open follow-up (Phase 11)
 - [ ] T125 **Decide whether to precompute normalized index fields.** Measured:
   shipping precomputed `tier1Words`/`skelWords`/`uthmaniWords` cuts build
