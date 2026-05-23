@@ -1236,6 +1236,15 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
               orangeMatches: c.orange, redMatches: c.red, totalFindings: findings.length,
             };
             if (c.lightGreen) stats.lightGreenMatches = c.lightGreen;
+            // How many oranges would auto-correct to lightGreen (FR-024b): the
+            // gate is isOrangeAutoCorrectable = single matchedRef (ambiguous
+            // multi-ref matches are NOT auto-corrected). Recorded so fixtures
+            // can assert orange detection AND which oranges are correctable.
+            if (c.orange) {
+              stats.autoCorrectableOranges = findings.filter(
+                f => f.color === 'orange' && !(Array.isArray(f.matchedRefs) && f.matchedRefs.length > 1)
+              ).length;
+            }
             QuranLog.scope('stats').info(JSON.stringify({ id, sourceUrl: url, fixture: id ? `${id}.html` : null, stats }));
           }
           // Findings dump is its own (debug) level — guard so the strings

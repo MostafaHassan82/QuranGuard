@@ -441,6 +441,12 @@ function normalizeResult(raw, label) {
       orangeMatches: pcc.orange || 0,
       redMatches: pcc.red || 0,
       totalFindings: (raw.scan && raw.scan.totalCount) || src.length,
+      // Oranges that would auto-correct to lightGreen (single matchedRef);
+      // mirrors isOrangeAutoCorrectable. Lets orange fixtures assert which
+      // oranges are correctable without running the correction.
+      autoCorrectableOranges: src.filter(
+        m => (m.color || m.category) === 'orange' && !(Array.isArray(m.matchedRefs) && m.matchedRefs.length > 1)
+      ).length,
     },
     matches: src.map(m => ({
       text: m.text || m.rawText || '', color: m.color || m.category || '',
@@ -460,6 +466,12 @@ function compare(observed, expected) {
   const os = observed.stats || {}, es = expected.stats || {};
   for (const k of ['greenMatches', 'lightBlueMatches', 'yellowMatches', 'orangeMatches', 'redMatches', 'totalFindings']) {
     if ((os[k] || 0) !== (es[k] || 0)) diffs.push(`  stat ${k}: expected ${es[k] || 0}, got ${os[k] || 0}`);
+  }
+  // autoCorrectableOranges: optional — checked only when the fixture declares it
+  // (so pre-existing orange fixtures without the key aren't retro-failed).
+  if ('autoCorrectableOranges' in es) {
+    if ((os.autoCorrectableOranges || 0) !== es.autoCorrectableOranges)
+      diffs.push(`  stat autoCorrectableOranges: expected ${es.autoCorrectableOranges}, got ${os.autoCorrectableOranges || 0}`);
   }
   // Match-level check only when the fixture declares a `matches` array. Stats-
   // only fixtures (omit `matches`) validate counts alone — the lightweight form

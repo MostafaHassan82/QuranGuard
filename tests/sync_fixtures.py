@@ -63,19 +63,31 @@ def parse_batch(text):
     return list(out.values())
 
 
+# Optional 7th stat: how many oranges auto-correct to lightGreen (single
+# matchedRef). Only written/compared when oranges are present, so green
+# fixtures stay clean. ALL_KEYS is used for comparison (absent == 0).
+OPTIONAL_KEYS = ['autoCorrectableOranges']
+ALL_KEYS = STAT_KEYS + OPTIONAL_KEYS
+
+
 def short_stats(s):
-    """g50/lb15/65 — show only nonzero colors, then total."""
+    """g50/lb15/65 — show only nonzero colors, then total (+acN if any auto-correctable)."""
     parts = []
     for key, tag in [('greenMatches', 'g'), ('lightBlueMatches', 'lb'), ('yellowMatches', 'y'),
                      ('orangeMatches', 'o'), ('redMatches', 'r')]:
         if s.get(key):
             parts.append(f'{tag}{s[key]}')
     parts.append(str(s.get('totalFindings', 0)))
-    return '/'.join(parts)
+    tail = f' (ac{s["autoCorrectableOranges"]})' if s.get('autoCorrectableOranges') else ''
+    return '/'.join(parts) + tail
 
 
 def stats_only(s):
-    return {k: int(s.get(k, 0)) for k in STAT_KEYS}
+    d = {k: int(s.get(k, 0)) for k in STAT_KEYS}
+    for k in OPTIONAL_KEYS:
+        if k in s:
+            d[k] = int(s[k])
+    return d
 
 
 def fetch_html(url, verify):
@@ -164,8 +176,8 @@ def main():
 
         if os.path.exists(exp_path):
             cur = json.load(open(exp_path, encoding='utf-8'))
-            cur_stats = {k: int(cur.get('stats', {}).get(k, 0)) for k in STAT_KEYS}
-            if cur_stats == stats:
+            csaved = cur.get('stats', {})
+            if all(int(csaved.get(k, 0)) == int(stats.get(k, 0)) for k in ALL_KEYS):
                 # backfill metadata if missing, preserving stats + matches
                 if 'sourceUrl' not in cur or 'fixture' not in cur:
                     out = OrderedDict([('sourceUrl', url or cur.get('sourceUrl', '')),
@@ -176,7 +188,8 @@ def main():
                     open(exp_path, 'w', encoding='utf-8').write(json.dumps(out, ensure_ascii=False, indent=2) + '\n')
                 matched.append((fid, stats))
             else:
-                bad = [f'{k}: saved {cur_stats[k]} vs live {stats[k]}' for k in STAT_KEYS if cur_stats[k] != stats[k]]
+                bad = [f'{k}: saved {int(csaved.get(k, 0))} vs live {int(stats.get(k, 0))}'
+                       for k in ALL_KEYS if int(csaved.get(k, 0)) != int(stats.get(k, 0))]
                 diffs.append((fid, stats, '; '.join(bad)))
             continue
 
