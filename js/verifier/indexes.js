@@ -18,7 +18,7 @@ const QuranIndexes = (() => {
   };
 
   function build(quranData) {
-    const { tier1, toSkeleton } = QuranNormalize;
+    const { tier1, toSkeleton, hasContent } = QuranNormalize;
 
     const byRef = {};
     const byTier1Norm = new Map();
@@ -67,7 +67,9 @@ const QuranIndexes = (() => {
         // strips to empty — so we drop any token that normalizes to empty,
         // keeping uthmaniWords aligned 1:1 with tier1Words. (Without this,
         // ~44% of ayahs misaligned and the swap fell back to the whole ayah.)
-        const uthmaniWords = ayaText.split(' ').filter(w => w.length > 0 && tier1(w).length > 0);
+        // hasContent is the cheap equivalent of `tier1(w).length > 0` (verified
+        // identical on all ~82k words) — avoids a full 9-pass tier1 per word.
+        const uthmaniWords = ayaText.split(' ').filter(w => w.length > 0 && hasContent(w));
 
         const record = { text: aya.text, tier1: t1, skeleton, tier1Words, uthmaniWords, skelWords, ref, surahName, surahNum, ayahNum };
 

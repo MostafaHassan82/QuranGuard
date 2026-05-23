@@ -79,6 +79,18 @@ const QuranNormalize = (() => {
     return tier1Text.replace(/[اويء]/g, '');
   }
 
+  // Cheap equivalent of `tier1(token).length > 0` for a single whitespace-free
+  // token: true iff the token has any character tier1 keeps. tier1 only ever
+  // DELETES STRIP_RE chars (steps 2–7 are 1:1 substitutions / run-collapses that
+  // never empty a non-empty string), so a token survives iff something remains
+  // after stripping marks. Used by the index build to drop standalone Quranic
+  // annotation tokens (waqf marks) without running the full 9-pass tier1 per
+  // word — the per-word tier1 call was ~25% of cold-start build time.
+  function hasContent(token) {
+    if (!token) return false;
+    return token.replace(STRIP_RE, '').length > 0;
+  }
+
   // Given two original strings that are Tier-1 equal, classify how they differ.
   function classifyDeviation(originalA, originalB) {
     if (originalA === originalB) return 'none';
@@ -87,5 +99,5 @@ const QuranNormalize = (() => {
     return 'spellingDrift';
   }
 
-  return { tier1, toSkeleton, classifyDeviation, toAsciiDigits };
+  return { tier1, toSkeleton, hasContent, classifyDeviation, toAsciiDigits };
 })();
