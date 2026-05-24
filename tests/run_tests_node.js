@@ -18,6 +18,9 @@
  *
  * Usage:
  *   node tests/run_tests_node.js --all
+ *   node tests/run_tests_node.js --all --coverage --coverage-driver-lite
+ *   node tests/run_tests_node.js --all --coverage --coverage-faults
+ *   node tests/run_tests_node.js --coverage-diff --coverage-driver-off
  *   node tests/run_tests_node.js tests/fixtures/174389.html
  *   node tests/run_tests_node.js --text "قوله تعالى: {…} (سبأ:13)"
  *
@@ -57,6 +60,8 @@ const TESTS_DIR = __dirname;
 const PROJECT_DIR = path.resolve(TESTS_DIR, '..');
 const FIXTURES_DIR = path.join(TESTS_DIR, 'fixtures');
 const ORIGIN = 'http://quran.test';
+const coverageDriverInteractions = require(path.join(TESTS_DIR, 'coverage_driver_interactions.js'));
+const coverageFaultDriver = require(path.join(TESTS_DIR, 'coverage_fault_driver.js'));
 
 // Content-script bundle, in manifest order, plus the verifier/storage modules
 // background.js would importScripts. We inject the verifier modules FIRST so
@@ -89,10 +94,11 @@ function chromeMockSource() {
   return `
   (function () {
     const listeners = [];
+    const connectListeners = [];
     const store = Object.assign({}, window.__seedStorage || {});
     function clone(v) { return v === undefined ? undefined : JSON.parse(JSON.stringify(v)); }
 
-    function dispatch(message, callback) {
+    function dispatch(message, callback, senderOverride) {
       let answered = false;
       let willAnswerAsync = false;
       const sendResponse = (resp) => {
@@ -103,7 +109,7 @@ function chromeMockSource() {
       };
       for (const fn of listeners.slice()) {
         let ret;
-        try { ret = fn(clone(message), { id: 'mock' }, sendResponse); } catch (e) { /* listener threw */ }
+        try { ret = fn(clone(message), senderOverride || { id: 'mock' }, sendResponse); } catch (e) { /* listener threw */ }
         if (ret === true) willAnswerAsync = true;
         if (answered) break;
       }
@@ -119,12 +125,30 @@ function chromeMockSource() {
         id: 'mock-extension-id',
         getURL: (p) => '${ORIGIN}/' + String(p).replace(/^\\/+/, ''),
         onMessage: { addListener: (fn) => listeners.push(fn) },
+        onConnect: { addListener: (fn) => connectListeners.push(fn) },
         onInstalled: { addListener: () => {} },
         onStartup: { addListener: () => {} },
         sendMessage: (message, callback) => {
           if (typeof callback === 'function') { dispatch(message, callback); return; }
           return new Promise((resolve) => dispatch(message, resolve));
         },
+        connect: (info) => {
+          const disconnectListeners = [];
+          const port = {
+            name: (info && info.name) || '',
+            onDisconnect: { addListener: (fn) => disconnectListeners.push(fn) },
+            disconnect: () => {
+              for (const fn of disconnectListeners.slice()) {
+                try { fn(port); } catch (_) {}
+              }
+            },
+          };
+          for (const fn of connectListeners.slice()) {
+            try { fn(port); } catch (_) {}
+          }
+          return port;
+        },
+        __dispatchWithSender: (message, sender) => new Promise((resolve) => dispatch(message, resolve, sender || { id: 'mock' })),
       },
       storage: {
         local: {
@@ -175,7 +199,7 @@ function fixtureBody(htmlSource) {
   return m ? m[1] : htmlSource;
 }
 
-async function runOne(context, htmlSource, label, seedSettings, covAccum) {
+async function runOne(context, htmlSource, label, seedSettings, covAccum, coverageOpts = { driver: 'base', faults: false }) {
   const page = await context.newPage();
   const bodyHtml = fixtureBody(htmlSource);
   const runnerHtml = buildRunnerHtml(bodyHtml, seedSettings);
@@ -215,7 +239,13 @@ async function runOne(context, htmlSource, label, seedSettings, covAccum) {
     // (panel actions, keyboard, correct-in-place, dismiss/restore, prefs/swap
     // toggles, persistence) so coverage reflects real usage, not just scanning.
     // Wrapped so a driver hiccup never changes the pass/fail result.
-    if (covAccum) { try { await page.evaluate(exerciseInteractions); } catch (_) {} }
+    if (covAccum && coverageOpts.driver !== 'off') {
+      const extended = coverageOpts.driver === 'extended';
+      try { await page.evaluate(coverageDriverInteractions, { extended }); } catch (_) {}
+    }
+    if (covAccum && coverageOpts.faults) {
+      try { await page.evaluate(coverageFaultDriver); } catch (_) {}
+    }
 
     if (covAccum) {
       const entries = await page.coverage.stopJSCoverage();
@@ -227,107 +257,9 @@ async function runOne(context, htmlSource, label, seedSettings, covAccum) {
   }
 }
 
-// Runs in the page (coverage mode only): exercises the interaction-driven code
-// paths so coverage reflects real usage. Every step is independently guarded.
-async function exerciseInteractions() {
-  const sleep = (ms) => new Promise(r => setTimeout(r, ms));
-  const step = async (fn) => { try { await fn(); } catch (_) {} };
-  // These are `const` module globals (lexical scope), not window properties —
-  // reference them as barewords, guarded by typeof.
-  const Actions = (typeof QuranActions !== 'undefined') ? QuranActions : null;
-  const Model = (typeof QuranPanelModel !== 'undefined') ? QuranPanelModel : null;
-  const Sidebar = (typeof QuranPanelSidebar !== 'undefined') ? QuranPanelSidebar : null;
-  const Msg = (typeof QuranMsg !== 'undefined') ? QuranMsg : null;
-  const Badge = (typeof QuranBadge !== 'undefined') ? QuranBadge : null;
-  const correct = (typeof correctInPlace !== 'undefined') ? correctInPlace : null;
-  const send = (type, payload) => Msg ? Msg.sendRequest(type, payload || {}) : Promise.resolve();
-
-  // Ensure the sidebar is mounted and expanded.
-  await step(async () => { if (Sidebar && !Sidebar.isMounted()) await Sidebar.mount(); });
-  await step(() => { const b = document.querySelector('.quran-ext-panel-collapse'); if (b) b.click(); });          // collapse
-  await step(() => { const t = document.querySelector('.quran-ext-panel-tab'); if (t) t.click(); });               // expand
-
-  const findings = (window.__quranMatches || []).slice();
-  const orange = findings.find(f => f.color === 'orange');
-  const any = findings[0];
-
-  // Per-finding actions via QuranActions (copy/share/report/json).
-  if (any && Actions) {
-    await step(() => Actions.copyRecord(any, {}));
-    await step(() => Actions.copyShareArtifact(any, {}));
-    await step(() => Actions.copyReport(any, {}));
-    await step(() => Actions.copyRecordJson(any, {}));
-    await step(() => Actions.jumpInContent(any.id));
-    await step(() => Actions.buildShareArtifact(any, { pageUrl: location.href }));
-  }
-
-  // Correct-in-place on an orange finding (DOM mutate + successor + persist).
-  if (orange && correct) {
-    await step(() => correct(orange.id));
-    await sleep(60);
-  }
-
-  // Dismiss + restore through the model + persistence.
-  if (any && Model) {
-    await step(() => Model.markDismissedThisSession(any.id));
-    await step(() => Actions && Actions.dismiss(any, {}));
-    await step(() => Model.unmarkDismissed(any.id));
-    await step(() => Actions && Actions.restore(any, {}));
-  }
-
-  // Keyboard model: focus a row and fire the shortcut keys.
-  await step(async () => {
-    const row = document.querySelector('.quran-ext-panel-row');
-    if (!row) return;
-    row.focus();
-    for (const key of ['ArrowDown', 'ArrowUp', 'Enter', 'c', 's', 'r', 'j', 'd', ' ', 'Escape', 'Escape']) {
-      row.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }));
-      await sleep(2);
-    }
-  });
-
-  // Filter chips + swap controls + font (drive PREFS_WRITE → PREFS_CHANGED).
-  await step(() => { document.querySelectorAll('.quran-ext-filter-chip input').forEach(cb => { cb.checked = !cb.checked; cb.dispatchEvent(new Event('change', { bubbles: true })); }); });
-  await step(() => { const m = document.querySelector('.quran-ext-swap-master'); if (m) { m.checked = false; m.dispatchEvent(new Event('change', { bubbles: true })); } });
-  await step(() => { const m = document.querySelector('.quran-ext-swap-master'); if (m) { m.checked = true; m.dispatchEvent(new Event('change', { bubbles: true })); } });
-  await step(() => { document.querySelectorAll('[data-swap-color]').forEach(cb => { if (cb.dataset.swapColor !== 'red') { cb.checked = !cb.checked; cb.dispatchEvent(new Event('change', { bubbles: true })); } }); });
-  await step(() => { const f = document.querySelector('.quran-ext-font-select'); if (f) { f.value = 'indoPak'; f.dispatchEvent(new Event('change', { bubbles: true })); } });
-  await step(() => { const c = document.querySelector('.quran-ext-clear-persisted'); if (c) c.click(); });
-
-  // Prefs + persistence message round-trips.
-  await step(() => send('PREFS_READ'));
-  await step(() => send('PREFS_WRITE', { patch: { scanTrigger: 'autoscan' } }));
-  await step(() => send('PERSIST_WRITE', { urlKey: location.href, compositeKey: 'cov-key', kind: 'dismissal', at: new Date().toISOString() }));
-  await step(() => send('PERSIST_READ', { urlKey: location.href }));
-  await step(() => send('PERSIST_REMOVE', { urlKey: location.href, compositeKey: 'cov-key', kind: 'dismissal' }));
-  await step(() => send('CLEAR_PERSISTED'));
-
-  // Page → panel jump on a highlight, then a re-scan (clearHighlights revert path).
-  await step(() => { const h = document.querySelector('.quran-green,[data-finding-id]'); if (h) h.click(); });
-  await sleep(20);
-
-  // Badge state machine (runs in the SW normally; drive it directly here).
-  await step(() => {
-    const B = Badge; if (!B) return;
-    const pcc = { green: 3, lightBlue: 1, yellow: 1, orange: 1, red: 1 };
-    B.onScanStart(1);
-    B.onScanProgress(1, pcc, 6);
-    B.onScanComplete(1, 'defects', pcc, 7);
-    B.onScanComplete(1, 'clean', { green: 5 }, 5);
-    B.onScanComplete(1, 'empty', {}, 0);
-    B.onScanComplete(1, 'notArabic', {}, 0);
-    B.onCapHit(1, pcc);
-    B.onDataUnavailable(1, 'missing');
-    B.onDataAvailable(1);
-  });
-}
-
-// ── Coverage (T086) — aggregate V8 precise (block) coverage across fixtures ──
+// Coverage (T086): aggregate V8 precise (block) coverage across fixtures.
 // Only the extension's own source under ${ORIGIN}/js/ is measured. V8 emits
-// nested ranges: a byte's execution count is the count of the SMALLEST range
-// containing it (an inner count:0 range is a hole inside an executed function).
-// A line is covered if its first non-whitespace char's innermost range ran > 0
-// in ANY fixture; line coverage is unioned across all fixture runs.
+// nested ranges, so a line is covered if any non-whitespace byte ran.
 function offsetCovered(ranges, off) {
   let best = null; // smallest range containing off
   for (const r of ranges) {
@@ -351,15 +283,19 @@ function aggregateCoverage(entries) {
     const ranges = [];
     for (const fn of e.functions || []) for (const r of fn.ranges || []) ranges.push({ s: r.startOffset, e: r.endOffset, count: r.count });
     if (!ranges.length) continue;
-    // Map each non-blank line's first non-ws offset → covered?
+    // Map each non-blank line's non-ws offsets → covered?
     let ln = 1, lineStart = 0;
     for (let i = 0; i <= src.length; i++) {
       if (i === src.length || src[i] === '\n') {
         const text = src.slice(lineStart, i);
-        const m = text.match(/\S/);
-        if (m) {
-          const off = lineStart + m.index;
-          if (offsetCovered(ranges, off)) rec.coveredLines.add(ln);
+        if (text.trim()) {
+          for (let j = 0; j < text.length; j++) {
+            if (!/\S/.test(text[j])) continue;
+            if (offsetCovered(ranges, lineStart + j)) {
+              rec.coveredLines.add(ln);
+              break;
+            }
+          }
         }
         ln++; lineStart = i + 1;
       }
@@ -382,6 +318,7 @@ function aggregateCoverage(entries) {
       file: url.replace(`${ORIGIN}/`, ''),
       lines: total, coveredLines: covered.length,
       linePct: total ? +(100 * covered.length / total).toFixed(1) : 0,
+      covered,
       uncovered,
     });
   }
@@ -389,20 +326,23 @@ function aggregateCoverage(entries) {
   return files;
 }
 
-function writeCoverage(files) {
+function writeCoverage(files, generatedBy) {
   const dir = path.join(TESTS_DIR, 'coverage');
   fs.mkdirSync(dir, { recursive: true });
   const totals = files.reduce((a, f) => ({ lines: a.lines + f.lines, covered: a.covered + f.coveredLines }), { lines: 0, covered: 0 });
   const overall = totals.lines ? +(100 * totals.covered / totals.lines).toFixed(1) : 0;
   const summary = {
     generatedAt: new Date().toISOString(),
+    generatedBy: generatedBy || 'node tests/run_tests_node.js --all --coverage',
     overallLinePct: overall,
     totalLines: totals.lines, coveredLines: totals.covered,
-    files: files.map(({ uncovered, ...f }) => f),
+    files: files.map(({ covered, uncovered, ...f }) => f),
   };
   fs.writeFileSync(path.join(dir, 'coverage-summary.json'), JSON.stringify(summary, null, 2) + '\n', 'utf-8');
 
   let md = `# Coverage — Node fixture suite (T086)\n\nGenerated: ${summary.generatedAt}\n\n`;
+  md += `> Regenerate with: \`${summary.generatedBy}\`\n`;
+  md += `> A line counts as covered if **any** non-whitespace byte on it executed in any fixture run.\n\n`;
   md += `**Overall line coverage: ${overall}%** (${totals.covered}/${totals.lines} non-blank lines)\n\n`;
   md += `| File | Lines | Covered | Line % |\n|---|---|---|---|\n`;
   for (const f of files) md += `| ${f.file} | ${f.lines} | ${f.coveredLines} | ${f.linePct}% |\n`;
@@ -413,6 +353,123 @@ function writeCoverage(files) {
   }
   fs.writeFileSync(path.join(dir, 'uncovered.md'), md, 'utf-8');
   return { overall, totals };
+}
+
+function coverageTotals(files) {
+  const totals = files.reduce((a, f) => ({ lines: a.lines + f.lines, covered: a.covered + f.coveredLines }), { lines: 0, covered: 0 });
+  return {
+    lines: totals.lines,
+    covered: totals.covered,
+    pct: totals.lines ? +(100 * totals.covered / totals.lines).toFixed(1) : 0,
+  };
+}
+
+function diffCoverageGroups(leftFiles, rightFiles, leftName, rightName) {
+  const leftByFile = new Map(leftFiles.map(f => [f.file, f]));
+  const rightByFile = new Map(rightFiles.map(f => [f.file, f]));
+  const names = Array.from(new Set([...leftByFile.keys(), ...rightByFile.keys()])).sort();
+  return names.map(file => {
+    const left = leftByFile.get(file);
+    const right = rightByFile.get(file);
+    const leftCovered = new Set((left && left.covered) || []);
+    const rightCovered = new Set((right && right.covered) || []);
+    const onlyLeft = [...leftCovered].filter(l => !rightCovered.has(l)).sort((a, b) => a - b);
+    const onlyRight = [...rightCovered].filter(l => !leftCovered.has(l)).sort((a, b) => a - b);
+    const leftUncovered = ((left && left.uncovered) || []).slice().sort((a, b) => a - b);
+    const rightUncovered = ((right && right.uncovered) || []).slice().sort((a, b) => a - b);
+    const leftPct = left ? left.linePct : 0;
+    const rightPct = right ? right.linePct : 0;
+    return {
+      file,
+      lines: left ? left.lines : (right ? right.lines : 0),
+      [`${leftName}Covered`]: left ? left.coveredLines : 0,
+      [`${leftName}Pct`]: leftPct,
+      [`${rightName}Covered`]: right ? right.coveredLines : 0,
+      [`${rightName}Pct`]: rightPct,
+      pctDelta: +(leftPct - rightPct).toFixed(1),
+      [`only${capitalize(leftName)}`]: onlyLeft,
+      [`only${capitalize(rightName)}`]: onlyRight,
+      [`${leftName}Uncovered`]: leftUncovered,
+      [`${rightName}Uncovered`]: rightUncovered,
+    };
+  });
+}
+
+function capitalize(s) {
+  return String(s || '').slice(0, 1).toUpperCase() + String(s || '').slice(1);
+}
+
+function writeCoverageDiff(leftFiles, rightFiles, leftName, rightName) {
+  const dir = path.join(TESTS_DIR, 'coverage');
+  fs.mkdirSync(dir, { recursive: true });
+  const leftTotals = coverageTotals(leftFiles);
+  const rightTotals = coverageTotals(rightFiles);
+  const files = diffCoverageGroups(leftFiles, rightFiles, leftName, rightName);
+  const generatedAt = new Date().toISOString();
+  const summary = {
+    generatedAt,
+    groups: {
+      [leftName]: { totalLines: leftTotals.lines, coveredLines: leftTotals.covered, overallLinePct: leftTotals.pct },
+      [rightName]: { totalLines: rightTotals.lines, coveredLines: rightTotals.covered, overallLinePct: rightTotals.pct },
+    },
+    overallPctDelta: +(leftTotals.pct - rightTotals.pct).toFixed(1),
+    files: files.map(row => {
+      const leftOnlyKey = `only${capitalize(leftName)}`;
+      const rightOnlyKey = `only${capitalize(rightName)}`;
+      const leftUncoveredKey = `${leftName}Uncovered`;
+      const rightUncoveredKey = `${rightName}Uncovered`;
+      const {
+        [leftOnlyKey]: _leftOnly,
+        [rightOnlyKey]: _rightOnly,
+        [leftUncoveredKey]: _leftUncovered,
+        [rightUncoveredKey]: _rightUncovered,
+        ...rest
+      } = row;
+      return {
+        ...rest,
+        [`${leftName}OnlyLines`]: _leftOnly.length,
+        [`${rightName}OnlyLines`]: _rightOnly.length,
+        [`${leftName}UncoveredLines`]: _leftUncovered.length,
+        [`${rightName}UncoveredLines`]: _rightUncovered.length,
+      };
+    }),
+  };
+  fs.writeFileSync(path.join(dir, `${leftName}-vs-${rightName}.json`), JSON.stringify(summary, null, 2) + '\n', 'utf-8');
+
+  let md = `# Coverage diff - ${leftName} vs ${rightName}\n\nGenerated: ${generatedAt}\n\n`;
+  md += `| Group | Covered | Lines | Line % |\n|---|---:|---:|---:|\n`;
+  md += `| ${leftName} | ${leftTotals.covered} | ${leftTotals.lines} | ${leftTotals.pct}% |\n`;
+  md += `| ${rightName} | ${rightTotals.covered} | ${rightTotals.lines} | ${rightTotals.pct}% |\n\n`;
+  md += `**Overall delta (${leftName} - ${rightName}): ${summary.overallPctDelta} percentage points**\n\n`;
+  md += `| File | ${leftName} % | ${rightName} % | Delta | ${leftName}-only | ${rightName}-only | ${leftName} uncovered | ${rightName} uncovered |\n`;
+  md += `|---|---:|---:|---:|---:|---:|---:|---:|\n`;
+  for (const row of files) {
+    const leftOnly = row[`only${capitalize(leftName)}`].length;
+    const rightOnly = row[`only${capitalize(rightName)}`].length;
+    const leftUncovered = row[`${leftName}Uncovered`].length;
+    const rightUncovered = row[`${rightName}Uncovered`].length;
+    md += `| ${row.file} | ${row[`${leftName}Pct`]}% | ${row[`${rightName}Pct`]}% | ${row.pctDelta} | ${leftOnly} | ${rightOnly} | ${leftUncovered} | ${rightUncovered} |\n`;
+  }
+  md += `\n## Line Detail\n\n`;
+  for (const row of files) {
+    const leftOnly = row[`only${capitalize(leftName)}`];
+    const rightOnly = row[`only${capitalize(rightName)}`];
+    if (!leftOnly.length && !rightOnly.length) continue;
+    md += `- \`${row.file}\`\n`;
+    if (leftOnly.length) md += `  - ${leftName} only: ${compactRanges(leftOnly)}\n`;
+    if (rightOnly.length) md += `  - ${rightName} only: ${compactRanges(rightOnly)}\n`;
+  }
+  md += `\n## Uncovered By Group\n\n`;
+  for (const row of files) {
+    const leftUncovered = row[`${leftName}Uncovered`];
+    const rightUncovered = row[`${rightName}Uncovered`];
+    if (!leftUncovered.length && !rightUncovered.length) continue;
+    md += `- \`${row.file}\`\n`;
+    md += `  - ${leftName} uncovered: ${leftUncovered.length ? compactRanges(leftUncovered) : 'none'}\n`;
+    md += `  - ${rightName} uncovered: ${rightUncovered.length ? compactRanges(rightUncovered) : 'none'}\n`;
+  }
+  fs.writeFileSync(path.join(dir, `${leftName}-vs-${rightName}.md`), md, 'utf-8');
+  return summary;
 }
 
 function compactRanges(nums) {
@@ -554,7 +611,27 @@ async function main() {
   const all = argv.includes('--all');
   const writeObserved = argv.includes('--write-observed');
   const coverage = argv.includes('--coverage');
+  const coverageDiff = argv.includes('--coverage-diff') || argv.includes('--coverage-pages-vs-synthetic');
+  const coverageDriverMode = argv.includes('--coverage-driver-off') ? 'off'
+    : argv.includes('--coverage-driver-lite') ? 'lite'
+    : 'full';
+  const coverageFaults = argv.includes('--coverage-faults');
   const covAccum = coverage ? [] : null;
+  // Per-fixture driver selection. A fixture opts into the heavy extended/fault
+  // drivers via `_coverage: { extended, faults }` in its expected.json, so the
+  // expensive paths stay pinned to a couple of fixtures regardless of renames.
+  // --coverage-driver-lite forces base-only everywhere; --coverage-driver-off
+  // disables the driver; --coverage-faults is required for any fault injection.
+  const coverageOptsFor = (fx) => {
+    if (coverageDriverMode === 'off') return { driver: 'off', faults: false };
+    let extended = false, faults = false;
+    try {
+      const exp = JSON.parse(fs.readFileSync(fx.replace(/\.html$/, '.expected.json'), 'utf-8'));
+      if (exp && exp._coverage) { extended = !!exp._coverage.extended; faults = !!exp._coverage.faults; }
+    } catch (_) {}
+    if (coverageDriverMode === 'lite') extended = false;
+    return { driver: extended ? 'extended' : 'base', faults: coverageFaults && faults };
+  };
   const textIdx = argv.indexOf('--text');
   const textSnippet = textIdx !== -1 ? argv[textIdx + 1] : null;
   const fixtureArg = argv.find(a => !a.startsWith('--') && a !== textSnippet);
@@ -577,6 +654,51 @@ async function main() {
     } else {
       const walk = (d) => fs.readdirSync(d, { withFileTypes: true }).flatMap(e =>
         e.isDirectory() ? walk(path.join(d, e.name)) : (e.name.endsWith('.html') ? [path.join(d, e.name)] : []));
+      const runFixtureSet = async (files, accum) => {
+        let setPassed = 0, setTotal = 0;
+        for (const fx of files) {
+          const rel = path.relative(FIXTURES_DIR, fx).replace(/\\/g, '/');
+          const label = rel.replace(/\.html$/, '');
+          const html = fs.readFileSync(fx, 'utf-8');
+          const observed = await runOne(context, html, label, {}, accum, coverageOptsFor(fx));
+          if (writeObserved) {
+            fs.writeFileSync(fx.replace(/\.html$/, '.observed.json'), JSON.stringify(observed, null, 2), 'utf-8');
+          }
+          const expPath = fx.replace(/\.html$/, '.expected.json');
+          if (!fs.existsSync(expPath)) {
+            console.log(`[${label}] REVIEW (no expected) - ${statLine(observed)}`);
+            continue;
+          }
+          const expected = JSON.parse(fs.readFileSync(expPath, 'utf-8'));
+          if (expected._skip) { console.log(`[${label}] SKIP - ${statLine(observed)}`); continue; }
+          setTotal++;
+          const cmp = compare(observed, expected);
+          if (cmp.passed) { setPassed++; console.log(`[${label}] PASS`); }
+          else { console.log(`[${label}] FAIL`); cmp.diffs.forEach(d => console.log(d)); }
+        }
+        return { passed: setPassed, total: setTotal };
+      };
+      if (coverageDiff) {
+        const groups = [
+          { name: 'pages', files: walk(path.join(FIXTURES_DIR, 'pages')), cov: [] },
+          { name: 'synthetic', files: walk(path.join(FIXTURES_DIR, 'synthetic')), cov: [] },
+        ];
+        for (const group of groups) {
+          console.log(`\n[coverage-diff] Running ${group.name} fixtures (${group.files.length})`);
+          const r = await runFixtureSet(group.files, group.cov);
+          passed += r.passed; total += r.total;
+          console.log(`[coverage-diff] ${group.name}: ${r.passed}/${r.total} passed`);
+        }
+        const summary = writeCoverageDiff(
+          aggregateCoverage(groups[0].cov),
+          aggregateCoverage(groups[1].cov),
+          groups[0].name,
+          groups[1].name
+        );
+        console.log(`\nResults: ${passed}/${total} passed`);
+        console.log(`Coverage diff: pages ${summary.groups.pages.overallLinePct}% vs synthetic ${summary.groups.synthetic.overallLinePct}% (${summary.overallPctDelta} pts) -> tests/coverage/pages-vs-synthetic.md`);
+        return;
+      }
       // --all walks fixtures/; a path arg may be a single .html OR a directory
       // (e.g. tests/fixtures/pages) which is walked recursively.
       const files = all
@@ -588,7 +710,7 @@ async function main() {
       for (const fx of files) {
         const label = path.basename(fx, '.html');
         const html = fs.readFileSync(fx, 'utf-8');
-        const observed = await runOne(context, html, label, {}, covAccum);
+        const observed = await runOne(context, html, label, {}, covAccum, coverageOptsFor(fx));
         if (writeObserved) {
           fs.writeFileSync(fx.replace(/\.html$/, '.observed.json'), JSON.stringify(observed, null, 2), 'utf-8');
         }
@@ -607,7 +729,10 @@ async function main() {
       console.log(`\nResults: ${passed}/${total} passed`);
       if (covAccum) {
         const files = aggregateCoverage(covAccum);
-        const { overall } = writeCoverage(files);
+        const flags = ['--all', '--coverage'];
+        if (coverageDriverMode !== 'full') flags.push(`--coverage-driver-${coverageDriverMode}`);
+        if (coverageFaults) flags.push('--coverage-faults');
+        const { overall } = writeCoverage(files, `node tests/run_tests_node.js ${flags.join(' ')}`);
         console.log(`Coverage: ${overall}% overall line coverage → tests/coverage/`);
       }
     }
