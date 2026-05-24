@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<!--
+  Synthetic coverage fixture: citation FORMS the page corpus exercises but the
+  other synthetic fixtures don't — reference ranges, the سورة prefix, surah-name
+  variants, ellipsis excerpts, contiguous excerpts, single-word, multi-segment,
+  and a non-brace citation. Verse text is taken verbatim from
+  resources/quran-uthmani_*.json (Principle I — not hand-typed), web-rendered
+  (tashkeel/orthography normalized as a web author would). Hand-authored (no
+  generator) because it's a fixed handful of forms.
+-->
+<html dir="rtl" lang="ar">
+<head><meta charset="UTF-8"><title>صيغ المراجع</title></head>
+<body>
+<article class="article-content">
+<h1>اختبار صيغ المراجع القرآنية</h1>
+
+<!-- range ref (الإخلاص:1-2) → green -->
+<p>قال تعالى: {قل هو الله أحد الله الصمد} (الإخلاص:1-2).</p>
+
+<!-- سورة prefix → green -->
+<p>وقال سبحانه: {فصل لربك وانحر} (سورة الكوثر:2).</p>
+
+<!-- surah-name variant الرحمان → الرحمن (55) → green -->
+<p>قال تعالى: {علم القرءان} (الرحمان:2).</p>
+
+<!-- ellipsis excerpt of آية الكرسي → green -->
+<p>قال تعالى: {الله لا إلاه إلا هو الحى القيوم ... وهو العلى العظيم} (البقرة:255).</p>
+
+<!-- contiguous excerpt, no ref → light blue -->
+<p>ومن آية الكرسي قوله: {لا تأخذه سنة ولا نوم}.</p>
+
+<!-- single-word brace under a lead-in → light blue -->
+<p>قوله تعالى: {الكوثر}.</p>
+
+<!-- multi-segment * (boundary-spanning) WITH range ref → green -->
+<p>قال تعالى: {قل هو الله أحد * الله الصمد} (الإخلاص:1-2).</p>
+
+</article>
+</body>
+</html>

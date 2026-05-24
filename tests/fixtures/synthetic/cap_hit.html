@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head><meta charset="UTF-8"><title>Coverage cap hit</title></head>
+<body>
+<article id="cap-hit-fixture"></article>
+<script>
+  const host = document.getElementById('cap-hit-fixture');
+  for (let i = 0; i < 505; i++) {
+    const p = document.createElement('p');
+    p.textContent = 'قال تعالى: {قل هو الله أحد} (الإخلاص:1).';
+    host.appendChild(p);
+  }
+</script>
+</body>
+</html>

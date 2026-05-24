@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<!-- Synthetic fixture: Wrong-reference (orange) branches. Split from coverage_gap.html. -->
+<html dir="rtl" lang="ar">
+<head><meta charset="UTF-8"><title>Wrong-reference (orange) branches</title></head>
+<body>
+<article>
+  <!-- multi-segment wrong reference: multi-segment orange branch -->
+  <p>قال تعالى: {قل هو الله أحد * الله الصمد} (الكوثر:1-2).</p>
+
+  <!-- same-surah multi-segment mismatch: claimed range is too short -->
+  <p>قال تعالى: {قل هو الله أحد * الله الصمد} (الإخلاص:1).</p>
+
+  <!-- single-word wrong reference: high-confidence single-word orange branch -->
+  <p>قوله تعالى: {الكوثر} (الإخلاص:1).</p>
+
+  <!-- ordinary multi-word wrong reference: orange sort/classify branch -->
+  <p>قال تعالى: {فصل لربك وانحر} (الإخلاص:1).</p>
+
+  <!-- sub-ayah wrong reference: exercises the non-full-ayah orange branch -->
+  <p>قال تعالى: {لربك وانحر} (الإخلاص:1).</p>
+</article>
+</body>
+</html>

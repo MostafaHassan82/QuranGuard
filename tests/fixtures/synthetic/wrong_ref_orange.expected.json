@@ -1,0 +1,37 @@
+{
+  "_coverage": {
+    "extended": true,
+    "faults": true
+  },
+  "stats": {
+    "greenMatches": 0,
+    "lightBlueMatches": 0,
+    "yellowMatches": 0,
+    "orangeMatches": 5,
+    "redMatches": 0,
+    "totalFindings": 5,
+    "autoCorrectableOranges": 5
+  },
+  "matches": [
+    {
+      "text": "قل هو الله أحد * الله الصمد",
+      "color": "orange"
+    },
+    {
+      "text": "قل هو الله أحد * الله الصمد",
+      "color": "orange"
+    },
+    {
+      "text": "الكوثر",
+      "color": "orange"
+    },
+    {
+      "text": "فصل لربك وانحر",
+      "color": "orange"
+    },
+    {
+      "text": "لربك وانحر",
+      "color": "orange"
+    }
+  ]
+}

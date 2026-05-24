@@ -1,0 +1,17 @@
+{
+  "stats": {
+    "greenMatches": 0,
+    "lightBlueMatches": 0,
+    "yellowMatches": 0,
+    "orangeMatches": 0,
+    "redMatches": 1,
+    "totalFindings": 1,
+    "autoCorrectableOranges": 0
+  },
+  "matches": [
+    {
+      "text": "فبركة",
+      "color": "red"
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "stats": {
+    "greenMatches": 2,
+    "lightBlueMatches": 0,
+    "yellowMatches": 2,
+    "orangeMatches": 0,
+    "redMatches": 0,
+    "totalFindings": 4,
+    "autoCorrectableOranges": 0
+  },
+  "matches": [
+    {
+      "text": "يا بن أم",
+      "color": "green"
+    },
+    {
+      "text": "قل أحد",
+      "color": "yellow"
+    },
+    {
+      "text": "قل الله أحد",
+      "color": "yellow"
+    },
+    {
+      "text": "عبدالله",
+      "color": "green"
+    }
+  ]
+}

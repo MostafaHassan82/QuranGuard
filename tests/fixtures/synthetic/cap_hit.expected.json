@@ -1,0 +1,11 @@
+{
+  "_coverage": { "extended": true, "faults": false },
+  "stats": {
+    "greenMatches": 500,
+    "lightBlueMatches": 0,
+    "yellowMatches": 0,
+    "orangeMatches": 0,
+    "redMatches": 0,
+    "totalFindings": 500
+  }
+}

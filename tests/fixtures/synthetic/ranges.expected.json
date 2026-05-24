@@ -1,0 +1,61 @@
+{
+  "stats": {
+    "greenMatches": 9,
+    "lightBlueMatches": 3,
+    "yellowMatches": 0,
+    "orangeMatches": 0,
+    "redMatches": 0,
+    "totalFindings": 12,
+    "autoCorrectableOranges": 0
+  },
+  "matches": [
+    {
+      "text": "قل هو الله أحد الله الصمد",
+      "color": "green"
+    },
+    {
+      "text": "الله الصمد",
+      "color": "green"
+    },
+    {
+      "text": "قل هو الله أحد",
+      "color": "lightBlue"
+    },
+    {
+      "text": "الله الصمد",
+      "color": "green"
+    },
+    {
+      "text": "قل هو الله أحد",
+      "color": "lightBlue"
+    },
+    {
+      "text": "الله الصمد",
+      "color": "green"
+    },
+    {
+      "text": "قل هو الله أحد",
+      "color": "green"
+    },
+    {
+      "text": "الله الصمد",
+      "color": "green"
+    },
+    {
+      "text": "الله الصمد",
+      "color": "green"
+    },
+    {
+      "text": "قل هو الله أحد",
+      "color": "green"
+    },
+    {
+      "text": "والسابقون السابقون * أولئك المقربون * ثلة من الأولين",
+      "color": "lightBlue"
+    },
+    {
+      "text": "لا يسمعون فيها لغوا ولا تأثيما * إلا قيلا سلاما سلاما",
+      "color": "green"
+    }
+  ]
+}

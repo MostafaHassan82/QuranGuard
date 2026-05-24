@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<!-- Synthetic fixture: Merge-aware / fused / non-contiguous matching. Split from coverage_gap.html. -->
+<html dir="rtl" lang="ar">
+<head><meta charset="UTF-8"><title>Merge-aware / fused / non-contiguous matching</title></head>
+<body>
+<article>
+  <!-- merge-aware soft alignment: modern split of a Quranic fused word -->
+  <p>قال تعالى: {يا بن أم} (طه:94).</p>
+
+  <!-- no-ref non-contiguous Quran words: ordered search misses, word-level catches -->
+  <p>ومما يذكر: {قل أحد}.</p>
+
+  <!-- ref-bearing non-contiguous Quran words: strict contiguous search misses -->
+  <p>قال تعالى: {قل أحد} (الإخلاص:1).</p>
+
+  <!-- exact first/last anchors in one ayah, but not a contiguous phrase -->
+  <p>ومما يذكر: {قل الله}.</p>
+
+  <!-- longer exact first/last anchors in one ayah, but not contiguous -->
+  <p>ومما يذكر: {قل الله أحد}.</p>
+
+  <!-- fused citation word against split Quran wording -->
+  <p>قال تعالى: {عبدالله} (الجن:19).</p>
+</article>
+</body>
+</html>

@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<!-- Synthetic fixture: Reference extraction forms. Split from coverage_gap.html. -->
+<html dir="rtl" lang="ar">
+<head><meta charset="UTF-8"><title>Reference extraction forms</title></head>
+<body>
+<article>
+  <!-- Synthetic fixture for page-only coverage paths that need tiny DOM shapes. -->
+<html dir="rtl" lang="ar">
+<head><meta charset="UTF-8"><title>Coverage gap forms</title></head>
+<body>
+<article>
+  <!-- explicit ref, no braces: backward extraction -->
+  <p>قال تعالى: قل هو الله أحد (الإخلاص:1).</p>
+
+  <!-- no-brace primary followed by no-brace secondary: explicit backward secondary branch -->
+  <p>قال تعالى: قل هو الله أحد (الإخلاص:1)، وقوله: الله الصمد (الإخلاص:2).</p>
+
+  <!-- unparsable reference: falls back to global verification -->
+  <p>قال تعالى: {قل هو الله أحد} (مرجع غير معروف:1).</p>
+
+  <!-- secondary lead-in after a primary citation -->
+  <p>قال تعالى: {قل هو الله أحد} (الإخلاص:1)، وقوله: الله الصمد (الإخلاص:2).</p>
+
+  <!-- secondary lead-in with punctuation before ref: forces lead-in extraction -->
+  <p>قال تعالى: {قل هو الله أحد} (الإخلاص:1)، وقوله: الله الصمد = (الإخلاص:2).</p>
+
+  <!-- citation text split across inline nodes: resolveRange/wrapTextNodes multi-node path -->
+  <p>قال تعالى: {قل هو <b>الله</b> أحد} (الإخلاص:1).</p>
+
+  <!-- extracted ref is beyond the bounded marker wrapper scan -->
+  <p>قال تعالى: {قل هو الله أحد}<span>                                                                                                                                                                                                                                                                                                                                                                                                                 </span><span>(الإخلاص:1)</span>.</p>
+</article>
+</body>
+</html>

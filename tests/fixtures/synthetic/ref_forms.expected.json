@@ -1,0 +1,12 @@
+{
+  "stats": { "greenMatches": 5, "lightBlueMatches": 2, "yellowMatches": 0, "orangeMatches": 0, "redMatches": 0, "totalFindings": 7 },
+  "matches": [
+    { "text": "قل هو الله أحد الله الصمد", "color": "green" },
+    { "text": "فصل لربك وانحر", "color": "green" },
+    { "text": "علم القرءان", "color": "green" },
+    { "text": "الله لا إلاه إلا هو الحى القيوم ... وهو العلى العظيم", "color": "green" },
+    { "text": "قل هو الله أحد * الله الصمد", "color": "green" },
+    { "text": "لا تأخذه سنة ولا نوم", "color": "lightBlue" },
+    { "text": "الكوثر", "color": "lightBlue" }
+  ]
+}

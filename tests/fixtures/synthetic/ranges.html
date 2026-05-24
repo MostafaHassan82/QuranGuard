@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<!-- Synthetic fixture: Comma shorthand and range constructs. Split from coverage_gap.html. -->
+<html dir="rtl" lang="ar">
+<head><meta charset="UTF-8"><title>Comma shorthand and range constructs</title></head>
+<body>
+<article>
+  <!-- Arabic comma shorthand that should expand to a range -->
+  <p>قال تعالى: {قل هو الله أحد الله الصمد} (الإخلاص:1،2).</p>
+
+  <!-- comma shorthand fallback: cited endpoints miss, expanded range contains the verse -->
+  <p>قال تعالى: {الله الصمد} (الإخلاص:1،3).</p>
+
+  <!-- range construct: from first brace to second brace under one final reference -->
+  <p>قال تعالى: {قل هو الله أحد} إلى قوله: {الله الصمد} (الإخلاص:1-2).</p>
+
+  <!-- range construct without a primary lead-in: the range extractor owns both spans -->
+  <p>{قل هو الله أحد} إلى قوله: {الله الصمد} (الإخلاص:1-2).</p>
+
+  <!-- narrated pair, not a true range: first brace already has its own ref -->
+  <p>{قل هو الله أحد} (الإخلاص:1) إلى قوله: {الله الصمد} (الإخلاص:2).</p>
+
+  <!-- range construct with parenthesized Quran text instead of strong braces -->
+  <p>(قل هو الله أحد) إلى قوله: (الله الصمد) (الإخلاص:1-2).</p>
+
+  <!-- malformed range construct: extracted shape, then ignored because text is too short -->
+  <p>{قل هو الله أحد} إلى قوله: {abc} (الإخلاص:1-2).</p>
+
+  <!-- copied minimal real-page range form from pages/238996 -->
+  <p>قوله تعالى: {والسابقون السابقون * أولئك المقربون * ثلة من الأولين} إلى قوله: {لا يسمعون فيها لغوا ولا تأثيما * إلا قيلا سلاما سلاما} (الواقعة:10-26).</p>
+</article>
+</body>
+</html>

@@ -1,0 +1,21 @@
+{
+  "stats": {
+    "greenMatches": 0,
+    "lightBlueMatches": 1,
+    "yellowMatches": 1,
+    "orangeMatches": 0,
+    "redMatches": 0,
+    "totalFindings": 2,
+    "autoCorrectableOranges": 0
+  },
+  "matches": [
+    {
+      "text": "قل هو الله أحد * الله الصمد",
+      "color": "lightBlue"
+    },
+    {
+      "text": "قل هو الله الصمت",
+      "color": "yellow"
+    }
+  ]
+}
