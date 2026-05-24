@@ -1,26 +1,24 @@
 # Contract — Messaging (Writer-Side Autocomplete)
 
-All cross-context messages use the feature-001 typed envelope `{type, requestId, payload}` and every handler MUST `return true` to keep the channel open (constitution Tech Constraints). This feature adds **one** new background message and reuses existing ones.
+The envelope messages this feature consumes (PREFS_*) use the feature-001 typed envelope `{type, requestId, payload}` with `return true`. The new matching call, `MATCH_PARTIAL`, ships as a **bare-shape internal verifier RPC** (like `verifyFragment`/`getAyahText`), routed through `background.js`'s `ensureInitialized()` switch per the messaging contract's "Internal (non-envelope) messages" section.
 
-## New: `MATCH_PARTIAL` (content → background)
+## New: `MATCH_PARTIAL` (content → background) — bare shape
 
 Find verses that contain the typed citation fragment anywhere in their text, for the writer-side dropdown.
 
-**Request payload**
+**Request**
 ```jsonc
-{
-  "text": "string",      // recognized citation text (Arabic), prefix excluded
-  "limit": 8             // max candidates to return (dropdown cap)
-}
+{ "type": "MATCH_PARTIAL", "text": "string", "limit": 8 }
 ```
 
-**Response payload**
+**Response**
 ```jsonc
 {
-  "ok": true,
   "candidates": [
     {
       "ref": { "surah": 2, "ayah": 255 },
+      "refLabel": "البقرة:255",          // surahName:ayah for display
+      "surahName": "البقرة",
       "authenticText": "string",        // full authentic ayah wording
       "tier": "exact",                  // "exact" | "wordLevel" | "fuzzy"
       "coverage": 0.42,                  // fraction of the verse the fragment spans
@@ -29,11 +27,7 @@ Find verses that contain the typed citation fragment anywhere in their text, for
   ]
 }
 ```
-
-**Error payload** (e.g., data unavailable per feature-001 FR-020)
-```jsonc
-{ "ok": false, "error": "DATA_UNAVAILABLE" }
-```
+Empty `candidates` (or `{ "error": "..." }` when the index is unavailable) ⇒ not-recognized (FR-008).
 
 **Semantics**
 - Reuses the existing global ordered-contiguous / multi-segment / fuzzy-subsequence search (research §1). No new matching logic.

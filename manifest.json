@@ -25,9 +25,16 @@
         "js/panel/sidebar-surface.js",
         "js/render/fonts.js",
         "js/render/swap.js",
-        "js/content.js"
+        "js/content.js",
+        "js/compose/editable.js",
+        "js/compose/detect.js",
+        "js/compose/match.js",
+        "js/compose/dropdown.js",
+        "js/compose/insert.js",
+        "js/compose/render-editable.js",
+        "js/compose/index.js"
       ],
-      "css": ["css/content.css", "css/sidebar.css"],
+      "css": ["css/content.css", "css/sidebar.css", "css/compose.css"],
       "run_at": "document_start"
     }
   ],

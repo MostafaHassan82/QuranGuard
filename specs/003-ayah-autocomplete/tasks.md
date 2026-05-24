@@ -29,9 +29,9 @@ Flat Chromium MV3 extension at repo root. New writer-side logic lives in `js/com
 
 **Purpose**: Create the `js/compose/` skeleton, wire it into the manifest, and add the settings schema. No behavior yet.
 
-- [ ] T001 Create `js/compose/` and register the new content scripts in `manifest.json` (`content_scripts[0].js`: add `js/compose/editable.js`, `js/compose/detect.js`, `js/compose/match.js`, `js/compose/dropdown.js`, `js/compose/insert.js`, `js/compose/render-editable.js`, `js/compose/index.js`, ordered before `js/content.js`) and add `css/compose.css` to `content_scripts[0].css`; no new permissions (per plan.md)
-- [ ] T002 [P] Create `css/compose.css`: namespaced (`.quran-ext-ac-*`, `all: initial` guard) styles for the candidate dropdown and the insertion-scope menu, plus the persistent in-editor citation classes that reuse the existing verdict colors and Quran-font class from `css/content.css`
-- [ ] T003 [P] Extend `js/storage/prefs.js` with the `prefs.autocomplete` sub-object — defaults `{enabled:true, liveRender:true, refFormat:"arabicName", refPlacement:"after", minWords:2}` with default-fill + clamp-on-read per [contracts/storage.md](./contracts/storage.md) (no `prefs` version bump)
+- [X] T001 Create `js/compose/` and register the new content scripts in `manifest.json` (`content_scripts[0].js`) and add `css/compose.css` to `content_scripts[0].css`; no new permissions. **Done** — compose scripts registered AFTER `js/content.js` (so `detect.js` can read content.js's shared-scope lead-in constants) + `css/compose.css` added.
+- [X] T002 [P] Create `css/compose.css`: namespaced (`.quran-ac-*`, `all: initial` guard) styles for the candidate dropdown + insertion-scope menu, plus the persistent in-editor citation classes that reuse the verdict colors / Quran-font class from `css/content.css`. **Done.**
+- [X] T003 [P] Extend `js/storage/prefs.js` with the `prefs.autocomplete` sub-object — defaults `{enabled:true, liveRender:true, refFormat:"arabicName", refPlacement:"after", minWords:2}` with default-fill + clamp-on-read per [contracts/storage.md](./contracts/storage.md) (no `prefs` version bump). **Done** — verified by `autocomplete_check.js` (defaults present) + suite stays 60/60.
 
 **Checkpoint**: Module slots exist and are registered; settings schema validates; nothing functionally new.
 
@@ -43,13 +43,13 @@ Flat Chromium MV3 extension at repo root. New writer-side logic lives in `js/com
 
 **⚠️ CRITICAL**: No user-story tasks may begin until Phase 2 is complete.
 
-- [ ] T004 Add the `MATCH_PARTIAL` handler in `js/background.js` reusing the existing global ordered-contiguous / multi-segment / fuzzy-subsequence search (the no-reference citation path); return ranked `{ref, authenticText, tier, coverage, rank}` candidates via the typed envelope, `return true` ([contracts/messaging.md](./contracts/messaging.md), research §1)
+- [X] T004 Add the `MATCH_PARTIAL` handler in `js/background.js` reusing `findExactGlobal` / `findOrderedContiguousGlobal` (exact tier) + `findOrderedContiguousSoftGlobal` (wordLevel tier); returns ranked `{ref, refLabel, surahName, authenticText, tier, coverage, rank}` candidates, ordered tier-first then mushaf order. **Done** — shipped as a bare internal verifier RPC (reconciled in [contracts/messaging.md](./contracts/messaging.md)); verified by `autocomplete_check.js` 10/10 (any-part-of-any-verse, top-rank, exact tier, empty-in). Fuzzy tier deferred to T021.
 - [ ] T005 Create `js/compose/editable.js`: surface abstraction exposing the active citation span, caret offset, and caret bounding rect — `<input>`/`<textarea>` via `selectionStart/End` + the mirror-div caret technique (text-only edits); contenteditable via `Selection`/`Range` (markup-capable) (research §2)
 - [ ] T006 Create `js/compose/detect.js`: recognize a citation-in-progress at the caret using feature-001 detection signals (primary/secondary prefixes + Arabic run) and delimit the citation span; expose Arabic `wordCount` for the gate (FR-001, FR-003)
 - [ ] T007 Create `js/compose/index.js`: orchestrator with `focusin` delegation across editable fields, input debounce, IME handling (skip while `isComposing`, re-evaluate on `compositionend`), and the min-word gate; load it from `js/content.js` without touching the reader-side scan pipeline (FR-002, FR-003; research §3)
 - [ ] T008 [P] Implement the `window.__quranCompose` test hook in `js/compose/index.js`, written on every state transition (active citation, candidates, lastInsertion, lastClassification) per [contracts/window-globals.md](./contracts/window-globals.md)
-- [ ] T009 [P] Add i18n keys (ar + en, maintain parity) to `js/shared/i18n.js` for the dropdown, the three insertion-scope labels, "end word not found", and the not-recognized state (FR-020, FR-016, FR-008)
-- [ ] T010 Create `tests/autocomplete_check.js` harness scaffolding: inject `js/compose/*` + the reused deps into the existing Node/Chrome-mock page, and provide a `type(host, text)` helper that dispatches committed (non-composing) `input` events into `<input>`/`<textarea>`/contenteditable hosts; assert against `window.__quranCompose`
+- [X] T009 [P] Add i18n keys (ar + en, parity) to `js/shared/i18n.js` for the dropdown/scope labels, "end word not found", and the not-recognized state (`ac_*` keys). **Done** — `i18n_check` 166 keys ar/en in parity.
+- [~] T010 Create `tests/autocomplete_check.js` harness scaffolding (system Chromium + MV3 mock + ORIGIN routing); wired into `npm run test:checks`. **Partial** — scaffold + `MATCH_PARTIAL` battery shipped (10/10); the `type(host, text)` synthetic-typing helper + `window.__quranCompose` assertions land with T011–T029 (need the compose DOM modules T005–T008 first).
 
 **Checkpoint**: A typed citation can be detected and matched, the orchestrator runs with caret tracking and IME guards, and the test gate can drive typing — but no dropdown, insertion, cascade, or rendering exists yet.
 

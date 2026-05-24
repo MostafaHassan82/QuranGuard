@@ -1,0 +1,95 @@
+/* Writer-side ayah autocomplete (feature 003).
+ *
+ * Two concerns:
+ *   1. The caret-anchored suggestion dropdown + insertion-scope menu — extension
+ *      UI overlaid on the host page, fully namespaced and reset so host styles
+ *      don't bleed in (mirrors the .quran-ext-panel guard in sidebar.css).
+ *   2. The in-editor citation styling classes (verdict color + Quran font) that
+ *      render-editable.js applies to recognized citations. These reuse the verdict
+ *      palette defined in content.css — DO NOT redefine the five-verdict colors
+ *      here (Principle II); we only set the layout/scaffolding for the editor.
+ */
+
+/* ── Dropdown / scope menu ─────────────────────────────────────────────────── */
+.quran-ac-menu {
+  all: initial;
+  position: absolute;
+  z-index: 2147483646; /* just under the sidebar's top layer */
+  box-sizing: border-box;
+  min-width: 220px;
+  max-width: 420px;
+  max-height: 320px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 4px;
+  border: 1px solid #c8a24a;            /* gold accent, matches the app theme */
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.18);
+  font-family: "Segoe UI", system-ui, sans-serif;
+  font-size: 14px;
+  color: #14241c;
+  direction: rtl;                        /* Arabic candidate text */
+  text-align: right;
+}
+
+.quran-ac-item {
+  all: unset;
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  padding: 7px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  line-height: 1.5;
+  white-space: normal;
+}
+.quran-ac-item[aria-selected="true"],
+.quran-ac-item:hover {
+  background: #0b5d3b;                    /* deep green selection */
+  color: #ffffff;
+}
+
+.quran-ac-ayah {
+  display: block;
+  font-size: 1.05em;
+}
+.quran-ac-ref {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.82em;
+  opacity: 0.8;
+}
+/* tier chips: green/yellow/red dot before drift candidates */
+.quran-ac-tier {
+  display: inline-block;
+  width: 0.7em;
+  height: 0.7em;
+  margin-inline-start: 6px;
+  border-radius: 50%;
+  vertical-align: middle;
+}
+.quran-ac-tier-exact { background: #2e7d32; }
+.quran-ac-tier-wordLevel { background: #f9a825; }
+.quran-ac-tier-fuzzy { background: #c62828; }
+
+/* header / hint row inside a menu (e.g. "Type the end word", "not recognized") */
+.quran-ac-note {
+  display: block;
+  padding: 6px 10px;
+  font-size: 0.85em;
+  color: #6b5d2a;
+}
+
+/* ── In-editor citation scaffolding (contenteditable persistent markup) ──────
+ * Verdict colors come from content.css's verdict classes; here we only ensure
+ * the inline span flows with the surrounding text and carries the Quran font
+ * when matched. Plain inputs receive no markup (handled in JS). */
+.quran-ac-cite {
+  border-radius: 2px;
+}
+.quran-ac-cite-quranfont {
+  /* the active Quran font family variable is set inline by render-editable.js
+   * from QuranFonts; line-height kept tight so the editor line-box is stable. */
+  line-height: 1.2;
+}

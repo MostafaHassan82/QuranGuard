@@ -24,7 +24,15 @@ const QuranPrefs = (() => {
     // tooltip is ALWAYS available regardless (the span stays focusable). red may
     // not be 'off' — a not-in-Quran finding must remain visible.
     highlightStyle: { green: 'highlight', lightBlue: 'highlight', lightGreen: 'highlight', yellow: 'highlight', orange: 'highlight', red: 'highlight' },
+    // Writer-side ayah autocomplete (feature 003). enabled + liveRender default
+    // ON; the feature toggle is the ONLY way to turn autocomplete off (no Esc).
+    // refFormat/refPlacement shape the inserted reference; minWords is the
+    // performance gate before matching starts.
+    autocomplete: { enabled: true, liveRender: true, refFormat: 'arabicName', refPlacement: 'after', minWords: 2 },
   };
+
+  const VALID_REF_FORMATS = new Set(['arabicName', 'number']);
+  const VALID_REF_PLACEMENTS = new Set(['after', 'before']);
 
   const VALID_FONTS = new Set(['uthmaniHafs', 'qpcHafs', 'qpcV2', 'qpcV4Tajweed', 'digitalKhattIndopak', 'digitalKhattV1', 'digitalKhattV2', 'indopakNastaleeq', 'kfgqpcNastaleeq']);
   const VALID_SCAN_TRIGGERS = new Set(['manual', 'autoscan']);
@@ -62,6 +70,18 @@ const QuranPrefs = (() => {
     if (!p.highlightStyle || typeof p.highlightStyle !== 'object') p.highlightStyle = {};
     for (const color of ['green', 'lightBlue', 'lightGreen', 'yellow', 'orange', 'red']) {
       if (!VALID_HIGHLIGHT_STYLES.has(p.highlightStyle[color])) p.highlightStyle[color] = DEFAULTS.highlightStyle[color];
+    }
+
+    // Autocomplete sub-object (feature 003): default-fill + clamp-on-read.
+    if (!p.autocomplete || typeof p.autocomplete !== 'object') p.autocomplete = {};
+    if (typeof p.autocomplete.enabled !== 'boolean') p.autocomplete.enabled = DEFAULTS.autocomplete.enabled;
+    if (typeof p.autocomplete.liveRender !== 'boolean') p.autocomplete.liveRender = DEFAULTS.autocomplete.liveRender;
+    if (!VALID_REF_FORMATS.has(p.autocomplete.refFormat)) p.autocomplete.refFormat = DEFAULTS.autocomplete.refFormat;
+    if (!VALID_REF_PLACEMENTS.has(p.autocomplete.refPlacement)) p.autocomplete.refPlacement = DEFAULTS.autocomplete.refPlacement;
+    {
+      let mw = parseInt(p.autocomplete.minWords, 10);
+      if (!Number.isFinite(mw)) mw = DEFAULTS.autocomplete.minWords;
+      p.autocomplete.minWords = Math.min(5, Math.max(1, mw));
     }
 
     // Clamp: red MUST be false

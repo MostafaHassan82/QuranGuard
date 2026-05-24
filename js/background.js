@@ -1017,6 +1017,56 @@ function getAyahText(surahNum, ayahNum) {
   return { text: rec.text, ref: rec.ref };
 }
 
+// Writer-side autocomplete (feature 003, FR-005/006/007/013). Given the citation
+// text the user is typing, find verses that contain it ANYWHERE (not only at the
+// verse start) and return ranked candidates for the suggestion dropdown.
+//
+// Reuses the SAME global search the no-reference reader-side path uses (Principle
+// V — no new matching logic):
+//   - findExactGlobal / findOrderedContiguousGlobal → exact-wording matches (the
+//     typed words appear as a contiguous subsequence somewhere in the verse).
+//   - findOrderedContiguousSoftGlobal → drift-tolerant ("word-level") matches.
+// Ordering is tier-first (exact > wordLevel > fuzzy) then mushaf order (ascending
+// surah, then ayah) — see FR-013. Fuzzy is wired in T021 (US3); exact + wordLevel
+// cover US1/US2.
+const TIER_RANK = { exact: 0, wordLevel: 1, fuzzy: 2 };
+function matchPartial(text, limit = 8) {
+  if (!indexes) return { candidates: [] };
+  const t1 = tier1Normalize(String(text || '').replace(/\*/g, ' '));
+  const words = t1.split(' ').filter(Boolean);
+  if (words.length === 0) return { candidates: [] };
+
+  const seen = new Set();
+  const out = [];
+  const push = (rec, tier) => {
+    if (!rec) return;
+    const key = rec.surahNum + ':' + rec.ayahNum;
+    if (seen.has(key)) return;          // first (better) tier wins per verse
+    seen.add(key);
+    const verseWords = Array.isArray(rec.tier1Words) ? rec.tier1Words.length : 0;
+    out.push({
+      ref: { surah: rec.surahNum, ayah: rec.ayahNum },
+      refLabel: `${rec.surahName}:${rec.ayahNum}`,
+      surahName: rec.surahName,
+      authenticText: rec.text,
+      tier,
+      coverage: verseWords ? +(Math.min(words.length, verseWords) / verseWords).toFixed(3) : 0,
+    });
+  };
+
+  // Tier 1 — exact wording (full verse OR contiguous fragment anywhere in a verse)
+  for (const rec of sortRecs(findExactGlobal(t1))) push(rec, 'exact');
+  for (const rec of sortRecs(findOrderedContiguousGlobal(words))) push(rec, 'exact');
+  // Tier 2 — drift-tolerant ("word-level") contiguous match
+  if (out.length < limit) for (const rec of sortRecs(findOrderedContiguousSoftGlobal(words))) push(rec, 'wordLevel');
+
+  out.sort((a, b) =>
+    TIER_RANK[a.tier] - TIER_RANK[b.tier] || a.ref.surah - b.ref.surah || a.ref.ayah - b.ref.ayah);
+  const limited = out.slice(0, Math.max(1, limit | 0));
+  limited.forEach((c, i) => { c.rank = i; });
+  return { candidates: limited };
+}
+
 // ── Message router ────────────────────────────────────────────────────────────
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
@@ -1208,6 +1258,11 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         }
         case 'getAyahText':
           return getAyahText(msg.surahNum, msg.ayahNum);
+        case 'MATCH_PARTIAL':
+          // Writer-side autocomplete candidate lookup (feature 003). Bare-shape
+          // internal verifier RPC, like verifyFragment/getAyahText (per the
+          // messaging contract's "Internal (non-envelope) messages" section).
+          return matchPartial(msg.text, msg.limit);
         case 'alternateRefs': {
           // Lazy companion to the green verify path: where else this exact /
           // near text appears, for the hover tooltip's "also/partially in …"
