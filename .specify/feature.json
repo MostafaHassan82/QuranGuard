@@ -1,3 +1,7 @@
 {
+<<<<<<< HEAD
   "feature_directory": "specs/003-ayah-autocomplete"
+=======
+  "feature_directory": "specs/002-correction-autocorrect"
+>>>>>>> e208cee (docs(002): spec + clarifications for correction/autocorrect (lightBlue/yellow/red))
 }
