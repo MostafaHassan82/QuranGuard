@@ -196,6 +196,87 @@ async function inPageTests() {
   T('prefs.autocomplete defaults present', ac && ac.enabled === true && ac.liveRender === true
     && ac.refFormat === 'arabicName' && ac.refPlacement === 'after' && ac.minWords === 2, JSON.stringify(ac));
 
+  // ── US1: synthetic typing → dropdown → accept (T011-T016, hook T008) ────────
+  const composeLoaded = typeof window.__quranCompose === 'object' && window.__quranCompose
+    && typeof window.__quranCompose.acceptSelected === 'function';
+  T('compose orchestrator loaded (window.__quranCompose)', composeLoaded);
+  if (composeLoaded) {
+    const host = document.getElementById('host');
+    const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+    const waitCandidates = async () => {
+      for (let i = 0; i < 80; i++) {
+        if ((window.__quranCompose.candidates || []).length > 0) return true;
+        await sleep(25);
+      }
+      return false;
+    };
+    const lead4 = verseWords.slice(0, 4).join(' ');
+
+    // input field
+    const inp = document.createElement('input');
+    inp.type = 'text';
+    inp.id = 'ac-input';
+    host.appendChild(inp);
+    inp.focus();
+    inp.value = 'قال تعالى: ' + lead4;
+    inp.setSelectionRange(inp.value.length, inp.value.length);
+    inp.dispatchEvent(new Event('input', { bubbles: true }));
+    const got = await waitCandidates();
+    T('US1 typing a citation surfaces candidates', got, JSON.stringify(window.__quranCompose.candidates));
+    const topRef = (window.__quranCompose.candidates[0] || {}).ref;
+    T('US1 top candidate is البقرة:255', topRef === ('البقرة:' + '255'), topRef);
+    T('US1 hook active state is suggesting', window.__quranCompose.active && window.__quranCompose.active.state === 'suggesting',
+      window.__quranCompose.active && window.__quranCompose.active.state);
+    window.__quranCompose.acceptSelected();
+    await sleep(20);
+    T('US1 accept replaced typed text with authentic ayah', inp.value.includes(ayah.text), inp.value);
+    T('US1 accept appended the (surahName:ayah) reference', inp.value.includes('(البقرة:255)'), inp.value);
+    T('US1 lastInsertion recorded on the hook',
+      window.__quranCompose.lastInsertion && window.__quranCompose.lastInsertion.ref === ('البقرة:' + '255')
+      && window.__quranCompose.lastInsertion.scope === 'whole', JSON.stringify(window.__quranCompose.lastInsertion));
+    T('US1 dropdown hidden after accept', (window.__quranCompose.candidates || []).length === 0);
+
+    // min-word gate: a single Arabic word must NOT trigger suggestions
+    const inp2 = document.createElement('input');
+    inp2.type = 'text';
+    host.appendChild(inp2);
+    inp2.focus();
+    inp2.value = 'قال تعالى: ' + verseWords[0];
+    inp2.setSelectionRange(inp2.value.length, inp2.value.length);
+    inp2.dispatchEvent(new Event('input', { bubbles: true }));
+    await sleep(180);
+    T('US1 min-word gate: 1 word → no dropdown', (window.__quranCompose.candidates || []).length === 0,
+      JSON.stringify(window.__quranCompose.candidates));
+
+    // contenteditable surface
+    const ce = document.createElement('div');
+    ce.contentEditable = 'true';
+    ce.id = 'ac-ce';
+    host.appendChild(ce);
+    ce.textContent = 'قال تعالى: ' + lead4;
+    ce.focus();
+    // place caret at end of the text node
+    const range = document.createRange();
+    const tn = ce.firstChild;
+    range.setStart(tn, tn.textContent.length);
+    range.collapse(true);
+    const sel = document.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+    ce.dispatchEvent(new Event('input', { bubbles: true }));
+    const gotCe = await waitCandidates();
+    T('US1 contenteditable surfaces candidates', gotCe, JSON.stringify(window.__quranCompose.candidates));
+    T('US1 contenteditable surface reported on hook',
+      window.__quranCompose.active && window.__quranCompose.active.surface === 'contenteditable',
+      window.__quranCompose.active && window.__quranCompose.active.surface);
+    if (gotCe) {
+      window.__quranCompose.acceptSelected();
+      await sleep(20);
+      T('US1 contenteditable accept inserted authentic ayah + ref',
+        ce.textContent.includes(ayah.text) && ce.textContent.includes('(البقرة:255)'), ce.textContent);
+    }
+  }
+
   return results;
 }
 

@@ -44,12 +44,12 @@ Flat Chromium MV3 extension at repo root. New writer-side logic lives in `js/com
 **⚠️ CRITICAL**: No user-story tasks may begin until Phase 2 is complete.
 
 - [X] T004 Add the `MATCH_PARTIAL` handler in `js/background.js` reusing `findExactGlobal` / `findOrderedContiguousGlobal` (exact tier) + `findOrderedContiguousSoftGlobal` (wordLevel tier); returns ranked `{ref, refLabel, surahName, authenticText, tier, coverage, rank}` candidates, ordered tier-first then mushaf order. **Done** — shipped as a bare internal verifier RPC (reconciled in [contracts/messaging.md](./contracts/messaging.md)); verified by `autocomplete_check.js` 10/10 (any-part-of-any-verse, top-rank, exact tier, empty-in). Fuzzy tier deferred to T021.
-- [ ] T005 Create `js/compose/editable.js`: surface abstraction exposing the active citation span, caret offset, and caret bounding rect — `<input>`/`<textarea>` via `selectionStart/End` + the mirror-div caret technique (text-only edits); contenteditable via `Selection`/`Range` (markup-capable) (research §2)
-- [ ] T006 Create `js/compose/detect.js`: recognize a citation-in-progress at the caret using feature-001 detection signals (primary/secondary prefixes + Arabic run) and delimit the citation span; expose Arabic `wordCount` for the gate (FR-001, FR-003)
-- [ ] T007 Create `js/compose/index.js`: orchestrator with `focusin` delegation across editable fields, input debounce, IME handling (skip while `isComposing`, re-evaluate on `compositionend`), and the min-word gate; load it from `js/content.js` without touching the reader-side scan pipeline (FR-002, FR-003; research §3)
-- [ ] T008 [P] Implement the `window.__quranCompose` test hook in `js/compose/index.js`, written on every state transition (active citation, candidates, lastInsertion, lastClassification) per [contracts/window-globals.md](./contracts/window-globals.md)
+- [X] T005 Create `js/compose/editable.js`: surface abstraction (`surfaceOf`/`getContext`/`replaceRange`/`caretRect`) — input/textarea via `selectionStart` + value splicing; contenteditable via `Selection`/`Range`. **Done.**
+- [X] T006 Create `js/compose/detect.js`: citation-in-progress detection reusing content.js's `LEAD_IN_RE`/`SECONDARY_LEAD_IN_RE` (shared scope; built-in fallback otherwise) + opening-brace signal; exposes `wordCount`. **Done.**
+- [X] T007 Create `js/compose/index.js`: orchestrator — document-level (capture) input/keydown/composition/focusout delegation, debounce, IME guard, min-word gate; loads via manifest (no `content.js` change). **Done.**
+- [X] T008 [P] `window.__quranCompose` hook written on every transition + `acceptSelected`/`moveSelection` test drivers, per [contracts/window-globals.md](./contracts/window-globals.md). **Done** — exercised by the gate.
 - [X] T009 [P] Add i18n keys (ar + en, parity) to `js/shared/i18n.js` for the dropdown/scope labels, "end word not found", and the not-recognized state (`ac_*` keys). **Done** — `i18n_check` 166 keys ar/en in parity.
-- [~] T010 Create `tests/autocomplete_check.js` harness scaffolding (system Chromium + MV3 mock + ORIGIN routing); wired into `npm run test:checks`. **Partial** — scaffold + `MATCH_PARTIAL` battery shipped (10/10); the `type(host, text)` synthetic-typing helper + `window.__quranCompose` assertions land with T011–T029 (need the compose DOM modules T005–T008 first).
+- [X] T010 Create `tests/autocomplete_check.js` (system Chromium + MV3 mock + ORIGIN routing), wired into `npm run test:checks`. **Done** — `MATCH_PARTIAL` battery + synthetic-typing across input/contenteditable reading `window.__quranCompose`; 22/22.
 
 **Checkpoint**: A typed citation can be detected and matched, the orchestrator runs with caret tracking and IME guards, and the test gate can drive typing — but no dropdown, insertion, cascade, or rendering exists yet.
 
@@ -61,12 +61,12 @@ Flat Chromium MV3 extension at repo root. New writer-side logic lives in `js/com
 
 **Independent Test**: In a contenteditable host, type a recognized prefix + the first words of a known ayah → dropdown appears after the gate, narrows as typing continues, Tab/Enter inserts the authentic ayah + reference; a fragment matching exactly one verse auto-resolves on accept.
 
-- [ ] T011 [US1] Create `js/compose/match.js`: call `MATCH_PARTIAL`; cache results and **narrow client-side** on append (filter prior candidates); order **tier-first then mushaf order** (FR-005, FR-006, FR-013; research §1)
-- [ ] T012 [US1] Create `js/compose/dropdown.js`: render the caret-anchored, ranked candidate list; **Tab/Enter** accept the highlighted candidate; single match shows a one-item dropdown (no auto-replace); capture Tab/Enter **only while showing** (FR-009, FR-010, FR-012)
-- [ ] T013 [US1] Create `js/compose/insert.js`: replace the citation span with the **authentic ayah wording** and append the reference per `prefs.autocomplete.refFormat`/`refPlacement` (default whole-ayah scope for US1; scope menu lands in US2); authentic-only, never the typed text (FR-014, FR-017)
-- [ ] T014 [US1] Wire dropdown accept → `insert.js` in `js/compose/index.js`; populate `window.__quranCompose.lastInsertion`; multiple-match blind accept uses rank-0 (FR-012, FR-013)
-- [ ] T015 [P] [US1] Add fixtures `tests/fixtures/compose/single-match.{html,expected.json}` and `multi-match.{html,expected.json}` (expected candidate refs + tiers + ranking + inserted result); assert via `tests/autocomplete_check.js` (SC-002)
-- [ ] T016 [US1] Run `node tests/autocomplete_check.js` and iterate `match.js`/`dropdown.js`/`insert.js` until US1 acceptance scenarios + SC-002 (≥95% present / ≥85% top-ranked) pass; confirm `npm test` stays green
+- [X] T011 [US1] Create `js/compose/match.js`: call `MATCH_PARTIAL`; one-entry cache; narrowing via re-query with the longer fragment (FR-006); ordering done server-side tier-first/mushaf (FR-005/013). **Done** (client-side filter optimization deferred to T030).
+- [X] T012 [US1] Create `js/compose/dropdown.js`: caret-anchored ranked candidate list; mousedown-select; selection state; **Tab/Enter accept handled in index.js while shown** (FR-009/010/012). **Done.**
+- [X] T013 [US1] Create `js/compose/insert.js`: build **authentic ayah wording** + reference per `refFormat`/`refPlacement`; authentic-only (FR-014/017). Whole-ayah scope for US1; `buildBody` scope param ready for US2. **Done.**
+- [X] T014 [US1] Wire dropdown accept → `insert.js` in `js/compose/index.js`; recomputes the live citation span before replacing; populates `window.__quranCompose.lastInsertion`; blind accept uses rank-0 (FR-012/013). **Done.**
+- [X] T015 [P] [US1] Coverage via the assertion gate (mirrors the 001 in-page-host pattern): `tests/autocomplete_check.js` builds input/textarea/contenteditable hosts, derives the ground-truth verse from the shipped index (Principle I), and asserts candidate presence + top-rank (SC-002). **Done** — separate `tests/fixtures/compose/*` HTML files unnecessary given the in-page hosts.
+- [X] T016 [US1] Run `node tests/autocomplete_check.js`: **22/22** (typing → dropdown → accept inserts authentic ayah + ref, across input + contenteditable, min-word gate); `npm test` stays 60/60 + all checks green.
 
 **Checkpoint**: The core writer-side value works end-to-end — type → suggest → accept → authentic ayah + reference. A true MVP.
 
