@@ -16,6 +16,17 @@ It deliberately **reuses the existing matching/verification stack** from feature
 
 This feature does **not** depend on feature 002 (correction/autocorrect) and can ship independently.
 
+## Clarifications
+
+### Session 2026-05-24
+
+- Q: For a single verse match, does the authentic ayah replace the typed text automatically, or does the user confirm? → A: Always confirm — even a single match requires Tab/Enter accept; text is never auto-replaced mid-typing. After the ayah is chosen, a **second menu** presents the insertion-scope choice (whole ayah / only the typed portion / from the typed start to an end word).
+- Q: Should the feature act on citation text already present in a field on focus, or only newly-typed text? → A: Render-only for pre-existing — apply the Quran-font / red-highlight rendering (FR-018) to citations already in the field on focus, but offer the suggestion dropdown and insertion ONLY for newly-typed/edited citations.
+- Q: What format and placement does the inserted reference use? → A: User-configurable (surah name vs. number, and placement), defaulting to the Arabic surah-name parenthetical form placed immediately after the inserted ayah, e.g. `(البقرة:255)`.
+- Q: How are equal-tier candidate verses ordered (which is "first")? → A: Mushaf order — ascending surah number then ayah number. Deterministic; tier (exact > word-level > fuzzy) still orders across tiers, mushaf order breaks ties within a tier.
+- Q: Does the live Quran-font / red-highlight rendering persist into the author's saved content, or is it transient? → A: Persist — in rich (contenteditable) surfaces the rendering is injected as real markup that becomes part of what the author publishes. Plain inputs (which cannot hold markup) still receive clean text only.
+- Q: Without an Esc key, how does the author escape a false trigger, and what happens to an unresolved citation? → A: Typing past the citation or moving the caret away closes that dropdown instance (Tab/Enter are captured only while candidates show); the settings toggle remains the only feature-level off switch. A recognized citation the author does NOT resolve via the dropdown is handed to the main reader-side classifier and highlighted by its verdict (green / light blue / yellow / orange / red), reusing feature-001 classification — not merely "Quran font or red".
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Author completes a verse from memory and gets the authentic wording + reference (Priority: P1)
@@ -121,24 +132,28 @@ Unless disabled in settings, recognized-and-matched citation text the author has
 
 - **FR-009**: The system MUST present candidate ayahs in a **dropdown anchored near the caret**, ranked, updating live as the candidate set narrows.
 - **FR-010**: The user MUST be able to accept the highlighted candidate via **Tab or Enter**.
-- **FR-011**: The system MUST NOT provide a transient/Esc dismissal of suggestions; the **only** way to turn the feature off is the **settings toggle** (FR-019).
-- **FR-012**: When the typed text matches **exactly one** verse, acceptance MUST insert that verse without requiring a manual pick.
-- **FR-013**: When the typed text matches **multiple** verses, the system MUST let the user choose which candidate to insert (so the correct reference is attached); if the user accepts without choosing, the system MUST insert the **top-ranked (first)** candidate.
+- **FR-011**: The system MUST NOT provide an explicit dismissal key (e.g., Esc) for suggestions, and the **only** way to turn the feature off entirely is the **settings toggle** (FR-019). However, the candidate dropdown for a given citation MUST close (that **instance** only, not the feature) when the author **types past the citation or moves the caret away**; Tab/Enter are captured **only while the dropdown is showing candidates**, so normal Tab/Enter behavior is preserved otherwise.
+- **FR-011a**: A recognized citation the author does **not** resolve via the dropdown (instance dismissed, or no candidate accepted) MUST be handed to the **main reader-side verdict classification** (FR-018) so it is still highlighted by its verdict color.
+- **FR-012**: When the typed text matches **exactly one** verse, the system MUST still require an explicit **Tab/Enter** accept (shown as a single-item dropdown); it MUST NOT auto-replace the typed text mid-typing. No manual disambiguation among candidates is needed in this case.
+- **FR-012a**: After a candidate ayah is accepted (single or chosen), the system MUST present a **second menu** for the **insertion scope** (FR-015) before the text is inserted; the user confirms the scope to complete insertion.
+- **FR-013**: When the typed text matches **multiple** verses, the system MUST let the user choose which candidate to insert (so the correct reference is attached); if the user accepts without choosing, the system MUST insert the **top-ranked (first)** candidate. Candidates MUST be ordered by **match tier first** (exact > word-level > fuzzy), and **within a tier by mushaf order** (ascending surah number, then ayah number).
 
 **Insertion**
 
-- **FR-014**: On resolution, the system MUST **replace the user's typed citation text** with the **authentic ayah wording** and **attach the verse reference**.
-- **FR-015**: The system MUST offer three **insertion scopes**: (a) the **whole ayah**; (b) **only the portion the user typed** (its authentic equivalent); (c) a passage **from the user's starting words up to an end word** the user subsequently types.
+- **FR-014**: On resolution, the system MUST **replace the user's typed citation text** with the **authentic ayah wording** and **attach the verse reference**. The reference **format and placement MUST be user-configurable** (surah name vs. number; placement), defaulting to the **Arabic surah-name parenthetical** form placed immediately **after** the inserted ayah (e.g. `(البقرة:255)`), reusing feature-001 reference conventions.
+- **FR-015**: After a candidate is accepted, the system MUST offer three **insertion scopes** via the second menu (FR-012a): (a) the **whole ayah**; (b) **only the portion the user typed** (its authentic equivalent); (c) a passage **from the user's starting words up to an end word** the user subsequently types.
 - **FR-016**: For scope (c), when the specified end word does not occur in the matched verse after the start, the system MUST inform the user and MUST NOT insert an incorrectly truncated passage.
 - **FR-017**: Inserted text MUST always be **authentic mushaf wording** and MUST always carry the **verse reference**; the system MUST NOT insert user-typed (potentially drifted) wording as if it were authentic.
 
 **Rendering**
 
-- **FR-018**: Unless disabled in settings, the system MUST render **matched citation text in the configured Quran font**, and MUST **red-highlight unmatched recognized citation text**, on surfaces that support inline styling; on surfaces that cannot render styling (plain inputs), it MUST skip styling without error while preserving matching and insertion.
+- **FR-018**: Unless disabled in settings, the system MUST apply **feature-001's reader-side verdict classification and rendering** to recognized citations in the field — coloring each citation by its verdict (**green / light blue / yellow / orange / red**) and rendering matched/authentic text in the configured **Quran font** — so that any recognized citation is classified and highlighted regardless of whether the author used the suggestion dropdown. On surfaces that support inline styling this is applied as markup; on surfaces that cannot render styling (plain inputs), it MUST skip styling without error while preserving matching and insertion.
+- **FR-018a**: The rendering in FR-018 MUST also apply to citation text **already present in a field when it gains focus** (not only newly-typed text). However, the suggestion dropdown (FR-009) and insertion (FR-014) MUST be offered **only for newly-typed/edited citations**; pre-existing content is rendered but not rewritten.
+- **FR-018b**: In rich (contenteditable) surfaces the FR-018 rendering MUST be applied as **real markup that persists into the author's saved/published content** (the font/highlight styling is part of what they publish). In plain inputs (which cannot hold markup) only clean text is written; no styling is persisted there.
 
 **Settings**
 
-- **FR-019**: The system MUST provide a **settings toggle** to enable/disable the entire autocomplete feature, and a setting to disable the live Quran-font/red-highlight rendering (FR-018) independently.
+- **FR-019**: The system MUST provide a **settings toggle** to enable/disable the entire autocomplete feature, a setting to disable the live Quran-font/red-highlight rendering (FR-018) independently, and a setting for the **reference format/placement** (FR-014).
 - **FR-020**: All autocomplete UI strings (dropdown labels, insertion-scope choices, "end word not found", not-recognized state) MUST be **localized** in the same languages as the rest of the interface.
 
 ### Key Entities *(include if feature involves data)*
@@ -146,7 +161,7 @@ Unless disabled in settings, recognized-and-matched citation text the author has
 - **Citation-in-progress**: the span of recognized citation text currently being typed at the caret — its text, field/editor location, and the caret's position within it.
 - **Candidate ayah**: a verse proposed for the current citation-in-progress, with its authentic wording, reference, match tier (exact / word-level / fuzzy), and rank.
 - **Insertion scope**: the chosen extent of inserted text — whole ayah, typed portion, or start-to-end-word passage — plus, for the last, the user-supplied end word.
-- **Autocomplete settings**: feature on/off and live-rendering on/off, plus the minimum-word performance gate.
+- **Autocomplete settings**: feature on/off, live-rendering on/off, reference format/placement, plus the minimum-word performance gate.
 
 ## Success Criteria *(mandatory)*
 

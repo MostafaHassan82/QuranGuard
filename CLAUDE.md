@@ -1,16 +1,19 @@
 <!-- SPECKIT START -->
-Active feature: **001-arabic-citation-auditor** (V1).
+Active feature: **003-ayah-autocomplete** (V1.2 writer-side). Foundation: 001
+(reader-side V1, shipped) and 002 (correction/autocorrect, spec'd).
 
 Read the implementation plan and supporting artifacts before making
 non-trivial changes:
 
-- Plan:        specs/001-arabic-citation-auditor/plan.md
-- Spec:        specs/001-arabic-citation-auditor/spec.md (32 FRs, 13 SCs, 20 clarifications)
-- Data model:  specs/001-arabic-citation-auditor/data-model.md
-- Contracts:   specs/001-arabic-citation-auditor/contracts/
-- Research:    specs/001-arabic-citation-auditor/research.md
-- Quickstart:  specs/001-arabic-citation-auditor/quickstart.md
-- Constitution: .specify/memory/constitution.md (v1.0.0 — 6 principles, two NON-NEGOTIABLE)
+- Plan:        specs/003-ayah-autocomplete/plan.md
+- Spec:        specs/003-ayah-autocomplete/spec.md (20 FRs, 8 SCs, 6 clarifications)
+- Data model:  specs/003-ayah-autocomplete/data-model.md
+- Contracts:   specs/003-ayah-autocomplete/contracts/
+- Research:    specs/003-ayah-autocomplete/research.md
+- Quickstart:  specs/003-ayah-autocomplete/quickstart.md
+- Foundation:  specs/001-arabic-citation-auditor/ (reader-side V1) and
+               specs/002-correction-autocorrect/ (correction extension)
+- Constitution: .specify/memory/constitution.md (v2.0.0 — 6 principles, two NON-NEGOTIABLE)
 
 Constitution non-negotiables (full text in the constitution file):
 1. Integrity Is the Only North Star.
