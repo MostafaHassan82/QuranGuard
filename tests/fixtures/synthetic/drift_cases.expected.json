@@ -1,0 +1,42 @@
+{
+  "stats": {
+    "greenMatches": 5,
+    "lightBlueMatches": 0,
+    "yellowMatches": 0,
+    "orangeMatches": 0,
+    "redMatches": 0,
+    "totalFindings": 5
+  },
+  "matches": [
+    {
+      "text": "بسم ٱلله ٱلرحمٰن ٱلرحيم",
+      "color": "green",
+      "matchedRef": "الفاتحة:1",
+      "claimedRef": "(الفاتحة:1)"
+    },
+    {
+      "text": "ذالك الكتاب لا ريب فيه هدى للمتقين",
+      "color": "green",
+      "matchedRef": "البقرة:2",
+      "claimedRef": "(البقرة:2)"
+    },
+    {
+      "text": "الله لا إلاه إلا هو الحي القيوم",
+      "color": "green",
+      "matchedRef": "آل عمران:2",
+      "claimedRef": "(آل عمران:2)"
+    },
+    {
+      "text": "درجات منه ومغفره ورحمه وكان الله غفورا رحيما",
+      "color": "green",
+      "matchedRef": "النساء:96",
+      "claimedRef": "(النساء:96)"
+    },
+    {
+      "text": "فطوعت لله نفسه قتل أخيه فقتله فأصبح من الخاسرين",
+      "color": "green",
+      "matchedRef": "المائدة:30",
+      "claimedRef": "(المائدة:30)"
+    }
+  ]
+}

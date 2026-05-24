@@ -8,6 +8,7 @@ any fixture run (coverage is unioned across fixtures).
 
 | Command | What it does |
 |---|---|
+| `npm test` | Full gate: the correctness suite (`--all`) + the standalone DOM/unit checks (`i18n_check`, `share_check`, `panel_layout_check`, `swap_layout_check`, `interaction_check`). |
 | `node tests/run_tests_node.js --all` | Correctness only; no coverage, no interaction driver. Fast. |
 | `node tests/run_tests_node.js --all --coverage` | Coverage with the base interaction driver on every fixture. |
 | `node tests/run_tests_node.js --all --coverage --coverage-faults` | Adds the fault-injection driver. **This is the command that produces the committed `coverage-summary.json` (95.2%).** |
