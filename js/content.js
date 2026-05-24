@@ -827,6 +827,10 @@ function applyHighlight(candidate, result, { hidden = false } = {}) {
   };
   const span = wrapTextNodes(candidate.nodes, candidate.startOffset, candidate.endOffset, cssClass, dataAttrs);
   if (span) {
+    // Single-pass scans (liftCap / mutation rescan) wrap with the real color
+    // class directly (not hidden), so apply the style modifier now. Fresh full
+    // scans wrap hidden and get their modifier in materializeHighlights().
+    if (!hidden) applyHighlightStyleClass(span);
     STATE.highlightedSpans.push(span);
     const finding = {
       id: findingId,
@@ -912,8 +916,29 @@ function materializeHighlights() {
     if (realClass) {
       span.classList.remove(PENDING_CLASS);
       span.classList.add(realClass);
+      applyHighlightStyleClass(span);
     }
   }
+}
+
+// Item 5 — apply the per-category on-page highlight STYLE (highlight / underline
+// / off) from prefs.highlightStyle. The base `quran-<color>` class still carries
+// the category identity (and the tooltip + focusability are unaffected — they
+// stay available regardless of style, including 'off'); these modifier classes
+// only change the visible mark. red can't go 'off' (clamped in prefs.js, guarded
+// here too). 'highlight' is the default and needs no modifier.
+function applyHighlightStyleClass(span) {
+  if (!span || !span.dataset) return;
+  const color = span.dataset.color;
+  const style = STATE.prefs?.highlightStyle?.[color] || 'highlight';
+  span.classList.remove('quran-style-underline', 'quran-style-off');
+  if (style === 'underline') span.classList.add('quran-style-underline');
+  else if (style === 'off' && color !== 'red') span.classList.add('quran-style-off');
+}
+
+// Re-apply highlight styles to every live highlight (PREFS_CHANGED, no rescan).
+function reapplyHighlightStyles() {
+  for (const span of STATE.highlightedSpans) applyHighlightStyleClass(span);
 }
 
 // ── Background messaging helpers ──────────────────────────────────────────────
@@ -2032,6 +2057,8 @@ if (chrome?.runtime?.onMessage) {
         try { QuranSwap.reconcile(STATE.findings, prefs); } catch (_) {}
         setTimeout(() => { STATE.swapInProgress = false; }, 50);
       }
+      // Item 5 — live highlight-style change (highlight / underline / off).
+      try { reapplyHighlightStyles(); } catch (_) {}
       // Live ref-link toggle: add/remove the clickable affordance on every
       // already-placed reference marker without needing a rescan.
       try {

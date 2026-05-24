@@ -210,11 +210,47 @@
 /* Generic content padding wrapper: everything below the header gets gutters. */
 .quran-ext-panel-hint,
 .quran-ext-summary,
-.quran-ext-filter-chips,
 .quran-ext-swap-quick,
-.quran-ext-panel-container { margin: 0 12px; }
+.quran-ext-results { margin: 0 12px; }
 .quran-ext-panel-hint { margin-top: 8px; }
-.quran-ext-panel-container { margin-bottom: 12px; }
+
+/* ── Results: collapsible section (item 1) ──────────────────────────────────
+   Holds the filter chips + the findings list. The section fills the remaining
+   panel height; only the list (.quran-ext-panel-container) scrolls — the chips
+   stay pinned above it. min-height:0 on each flex link lets the inner list
+   actually shrink-to-scroll instead of overflowing the panel. */
+.quran-ext-results {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  margin-top: 8px;
+  margin-bottom: 12px;
+}
+.quran-ext-results-toggle {
+  all: unset;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  padding: 6px 2px;
+  border-bottom: 1px solid var(--q-border);
+  margin-bottom: 6px;
+}
+.quran-ext-results-toggle:focus-visible { outline: 2px solid var(--q-focus); outline-offset: 2px; }
+.quran-ext-results-title { font-size: 13px; font-weight: 700; color: var(--q-primary); }
+.quran-ext-results-chevron { display: inline-flex; color: var(--q-primary); transition: transform 0.15s ease; }
+.quran-ext-results-chevron svg { display: block; }
+.quran-ext-results-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.quran-ext-results.quran-ext-results-collapsed .quran-ext-results-body { display: none; }
+.quran-ext-results.quran-ext-results-collapsed .quran-ext-results-toggle { border-bottom: none; margin-bottom: 0; }
+.quran-ext-results.quran-ext-results-collapsed .quran-ext-results-chevron { transform: rotate(-90deg); }
 
 .quran-ext-panel-hint {
   font-size: 12px;
@@ -277,28 +313,42 @@
 .quran-ext-summary-orange .quran-ext-summary-label,
 .quran-ext-summary-orange .quran-ext-summary-value { color: #b25500; }
 
-/* ── Per-session master swap quick-toggle (T094) ────────────────────────── */
+/* ── Per-session master swap quick-toggle (T094) ────────────────────────────
+   Item 2 — styled as a chip toggle to match the filter chips: hidden native
+   checkbox, pill shape, fills with the primary tint when active. Mouse toggles
+   via the label→checkbox click; keyboard (Space/Enter) is wired in
+   sidebar-surface.js (a synthetic .click() would be isTrusted=false and blocked
+   by the T098 guard, so the keydown toggles + persists directly). */
 .quran-ext-swap-quick {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   margin-top: 8px;
-  padding: 6px 10px;
+  padding: 4px 10px;
   background: var(--q-card);
   border: 1px solid var(--q-border);
-  border-radius: 6px;
-  font-size: 13px;
-  font-weight: 500;
+  border-radius: 10px;
+  font-size: 12px;
+  color: var(--q-muted);
   cursor: pointer;
+  user-select: none;
 }
-.quran-ext-swap-quick input { accent-color: var(--q-primary); }
+.quran-ext-swap-quick input { display: none; }
+.quran-ext-swap-quick:focus-visible { outline: 2px solid var(--q-focus); outline-offset: 1px; }
+.quran-ext-swap-quick:has(input:checked) {
+  background: #dff0d8;
+  border-color: var(--q-primary);
+  color: var(--q-primary-strong);
+  font-weight: 600;
+}
 
 /* ── Filter chips ───────────────────────────────────────────────────────── */
 .quran-ext-filter-chips {
+  flex: 0 0 auto;
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
-  margin-top: 8px;
+  margin-bottom: 8px;
 }
 .quran-ext-filter-chip {
   display: inline-flex;
@@ -327,9 +377,9 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
-  margin-top: 10px;
-  /* Only the results list scrolls; the header/summary/chips/swap stay put.
-     min-height:0 lets this flex child shrink below content so it can scroll. */
+  /* Only the results list scrolls; header/summary/swap/chips stay put. The chips
+     sit above this inside .quran-ext-results-body; this is the sole scroll
+     surface. min-height:0 lets this flex child shrink below content to scroll. */
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;

@@ -637,6 +637,48 @@ the five-color taxonomy changed; the Node suite stayed 16/16 throughout.
   not build — revisit only if the build (not the worker wake) is the bottleneck
   on a healthy browser.
 
+## Phase 12: UI/settings polish (requested 2026-05-24)
+
+V1.x refinements requested before the V1.2 correction work (T201). All ship-safe;
+no verifier or taxonomy change. Suite stayed 60/60 + checks green throughout.
+
+- [X] T130 **Collapsible Results section in the sidebar.** The filter chips +
+  findings list now live inside a collapsible `.quran-ext-results` section (mirrors
+  the Results-summary collapse): a toggle header with a chevron, persisted via the
+  sidebar UI state (`resultsCollapsed`). Only the findings list scrolls — the chips
+  stay pinned above it (nested flex with `min-height:0` on each link). `html/sidebar.html`,
+  `css/sidebar.css`, `js/panel/sidebar-surface.js`.
+- [X] T131 **Swap toggle restyled as a chip.** "Show the original Quran text"
+  (`.quran-ext-swap-quick`) is now a pill chip matching the filter chips: hidden
+  native checkbox, `role="switch"` + `aria-checked`, fills with the primary tint when
+  active. Mouse toggles via the native label→checkbox click (trusted change);
+  keyboard (Space/Enter) toggles + persists directly in `wireSwapAndPersist` (a
+  synthetic `.click()` would be `isTrusted=false` and blocked by the T098 guard).
+- [X] T132 **Popup Settings button + options selects match the rest.** `#btn-settings`
+  dropped the thin dashed/muted look for the standard solid button style; options
+  `<select>`s now pin the UI font-family + weight (was the browser's thin default).
+  `css/popup.css`, `css/options.css`.
+- [X] T133 **Floating-anchor select disabled unless floating.** Functional disabling
+  already existed (options.js load + change); added clear `select:disabled` styling
+  (opacity + not-allowed + muted bg) so it reads as inactive. `css/options.css`.
+- [X] T134 **Per-category highlight style (highlight / underline / off).** New
+  `prefs.highlightStyle.{green,lightBlue,lightGreen,yellow,orange,red}`; red can't be
+  `off` (clamped in `prefs.js`). content.js applies `quran-style-underline` /
+  `quran-style-off` modifier classes (in `materializeHighlights` + `applyHighlight` +
+  live on `PREFS_CHANGED`); `css/content.css` drops the fill (underline) or all marks
+  (off). The tooltip + keyboard focus stay available in EVERY mode (span keeps
+  tabindex/aria-label/help-cursor/:focus) — a finding is always reachable even with
+  no visible mark. Options page exposes a localized `<select>` per category.
+- [X] T135 **Options page reorganized into categories.** Replaced the loose card
+  "islands" with titled sections — Language / Quran text display / Category
+  highlighting / Reading behavior / Results panel / Data (`.opt-section` +
+  `.opt-section-title`). `html/options.html`, `css/options.css`, i18n `sec_*` keys.
+
+## Phase 13: V1.2 — correction/autocorrect for lightBlue / yellow / red (DESIGN)
+
+- [ ] T201 **Extend correct/autocorrect beyond orange.** See the design write-up at
+  the end of this file (and `research.md` once ratified). Flagship V1.2 feature.
+
 ## Notes
 
 - **Constitution Principle V** (porting discipline) governs every verifier task. Read the advanced copy at `C:\Users\mosta\PycharmProjects\QuranChromePlugin` to catalog *cases*; redesign the *shape* in the rebuild. Small clean ports of pure data (surah-variant map, normalization tables) are allowed.

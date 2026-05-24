@@ -121,13 +121,15 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 #progress-count { font-weight: 700; color: var(--q-primary); }
 
 /* ── Settings entry point ───────────────────────────────────────────────── */
+/* Item 3 — match the other controls: same solid button style, full text color
+   and weight (was a thin dashed/muted variant that read as out of place). */
 #btn-settings {
   display: block;
   width: calc(100% - 28px);
   margin: 12px 14px;
   flex: none;
-  font-size: 13px;
-  color: var(--q-muted);
-  border-style: dashed;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--q-text);
 }
-#btn-settings:hover { color: var(--q-text); }
+#btn-settings:hover { background: var(--q-gold-soft); }

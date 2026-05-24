@@ -29,31 +29,42 @@
 
   <!-- Quick access to the global authentic-text swap master toggle (the same
        prefs.v1 setting the options page exposes; per-color + font defaults live
-       in the options page; T094, FR-009). -->
-  <label class="quran-ext-swap-row quran-ext-swap-quick">
+       in the options page; T094, FR-009). Item 2 — styled as a chip toggle to
+       match the filter chips below; keyboard-toggle wired in sidebar-surface.js. -->
+  <label class="quran-ext-swap-row quran-ext-swap-quick" tabindex="0" role="switch" aria-checked="false">
     <input type="checkbox" class="quran-ext-swap-master"><span data-i18n="swap_summary">عرض النص القرآني الأصلي</span>
   </label>
 
-  <div class="quran-ext-filter-chips" role="group" aria-label="تصفية حسب الفئة">
-    <label class="quran-ext-filter-chip quran-ext-filter-orange" tabindex="0">
-      <input type="checkbox" data-color="orange"><span data-i18n="chip_orange">⚠ مرجع خاطئ</span>
-    </label>
-    <label class="quran-ext-filter-chip quran-ext-filter-green" tabindex="0">
-      <input type="checkbox" data-color="green"><span data-i18n="chip_green">✓ تطابق تام</span>
-    </label>
-    <label class="quran-ext-filter-chip quran-ext-filter-lightBlue" tabindex="0">
-      <input type="checkbox" data-color="lightBlue"><span data-i18n="chip_lightBlue">✓ بدون مرجع</span>
-    </label>
-    <label class="quran-ext-filter-chip quran-ext-filter-lightGreen" tabindex="0">
-      <input type="checkbox" data-color="lightGreen"><span data-i18n="chip_lightGreen">✎ مُصحَّح</span>
-    </label>
-    <label class="quran-ext-filter-chip quran-ext-filter-yellow" tabindex="0">
-      <input type="checkbox" data-color="yellow"><span data-i18n="chip_yellow">~ اختلاف لفظي</span>
-    </label>
-    <label class="quran-ext-filter-chip quran-ext-filter-red" tabindex="0">
-      <input type="checkbox" data-color="red"><span data-i18n="chip_red">✗ لم يُتحقَّق</span>
-    </label>
-  </div>
+  <!-- Item 1 — Results: a collapsible section (like Results summary) holding the
+       category filter chips + the findings list. Only the list scrolls. -->
+  <div class="quran-ext-results">
+    <button type="button" class="quran-ext-results-toggle" aria-expanded="true">
+      <span class="quran-ext-results-title" data-i18n="section_results">النتائج</span>
+      <span class="quran-ext-results-chevron" aria-hidden="true"></span>
+    </button>
+    <div class="quran-ext-results-body">
+      <div class="quran-ext-filter-chips" role="group" aria-label="تصفية حسب الفئة">
+        <label class="quran-ext-filter-chip quran-ext-filter-orange" tabindex="0">
+          <input type="checkbox" data-color="orange"><span data-i18n="chip_orange">⚠ مرجع خاطئ</span>
+        </label>
+        <label class="quran-ext-filter-chip quran-ext-filter-green" tabindex="0">
+          <input type="checkbox" data-color="green"><span data-i18n="chip_green">✓ تطابق تام</span>
+        </label>
+        <label class="quran-ext-filter-chip quran-ext-filter-lightBlue" tabindex="0">
+          <input type="checkbox" data-color="lightBlue"><span data-i18n="chip_lightBlue">✓ بدون مرجع</span>
+        </label>
+        <label class="quran-ext-filter-chip quran-ext-filter-lightGreen" tabindex="0">
+          <input type="checkbox" data-color="lightGreen"><span data-i18n="chip_lightGreen">✎ مُصحَّح</span>
+        </label>
+        <label class="quran-ext-filter-chip quran-ext-filter-yellow" tabindex="0">
+          <input type="checkbox" data-color="yellow"><span data-i18n="chip_yellow">~ اختلاف لفظي</span>
+        </label>
+        <label class="quran-ext-filter-chip quran-ext-filter-red" tabindex="0">
+          <input type="checkbox" data-color="red"><span data-i18n="chip_red">✗ لم يُتحقَّق</span>
+        </label>
+      </div>
 
-  <div class="quran-ext-panel-container"></div>
+      <div class="quran-ext-panel-container"></div>
+    </div>
+  </div>
 </aside>

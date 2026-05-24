@@ -31,6 +31,7 @@ const QuranPanelSidebar = (() => {
   let panelWidth = 320;
   let collapsed = false;
   let summaryCollapsed = false;   // results-summary counts grid collapsed?
+  let resultsCollapsed = false;   // item 1 — filter chips + findings list collapsed?
   let tabEl = null;
   const MIN_PANEL_W = 240;
   const TAB_W = 26;
@@ -207,7 +208,7 @@ const QuranPanelSidebar = (() => {
   function persistUi() {
     try {
       chrome.storage.local.set({ [UI_KEY]: {
-        width: panelWidth, collapsed, summaryCollapsed,
+        width: panelWidth, collapsed, summaryCollapsed, resultsCollapsed,
         floatUndocked, floatSide, floatTop, floatLeft,
       } });
     } catch (_) {}
@@ -220,6 +221,7 @@ const QuranPanelSidebar = (() => {
       if (typeof ui.width === 'number') panelWidth = clampWidth(ui.width);
       collapsed = !!ui.collapsed;
       summaryCollapsed = !!ui.summaryCollapsed;
+      resultsCollapsed = !!ui.resultsCollapsed;
       floatUndocked = !!ui.floatUndocked;
       floatSide = (ui.floatSide === 'left' || ui.floatSide === 'right') ? ui.floatSide : null;
       if (typeof ui.floatTop === 'number') floatTop = ui.floatTop;
@@ -610,6 +612,17 @@ const QuranPanelSidebar = (() => {
     if (btn) btn.setAttribute('aria-expanded', String(!summaryCollapsed));
   }
 
+  // Item 1 — collapse/expand the Results section (filter chips + findings list).
+  function applyResultsCollapsed() {
+    if (!rootEl) return;
+    const results = rootEl.querySelector('.quran-ext-results');
+    const btn = rootEl.querySelector('.quran-ext-results-toggle');
+    const chev = rootEl.querySelector('.quran-ext-results-chevron');
+    if (chev && !chev.firstChild) chev.innerHTML = CHEVRON_DOWN;
+    if (results) results.classList.toggle('quran-ext-results-collapsed', resultsCollapsed);
+    if (btn) btn.setAttribute('aria-expanded', String(!resultsCollapsed));
+  }
+
   function wireEvents() {
     wireResize();
     wireHeaderDrag();
@@ -622,6 +635,12 @@ const QuranPanelSidebar = (() => {
     if (summaryToggle) summaryToggle.addEventListener('click', () => {
       summaryCollapsed = !summaryCollapsed;
       applySummaryCollapsed();
+      persistUi();
+    });
+    const resultsToggle = rootEl.querySelector('.quran-ext-results-toggle');
+    if (resultsToggle) resultsToggle.addEventListener('click', () => {
+      resultsCollapsed = !resultsCollapsed;
+      applyResultsCollapsed();
       persistUi();
     });
     // The ref tooltip is position:fixed, so hide it when the list scrolls
@@ -646,7 +665,10 @@ const QuranPanelSidebar = (() => {
   // per-color + font defaults now live in the options page (T094).
   function syncSwapControls(prefs) {
     const master = rootEl.querySelector('.quran-ext-swap-master');
-    if (master) master.checked = prefs?.master?.authenticTextReplacement !== false;
+    const on = prefs?.master?.authenticTextReplacement !== false;
+    if (master) master.checked = on;
+    const label = rootEl.querySelector('.quran-ext-swap-quick');
+    if (label) label.setAttribute('aria-checked', String(on)); // item 2 — role="switch" state
   }
 
   // Wire the master swap quick-toggle. This is the SAME global
@@ -658,10 +680,29 @@ const QuranPanelSidebar = (() => {
   // the options page; T094.)
   function wireSwapAndPersist() {
     const master = rootEl.querySelector('.quran-ext-swap-master');
-    if (master) master.addEventListener('change', (e) => {
+    const label = rootEl.querySelector('.quran-ext-swap-quick');
+    if (!master) return;
+    const persist = () => {
+      if (label) label.setAttribute('aria-checked', String(master.checked));
+      QuranMsg.sendRequest('PREFS_WRITE', { patch: { master: { authenticTextReplacement: master.checked } } }).catch(() => {});
+    };
+    // Mouse: clicking the label toggles the (display:none) checkbox natively and
+    // fires a trusted change event.
+    master.addEventListener('change', (e) => {
       // T098 — reject synthetic events from page-world scripts.
       if (!e.isTrusted) return;
-      QuranMsg.sendRequest('PREFS_WRITE', { patch: { master: { authenticTextReplacement: master.checked } } }).catch(() => {});
+      persist();
+    });
+    // Item 2 — keyboard: the chip is a role="switch" with a hidden checkbox, so
+    // Space/Enter on the focused label must toggle + persist directly (a
+    // synthetic .click() would be isTrusted=false and blocked by the guard above).
+    if (label) label.addEventListener('keydown', (e) => {
+      if (!e.isTrusted) return;
+      if (e.key === ' ' || e.key === 'Enter') {
+        e.preventDefault();
+        master.checked = !master.checked;
+        persist();
+      }
     });
   }
 
@@ -743,6 +784,7 @@ const QuranPanelSidebar = (() => {
     wireEvents();
     syncSwapControls(prefs);
     applySummaryCollapsed(); // restore saved summary collapsed state + chevron
+    applyResultsCollapsed(); // restore saved results collapsed state + chevron
     render();
     applyLayout(); // restore saved width / collapsed state
 

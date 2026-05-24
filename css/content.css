@@ -98,6 +98,25 @@
   border-bottom: 2px solid rgba(200, 0, 0, 0.6);
 }
 
+/* ── Per-category highlight style (Item 5) ───────────────────────────────────
+   prefs.highlightStyle[color] picks how each category is marked on the page:
+   • 'highlight' (default)  — colored fill + underline (the base .quran-<color> rule)
+   • 'underline'            — drop the fill, keep the colored underline + glyph
+   • 'off'                  — no visible mark at all
+   The tooltip and keyboard focusability are UNAFFECTED in every mode (the span
+   keeps tabindex + aria-label + the help cursor + :focus outline), so a finding
+   is always reachable even when its mark is hidden. red is never 'off'. */
+.quran-style-underline {
+  background-color: transparent !important;
+  box-shadow: none !important;
+}
+.quran-style-off {
+  background-color: transparent !important;
+  border-bottom: none !important;
+  box-shadow: none !important;
+}
+.quran-style-off::before { content: none !important; }
+
 /* ── Pending (hidden) spans — used during intermediate scan passes ─────── */
 /* Invisible but still occupy DOM positions, enabling convergence via text-node fragmentation. */
 .quran-pending {

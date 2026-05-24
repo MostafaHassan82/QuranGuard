@@ -56,12 +56,38 @@ function syncSwapControls(prefs) {
   if (fontSel) fontSel.value = prefs?.font || 'uthmaniHafs';
 }
 
+// Item 5 — per-category highlight style selects. Each carries highlight /
+// underline / off, except red which omits 'off' (a not-in-Quran finding must
+// stay visible — also clamped in prefs.js). Options are (re)built on every
+// sync so a language switch re-localizes the option labels.
+function syncHighlightStyles(prefs) {
+  const styles = prefs?.highlightStyle || {};
+  const OPTS = [
+    ['highlight', 'hl_style_highlight'],
+    ['underline', 'hl_style_underline'],
+    ['off',       'hl_style_off'],
+  ];
+  document.querySelectorAll('.hl-style-select').forEach(sel => {
+    const color = sel.dataset.hlColor;
+    const opts = color === 'red' ? OPTS.filter(([v]) => v !== 'off') : OPTS;
+    sel.innerHTML = '';
+    for (const [value, key] of opts) {
+      const o = document.createElement('option');
+      o.value = value;
+      o.textContent = QuranI18n.t(key);
+      sel.appendChild(o);
+    }
+    sel.value = styles[color] || 'highlight';
+  });
+}
+
 async function applyPrefsToUI(prefs) {
   applyLang(QuranI18n.detect(prefs.lang));
   const langSel = document.getElementById('lang-select');
   if (langSel) langSel.value = QuranI18n.getLang();
 
   syncSwapControls(prefs);
+  syncHighlightStyles(prefs);
 
   const auto = document.getElementById('autocorrect-orange');
   if (auto) auto.checked = prefs?.autoCorrectOrange === true;
@@ -90,7 +116,19 @@ document.addEventListener('DOMContentLoaded', async () => {
   // open sidebar; the options page re-localizes itself immediately.
   document.getElementById('lang-select').addEventListener('change', (e) => {
     applyLang(e.target.value);
+    // Rebuild the dynamically-populated highlight-style option labels in the new
+    // language, preserving each select's current value.
+    const current = {};
+    document.querySelectorAll('.hl-style-select').forEach(s => { current[s.dataset.hlColor] = s.value; });
+    syncHighlightStyles({ highlightStyle: current });
     savePrefs({ lang: e.target.value });
+  });
+
+  // Item 5 — per-category highlight style.
+  document.querySelectorAll('.hl-style-select').forEach(sel => {
+    sel.addEventListener('change', () => {
+      savePrefs({ highlightStyle: { [sel.dataset.hlColor]: sel.value } });
+    });
   });
 
   // Swap master toggle.

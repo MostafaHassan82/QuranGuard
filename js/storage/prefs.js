@@ -15,6 +15,11 @@ const QuranPrefs = (() => {
     panelPosition: 'auto',                  // auto | left | right | float; auto follows lang dir (ar→right, en→left)
     floatAnchor: 'auto',                    // float mode: which edge to anchor to (auto | left | right)
     panelFilter: { orange: true, green: false, lightBlue: false, lightGreen: false, yellow: false, red: false },
+    // Per-category on-page highlight style: 'highlight' (colored background),
+    // 'underline' (colored underline only), or 'off' (no visual mark). The
+    // tooltip is ALWAYS available regardless (the span stays focusable). red may
+    // not be 'off' — a not-in-Quran finding must remain visible.
+    highlightStyle: { green: 'highlight', lightBlue: 'highlight', lightGreen: 'highlight', yellow: 'highlight', orange: 'highlight', red: 'highlight' },
   };
 
   const VALID_FONTS = new Set(['uthmaniHafs', 'qpcHafs', 'qpcV2', 'qpcV4Tajweed', 'digitalKhattIndopak', 'digitalKhattV1', 'digitalKhattV2', 'indopakNastaleeq', 'kfgqpcNastaleeq']);
@@ -22,6 +27,7 @@ const QuranPrefs = (() => {
   const VALID_LANGS = new Set(['ar', 'en']);
   const VALID_PANEL_POSITIONS = new Set(['auto', 'left', 'right', 'float']);
   const VALID_FLOAT_ANCHORS = new Set(['auto', 'left', 'right']);
+  const VALID_HIGHLIGHT_STYLES = new Set(['highlight', 'underline', 'off']);
 
   function applyDefaults(raw) {
     const p = raw ? JSON.parse(JSON.stringify(raw)) : {};
@@ -48,10 +54,20 @@ const QuranPrefs = (() => {
       if (typeof p.panelFilter[color] !== 'boolean') p.panelFilter[color] = DEFAULTS.panelFilter[color];
     }
 
+    if (!p.highlightStyle || typeof p.highlightStyle !== 'object') p.highlightStyle = {};
+    for (const color of ['green', 'lightBlue', 'lightGreen', 'yellow', 'orange', 'red']) {
+      if (!VALID_HIGHLIGHT_STYLES.has(p.highlightStyle[color])) p.highlightStyle[color] = DEFAULTS.highlightStyle[color];
+    }
+
     // Clamp: red MUST be false
     if (p.perColor.red !== false) {
       console.warn('[QuranPrefs] perColor.red clamped to false');
       p.perColor.red = false;
+    }
+    // Clamp: red highlight may not be turned off — a not-in-Quran finding stays visible.
+    if (p.highlightStyle.red === 'off') {
+      console.warn('[QuranPrefs] highlightStyle.red clamped from off to highlight');
+      p.highlightStyle.red = 'highlight';
     }
 
     return p;
