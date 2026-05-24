@@ -1,38 +1,39 @@
 {
-  "generatedAt": "2026-05-20T21:49:52.878Z",
-  "overallLinePct": 84.7,
-  "totalLines": 4057,
-  "coveredLines": 3438,
+  "generatedAt": "2026-05-23T23:43:53.660Z",
+  "generatedBy": "node tests/run_tests_node.js --all --coverage --coverage-faults",
+  "overallLinePct": 95.2,
+  "totalLines": 5426,
+  "coveredLines": 5165,
   "files": [
     {
       "file": "js/background.js",
-      "lines": 986,
-      "coveredLines": 792,
-      "linePct": 80.3
+      "lines": 1244,
+      "coveredLines": 1192,
+      "linePct": 95.8
     },
     {
       "file": "js/badge/badge.js",
-      "lines": 59,
-      "coveredLines": 56,
-      "linePct": 94.9
+      "lines": 64,
+      "coveredLines": 64,
+      "linePct": 100
     },
     {
       "file": "js/content.js",
-      "lines": 1502,
-      "coveredLines": 1248,
-      "linePct": 83.1
+      "lines": 2029,
+      "coveredLines": 1903,
+      "linePct": 93.8
     },
     {
       "file": "js/debug-bridge.js",
       "lines": 7,
-      "coveredLines": 5,
-      "linePct": 71.4
+      "coveredLines": 7,
+      "linePct": 100
     },
     {
       "file": "js/panel/actions.js",
-      "lines": 183,
-      "coveredLines": 153,
-      "linePct": 83.6
+      "lines": 196,
+      "coveredLines": 170,
+      "linePct": 86.7
     },
     {
       "file": "js/panel/keyboard.js",
@@ -42,45 +43,57 @@
     },
     {
       "file": "js/panel/model.js",
-      "lines": 136,
-      "coveredLines": 113,
-      "linePct": 83.1
+      "lines": 144,
+      "coveredLines": 138,
+      "linePct": 95.8
     },
     {
       "file": "js/panel/sidebar-surface.js",
-      "lines": 417,
-      "coveredLines": 355,
-      "linePct": 85.1
+      "lines": 563,
+      "coveredLines": 558,
+      "linePct": 99.1
     },
     {
       "file": "js/render/fonts.js",
-      "lines": 34,
-      "coveredLines": 34,
+      "lines": 47,
+      "coveredLines": 47,
       "linePct": 100
     },
     {
       "file": "js/render/swap.js",
-      "lines": 99,
-      "coveredLines": 97,
-      "linePct": 98
+      "lines": 122,
+      "coveredLines": 117,
+      "linePct": 95.9
+    },
+    {
+      "file": "js/shared/i18n.js",
+      "lines": 285,
+      "coveredLines": 285,
+      "linePct": 100
+    },
+    {
+      "file": "js/shared/log.js",
+      "lines": 62,
+      "coveredLines": 62,
+      "linePct": 100
     },
     {
       "file": "js/shared/messaging.js",
       "lines": 52,
-      "coveredLines": 36,
-      "linePct": 69.2
+      "coveredLines": 39,
+      "linePct": 75
     },
     {
       "file": "js/storage/persisted.js",
       "lines": 87,
-      "coveredLines": 72,
-      "linePct": 82.8
+      "coveredLines": 79,
+      "linePct": 90.8
     },
     {
       "file": "js/storage/prefs.js",
-      "lines": 63,
-      "coveredLines": 57,
-      "linePct": 90.5
+      "lines": 67,
+      "coveredLines": 67,
+      "linePct": 100
     },
     {
       "file": "js/verifier/classify.js",
@@ -90,21 +103,21 @@
     },
     {
       "file": "js/verifier/indexes.js",
-      "lines": 83,
-      "coveredLines": 83,
+      "lines": 85,
+      "coveredLines": 85,
       "linePct": 100
     },
     {
       "file": "js/verifier/normalize.js",
-      "lines": 77,
-      "coveredLines": 77,
+      "lines": 88,
+      "coveredLines": 88,
       "linePct": 100
     },
     {
       "file": "js/verifier/orange.js",
-      "lines": 49,
-      "coveredLines": 48,
-      "linePct": 98
+      "lines": 61,
+      "coveredLines": 52,
+      "linePct": 85.2
     },
     {
       "file": "js/verifier/references.js",

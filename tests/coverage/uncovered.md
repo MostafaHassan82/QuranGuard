@@ -1,47 +1,54 @@
 # Coverage — Node fixture suite (T086)
 
-Generated: 2026-05-20T21:49:52.878Z
+Generated: 2026-05-23T23:43:53.660Z
 
-**Overall line coverage: 84.7%** (3438/4057 non-blank lines)
+> Regenerate with: `node tests/run_tests_node.js --all --coverage --coverage-faults`
+> A line counts as covered if **any** non-whitespace byte on it executed in any fixture run.
+
+**Overall line coverage: 95.2%** (5165/5426 non-blank lines)
 
 | File | Lines | Covered | Line % |
 |---|---|---|---|
-| js/background.js | 986 | 792 | 80.3% |
-| js/badge/badge.js | 59 | 56 | 94.9% |
-| js/content.js | 1502 | 1248 | 83.1% |
-| js/debug-bridge.js | 7 | 5 | 71.4% |
-| js/panel/actions.js | 183 | 153 | 83.6% |
+| js/background.js | 1244 | 1192 | 95.8% |
+| js/badge/badge.js | 64 | 64 | 100% |
+| js/content.js | 2029 | 1903 | 93.8% |
+| js/debug-bridge.js | 7 | 7 | 100% |
+| js/panel/actions.js | 196 | 170 | 86.7% |
 | js/panel/keyboard.js | 111 | 107 | 96.4% |
-| js/panel/model.js | 136 | 113 | 83.1% |
-| js/panel/sidebar-surface.js | 417 | 355 | 85.1% |
-| js/render/fonts.js | 34 | 34 | 100% |
-| js/render/swap.js | 99 | 97 | 98% |
-| js/shared/messaging.js | 52 | 36 | 69.2% |
-| js/storage/persisted.js | 87 | 72 | 82.8% |
-| js/storage/prefs.js | 63 | 57 | 90.5% |
+| js/panel/model.js | 144 | 138 | 95.8% |
+| js/panel/sidebar-surface.js | 563 | 558 | 99.1% |
+| js/render/fonts.js | 47 | 47 | 100% |
+| js/render/swap.js | 122 | 117 | 95.9% |
+| js/shared/i18n.js | 285 | 285 | 100% |
+| js/shared/log.js | 62 | 62 | 100% |
+| js/shared/messaging.js | 52 | 39 | 75% |
+| js/storage/persisted.js | 87 | 79 | 90.8% |
+| js/storage/prefs.js | 67 | 67 | 100% |
 | js/verifier/classify.js | 58 | 51 | 87.9% |
-| js/verifier/indexes.js | 83 | 83 | 100% |
-| js/verifier/normalize.js | 77 | 77 | 100% |
-| js/verifier/orange.js | 49 | 48 | 98% |
+| js/verifier/indexes.js | 85 | 85 | 100% |
+| js/verifier/normalize.js | 88 | 88 | 100% |
+| js/verifier/orange.js | 61 | 52 | 85.2% |
 | js/verifier/references.js | 54 | 54 | 100% |
 
 ## Uncovered lines
 
-- `js/background.js` (194 lines): 25, 63-69, 73-79, 95-97, 258-275, 330, 334, 576-579, 581-583, 585-590, 592-608, 745, 755-760, 789-793, 795-803, 810-813, 820-837, 865-868, 872-873, 878-882, 893-909, 964-975, 979-989, 1000-1015, 1052-1054, 1061-1069, 1078-1079, 1082-1083
-- `js/badge/badge.js` (3 lines): 11-13
-- `js/content.js` (254 lines): 81-83, 92-94, 96-107, 193-194, 196, 239-245, 467-475, 521-523, 528-530, 546-555, 634-637, 664-665, 776-778, 859-861, 941-950, 995-1003, 1009-1011, 1019-1022, 1030-1032, 1038-1039, 1051-1053, 1060-1063, 1159-1160, 1162-1194, 1196-1197, 1207-1209, 1231-1242, 1261-1276, 1282-1294, 1301-1302, 1321, 1334-1335, 1344, 1381-1382, 1384, 1444-1451, 1509-1512, 1516-1522, 1524-1527, 1529-1531, 1533-1535, 1539-1551, 1555-1557, 1560-1561, 1564-1569, 1574-1579, 1622-1623
-- `js/debug-bridge.js` (2 lines): 6-7
-- `js/panel/actions.js` (30 lines): 77-79, 123, 128-138, 142-145, 149-159
+- `js/background.js` (52 lines): 30, 120-121, 355, 359, 662-664, 873-880, 916-919, 972-973, 1001-1004, 1008-1009, 1036-1045, 1124-1126, 1138-1143, 1287-1289, 1316, 1320
+- `js/badge/badge.js` — fully covered
+- `js/content.js` (126 lines): 98-100, 102-103, 205, 484-486, 533-535, 540-542, 558, 560-567, 680, 792-794, 974-983, 1091-1092, 1138-1140, 1254, 1256-1257, 1294-1301, 1383-1386, 1394-1396, 1408-1409, 1411-1413, 1466-1471, 1537-1539, 1564-1565, 1584, 1597-1598, 1607, 1769-1774, 1857-1860, 1864-1870, 1919-1924, 1929-1934, 1982-1983, 2139-2141, 2145, 2147, 2162-2168, 2174-2175
+- `js/debug-bridge.js` — fully covered
+- `js/panel/actions.js` (26 lines): 92-94, 139, 144-154, 165-175
 - `js/panel/keyboard.js` (4 lines): 87, 99-101
-- `js/panel/model.js` (23 lines): 48-55, 57-65, 91-94, 140-141
-- `js/panel/sidebar-surface.js` (62 lines): 43-46, 101-116, 182-184, 188-193, 213-215, 218, 220-229, 260, 337-338, 381-383, 409-421
+- `js/panel/model.js` (6 lines): 99-102, 148-149
+- `js/panel/sidebar-surface.js` (5 lines): 340-344
 - `js/render/fonts.js` — fully covered
-- `js/render/swap.js` (2 lines): 39, 43
-- `js/shared/messaging.js` (16 lines): 9-10, 31-41, 53-55
-- `js/storage/persisted.js` (15 lines): 8-14, 40-47
-- `js/storage/prefs.js` (6 lines): 43-45, 55-57
+- `js/render/swap.js` (5 lines): 57, 61, 75-77
+- `js/shared/i18n.js` — fully covered
+- `js/shared/log.js` — fully covered
+- `js/shared/messaging.js` (13 lines): 9-10, 31-41
+- `js/storage/persisted.js` (8 lines): 40-47
+- `js/storage/prefs.js` — fully covered
 - `js/verifier/classify.js` (7 lines): 22-23, 31-32, 59-61
 - `js/verifier/indexes.js` — fully covered
 - `js/verifier/normalize.js` — fully covered
-- `js/verifier/orange.js` (1 lines): 47
+- `js/verifier/orange.js` (9 lines): 24-32
 - `js/verifier/references.js` — fully covered
