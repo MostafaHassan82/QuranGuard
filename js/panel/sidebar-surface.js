@@ -112,6 +112,10 @@ const QuranPanelSidebar = (() => {
   // Up = collapse the free-floating box to its header bar; down = expand it again.
   const CHEVRON_UP   = '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false"><path d="M5 15l7-7 7 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
   const CHEVRON_DOWN = '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false"><path d="M5 9l7 7 7-7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  // Pin (thumbtack). Filled + upright = pinned/docked; outlined + tilted = the
+  // pin is "loose", i.e. the panel is floating and can be torn off.
+  const PIN_FILLED  = '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false"><path d="M14.5 3l6.5 6.5-1.4 1.4-1-1-3.3 3.3.2 4.2-1.5 1.5-3.5-3.5L5.6 21H4v-1.6l5.9-5.9-3.5-3.5L7.9 8.5l4.2.2 3.3-3.3-1-1z" fill="currentColor"/></svg>';
+  const PIN_OUTLINE = '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false" style="transform:rotate(40deg)"><path d="M14.5 3l6.5 6.5-1.4 1.4-1-1-3.3 3.3.2 4.2-1.5 1.5-3.5-3.5L5.6 21H4v-1.6l5.9-5.9-3.5-3.5L7.9 8.5l4.2.2 3.3-3.3-1-1z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>';
 
   // Position the edge tab on `side` at `offsetPx` from that edge, with the
   // chevron pointing the right way: toward the page center when collapsed (it
@@ -140,6 +144,7 @@ const QuranPanelSidebar = (() => {
   // an all-around shadow and rounded corners (the pos-float-free class).
   function applyLayout() {
     if (!rootEl) return;
+    updatePinButton();
     const tab = ensureTab();
     const side = resolveSide();
     const float = isFloat();
@@ -196,6 +201,43 @@ const QuranPanelSidebar = (() => {
     btn.innerHTML = collapsed ? CHEVRON_DOWN : CHEVRON_UP;
     btn.setAttribute('aria-label', collapsed ? T('tab_open_aria') : T('collapse_aria'));
     btn.title = collapsed ? T('tab_open_aria') : T('collapse');
+  }
+
+  // Sync the title-bar pin icon + aria. Pressed (filled, upright) = docked: the
+  // panel reserves a host gutter, never overlays the page, and can't be torn off.
+  // Unpressed (outlined, tilted) = float: it overlays and can be dragged/torn off.
+  function updatePinButton() {
+    if (!rootEl) return;
+    const btn = rootEl.querySelector('.quran-ext-panel-pin');
+    if (!btn) return;
+    const pinned = !isFloat();
+    btn.innerHTML = pinned ? PIN_FILLED : PIN_OUTLINE;
+    btn.setAttribute('aria-pressed', String(pinned));
+    const k = pinned ? 'pin_pinned' : 'pin_unpinned';
+    btn.setAttribute('aria-label', T(k));
+    btn.title = T(k);
+  }
+
+  // Flip between docked (pinned) and float (unpinned). Persists panelPosition via
+  // PREFS_WRITE so the options page stays in sync and the choice survives reloads;
+  // the resulting PREFS_CHANGED also re-drives setPosition across other tabs.
+  function togglePin() {
+    if (isFloat()) {
+      panelPosition = closestSide();   // dock to whichever edge it's nearest
+    } else {
+      panelPosition = 'float';
+    }
+    applyLayout();
+    QuranMsg.sendRequest('PREFS_WRITE', { patch: { panelPosition } }).catch(() => {});
+  }
+
+  // Which screen edge the panel currently sits nearest, by its horizontal center.
+  // Used when pinning a floating panel so it docks to the closest side rather
+  // than a fixed default.
+  function closestSide() {
+    if (!rootEl) return resolveSide();
+    const r = rootEl.getBoundingClientRect();
+    return (r.left + r.width / 2) < window.innerWidth / 2 ? 'left' : 'right';
   }
 
   function ensureTab() {
@@ -716,6 +758,13 @@ const QuranPanelSidebar = (() => {
   function wireEvents() {
     wireResize();
     wireHeaderDrag();
+    const pin = rootEl.querySelector('.quran-ext-panel-pin');
+    if (pin) pin.addEventListener('click', (e) => {
+      // T098 — reject synthetic events from page-world scripts.
+      if (!e.isTrusted) return;
+      e.stopPropagation();
+      togglePin();
+    });
     const floatToggle = rootEl.querySelector('.quran-ext-panel-float-toggle');
     if (floatToggle) floatToggle.addEventListener('click', (e) => {
       e.stopPropagation();

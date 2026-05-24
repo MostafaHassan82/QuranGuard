@@ -8,9 +8,15 @@
   <div class="quran-ext-panel-resize" role="separator" aria-orientation="vertical" data-i18n-aria="resize_aria" aria-label="تغيير العرض"></div>
   <header class="quran-ext-panel-header">
     <h2 class="quran-ext-panel-title" data-i18n="sidebar_title">نتائج التحقق</h2>
-    <!-- Collapse/expand handle shown only when the panel is free-floating
-         (torn off); docked states use the edge tab. Icon + aria set by JS. -->
-    <button type="button" class="quran-ext-panel-float-toggle" data-i18n-aria="collapse_aria" aria-label="طيّ اللوحة" style="display:none"></button>
+    <div class="quran-ext-panel-header-btns">
+      <!-- Pin: pressed = docked (reserves a gutter, never overlays the page,
+           can't be torn off); unpressed = float (overlays, draggable/tearable).
+           Icon + aria-pressed set by JS (updatePinButton). -->
+      <button type="button" class="quran-ext-panel-pin" data-i18n-aria="pin_unpinned" aria-label="عائمة (يمكن سحبها) — اضغط للتثبيت جانبًا" aria-pressed="false"></button>
+      <!-- Collapse/expand handle shown only when the panel is free-floating
+           (torn off); docked states use the edge tab. Icon + aria set by JS. -->
+      <button type="button" class="quran-ext-panel-float-toggle" data-i18n-aria="collapse_aria" aria-label="طيّ اللوحة" style="display:none"></button>
+    </div>
   </header>
   <div class="quran-ext-panel-hint" data-i18n-title="hint_title" data-i18n="hint" title="اضغط Alt+Shift+Q من أي مكان في الصفحة للعودة إلى اللوحة">
     اختصار: Alt+Shift+Q لإظهار/إخفاء اللوحة

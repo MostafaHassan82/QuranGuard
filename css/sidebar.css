@@ -115,6 +115,24 @@
 .quran-ext-panel-float-toggle:hover { opacity: 1; background: rgba(255, 255, 255, 0.12); }
 .quran-ext-panel-float-toggle:focus-visible { outline: 2px solid var(--q-focus); }
 .quran-ext-panel-float-toggle svg { display: block; }
+
+/* Pin toggle (always visible): pressed = docked, unpressed = floating. */
+.quran-ext-panel-pin {
+  all: unset;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--q-on-primary);
+  padding: 2px 4px;
+  border-radius: 4px;
+  opacity: 0.7;
+}
+.quran-ext-panel-pin:hover { opacity: 1; background: rgba(255, 255, 255, 0.12); }
+.quran-ext-panel-pin:focus-visible { outline: 2px solid var(--q-focus); }
+.quran-ext-panel-pin svg { display: block; }
+/* Pressed = pinned/docked: full opacity + a gold wash so the active state reads. */
+.quran-ext-panel-pin[aria-pressed="true"] { opacity: 1; color: var(--q-gold); }
 /* Resize handle rides the page-facing edge: left when on the right (base),
    right when on the left or floating free. */
 .quran-ext-panel.quran-ext-pos-left .quran-ext-panel-resize,
