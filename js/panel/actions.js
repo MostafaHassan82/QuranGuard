@@ -52,6 +52,30 @@ const QuranActions = (() => {
 
   function toJson(record) { return JSON.stringify(record, null, 2); }
 
+  // T105 — bilingual structured plain-text for copy/report (FR-011 restoration).
+  // Each field on one line, labeled in Arabic + English so any reader can parse it.
+  // Share uses friendly prose (T091 / buildShareArtifact). JSON stays behind "Copy as JSON".
+  const FIELD_LABEL = {
+    citation:       ['الاقتباس',    'Citation'],
+    citedReference: ['المرجع المذكور', 'Cited reference'],
+    trueReference:  ['المرجع الصحيح',  'True reference'],
+    category:       ['الفئة',         'Category'],
+    pageUrl:        ['الصفحة',        'Page'],
+    timestamp:      ['التوقيت',       'At'],
+  };
+  function toBilingualText(finding, opts) {
+    const rec = buildRecord(finding, opts);
+    const lines = [
+      `${FIELD_LABEL.citation[0]} / ${FIELD_LABEL.citation[1]}: ${rec.citation}`,
+      `${FIELD_LABEL.citedReference[0]} / ${FIELD_LABEL.citedReference[1]}: ${rec.citedReference}`,
+      `${FIELD_LABEL.trueReference[0]} / ${FIELD_LABEL.trueReference[1]}: ${rec.trueReference}`,
+      `${FIELD_LABEL.category[0]} / ${FIELD_LABEL.category[1]}: ${rec.categoryAr} / ${rec.categoryEn}`,
+      `${FIELD_LABEL.pageUrl[0]} / ${FIELD_LABEL.pageUrl[1]}: ${rec.pageUrl}`,
+      `${FIELD_LABEL.timestamp[0]} / ${FIELD_LABEL.timestamp[1]}: ${rec.timestamp}`,
+    ];
+    return lines.filter(l => !l.endsWith(': ')).join('\n');
+  }
+
   function encodeFragment(s) {
     const t = (s || '').trim();
     return encodeURIComponent(t.length > 300 ? t.slice(0, 300) : t);
@@ -108,14 +132,14 @@ const QuranActions = (() => {
     } catch (_) { return false; }
   }
 
-  // Convenience: build + copy in one call. Returns the text written. Copy and
-  // Report use the friendly prose; only JSON emits the machine record (T091).
-  async function copyRecord(finding, opts)     { const t = friendlyText(finding, opts);          await copy(t); return t; }
-  async function copyRecordJson(finding, opts) { const t = toJson(buildRecord(finding, opts));    await copy(t); return t; }
-  async function copyShareArtifact(finding, opts) { const t = buildShareArtifact(finding, opts);  await copy(t); return t; }
-  // FR-011d — report uses the same plain-text body (Assumptions: no separate
-  // wire format; the report destination is the user's clipboard).
-  async function copyReport(finding, opts) { return copyRecord(finding, opts); }
+  // Convenience: build + copy in one call. Returns the text written.
+  // T105 — copy/report use the bilingual structured record (FR-011); share uses
+  // friendly reader-facing prose (T091); JSON stays behind "Copy as JSON".
+  async function copyRecord(finding, opts)        { const t = toBilingualText(finding, opts);       await copy(t); return t; }
+  async function copyRecordJson(finding, opts)    { const t = toJson(buildRecord(finding, opts));    await copy(t); return t; }
+  async function copyShareArtifact(finding, opts) { const t = buildShareArtifact(finding, opts);    await copy(t); return t; }
+  // FR-011d — report: bilingual structured record (same as copy).
+  async function copyReport(finding, opts)        { return copyRecord(finding, opts); }
 
   // FR-011a — jump-to-highlight. Caller in the CONTENT world (sidebar) can
   // call this directly. In the POPUP world, see jumpFromPopup(tabId, id) below.

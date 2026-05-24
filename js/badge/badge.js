@@ -61,7 +61,8 @@ const QuranBadge = (() => {
   }
 
   function onDataUnavailable(tabId, reason) {
-    set(tabId, { text: '✗', color: '#CC0000', title: `Quran Citation Verifier — data error: ${reason}` });
+    // FR-028: data error clears the badge glyph and puts the detail in the tooltip.
+    set(tabId, { text: '', color: '#888888', title: `Quran Citation Verifier — data error: ${reason}` });
   }
 
   function onDataAvailable(tabId) {

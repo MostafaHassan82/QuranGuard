@@ -19,10 +19,17 @@ The extension is MV3, vanilla JS, no build step — what you load is what runs.
 ## 2. Run the fixture suite
 
 ```powershell
-python tests/run_tests.py
+npm test
 ```
 
-This launches Chromium via Playwright with the unpacked extension, opens each saved fixture from `tests/fixtures/`, runs the scan, and asserts on:
+This is the single-command gate. It chains:
+
+1. `npm run test:suite` — headless Node harness (`tests/run_tests_node.js --all`) over all 60 fixtures. No real extension load, no Playwright flakiness.
+2. `npm run test:checks` — five focused assertion scripts: `i18n_check`, `share_check`, `panel_layout_check`, `swap_layout_check`, `interaction_check`.
+
+The Python runner (`python tests/run_tests.py`) still works against the live extension via Playwright but is no longer the primary gate. Use it for smoke-testing UI behavior in a real browser.
+
+What the harness asserts on each fixture:
 
 - `window.__quranScan` — completed-scan summary (FR-029 language, FR-031 cap, FR-027 finalState)
 - `window.__quranStats` — counters per strategy (per FR-017 only the first three may yield green)
@@ -35,10 +42,18 @@ See [`contracts/window-globals.md`](./contracts/window-globals.md) for the full 
 ## 3. Add a fixture
 
 ```powershell
+python tests/sync_fixtures.py --commit
+```
+
+Paste the extension's `[QuranExt][stats]` console lines into a file and run with `--commit`. This batch-creates fixtures for new articles (fetches HTML, writes stats-only `expected.json`) and validates each one passes before committing. See `tests/sync_fixtures.py --help` for options.
+
+For a single article:
+
+```powershell
 python tests/add_fixture.py "<live-url>"
 ```
 
-This saves the page HTML under `tests/fixtures/<slug>/page.html` and records the *intended* expected output as `tests/fixtures/<slug>/expected.json`.
+This saves the page HTML under `tests/fixtures/<id>/page.html` and records the *intended* expected output as `tests/fixtures/<id>/expected.json`.
 
 **Read this carefully**: `expected.json` MUST encode the **intended** verdicts, not whatever the current extension produces against the live page (per [research.md](./research.md) §2 — "do not capture the rebuild's broken Phase 1 output as a regression target"). If you don't know the intended output yet, leave `expected.json` empty and revisit when verifier work surfaces the truth.
 
@@ -58,7 +73,8 @@ After Phase 1 design ([plan.md](./plan.md) > Project Structure):
 |---|---|---|
 | Service worker, message routing, Quran index | `js/background.js` | Tech Constraints (rebuild on activation, `return true` discipline) |
 | Per-frame scan orchestrator, `MutationObserver`, progressive reveal, cap | `js/content.js` | FR-019, FR-023, FR-031 |
-| Popup UI — scan mode, Scan/Continue/Clear, status + stats, sidebar initial state (preferences/font/clear-remembered moved into the sidebar) | `js/popup.js` + `html/popup.html` + `css/popup.css` | FR-026, FR-031 |
+| Popup UI — action-only: scan mode, Scan/Continue/Clear, status + ⚙ Settings button (T094) | `js/popup.js` + `html/popup.html` + `css/popup.css` | FR-026, FR-031 |
+| Options page — all persistent settings: language, swap defaults + per-color + font, panel docking, auto-correct orange, clear persisted (T094/T096) | `js/options.js` + `html/options.html` + `css/options.css` | FR-009, FR-024, FR-026 |
 | Verifier — normalization, indexes, five-color classifier, **orange pipeline (new)**, references | `js/verifier/` | Principles I/II/III/V — read advanced copy for *cases*, redesign shape |
 | Authentic-text swap engine | `js/render/swap.js` | Principle IV, FR-008, SC-013 |
 | Bundled Quran fonts | `js/render/fonts.js` + `resources/fonts/*` + `css/fonts.css` | FR-008/FR-009 |

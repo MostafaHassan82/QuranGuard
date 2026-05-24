@@ -1,14 +1,18 @@
 {
   "stats": {
-    "greenMatches": 7,
+    "greenMatches": 8,
     "lightBlueMatches": 1,
     "yellowMatches": 0,
     "orangeMatches": 0,
     "redMatches": 0,
-    "totalFindings": 8,
+    "totalFindings": 9,
     "autoCorrectableOranges": 0
   },
   "matches": [
+    {
+      "text": "قل هو الله أحد",
+      "color": "green"
+    },
     {
       "text": "قل هو الله أحد",
       "color": "green"

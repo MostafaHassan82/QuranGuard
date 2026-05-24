@@ -146,6 +146,24 @@ chrome.runtime.onMessage.addListener((msg) => {
 
     setStatus(QuranI18n.t('status_done'));
   }
+
+  // T101 — FR-020 fail-loud: show an error state with a Retry button when the
+  // Quran data fails to load. Distinct from "no citations found."
+  if (type === 'DATA_UNAVAILABLE') {
+    const errDiv = document.getElementById('data-error');
+    const errMsg = document.getElementById('data-error-msg');
+    if (errDiv) errDiv.hidden = false;
+    if (errMsg) errMsg.textContent = QuranI18n.t('status_data_error', { msg: payload.reason || 'unknown' });
+    setStatus('');
+    document.getElementById('btn-scan').disabled = true;
+  }
+
+  if (type === 'DATA_AVAILABLE') {
+    const errDiv = document.getElementById('data-error');
+    if (errDiv) errDiv.hidden = true;
+    document.getElementById('btn-scan').disabled = false;
+    setStatus('');
+  }
 });
 
 // ── Init ──────────────────────────────────────────────────────────────────────
@@ -191,6 +209,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('btn-continue').addEventListener('click', () => onScanClick(true));
   document.getElementById('btn-clear').addEventListener('click', onClearClick);
   document.getElementById('btn-settings').addEventListener('click', () => chrome.runtime.openOptionsPage());
+
+  // T101 — FR-020 Retry button: ask the service worker to re-attempt loading the Quran data.
+  const btnRetry = document.getElementById('btn-retry');
+  if (btnRetry) btnRetry.addEventListener('click', async () => {
+    btnRetry.disabled = true;
+    try { await QuranMsg.sendRequest('RETRY_DATA_LOAD', {}); } catch (_) {}
+    btnRetry.disabled = false;
+  });
 
   // Persist scanTrigger changes (T020)
   document.querySelectorAll('input[name="scanTrigger"]').forEach(radio => {

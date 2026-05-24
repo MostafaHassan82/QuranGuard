@@ -476,7 +476,9 @@ function extractExplicitRefBackward(combined, map, textNodes, alreadyCovered, pr
       }
     }
     if (!text) {
-      const arRunRe = new RegExp(AR_RUN + '$', 'u');
+      // T109 — allow optional trailing whitespace before the (ref) so "text (ref)" citations
+      // are extracted at medium confidence (the common case in Arabic articles).
+      const arRunRe = new RegExp(AR_RUN + '\\s*$', 'u');
       // Strip braces, parens, text-node boundary, and trailing punctuation so a final `.`
       // before `{ref}` doesn't block the end-anchored match.
       const arMatch = arRunRe.exec(backWindow.replace(/[{}«»()\x00.,،;]/g, ' '));
@@ -552,7 +554,8 @@ function extractShortFragmentWithRef(combined, map, textNodes, alreadyCovered) {
     const refStart = rm.index;
     if (alreadyCovered.some(([s, e]) => refStart >= s && refStart < e)) continue;
     const backWin = combined.slice(Math.max(0, refStart - 80), refStart);
-    const shortRe = new RegExp(AR_RUN + '$', 'u');
+    // T109 — allow trailing whitespace before (ref) so "text (ref)" fires at medium confidence.
+    const shortRe = new RegExp(AR_RUN + '\\s*$', 'u');
     const sm = shortRe.exec(backWin.replace(/[{}«»()\x00]/g, ' '));
     if (!sm) continue;
     const text = sm[0].trim();
@@ -1111,11 +1114,12 @@ async function scanPage({ liftCap = false, subtreeRoot = null } = {}) {
           if (span) {
             const finding = STATE.findings[STATE.findings.length - 1];
             if (finding && perCategoryCount[result.color] !== undefined) perCategoryCount[result.color]++;
-            // Only emit live progress for single-pass scans (liftCap / mutation rescan).
-            if (!useHidden) {
-              QuranMsg.emit('SCAN_PROGRESS', { scanId, finding, runningCount: STATE.findings.length, perCategoryCount: { ...perCategoryCount } });
-              window.__quranMatches = STATE.findings.slice();
-            }
+            // T100 — emit SCAN_PROGRESS for ALL scans so the popup count updates live (FR-023).
+            // During hidden (multi-pass) scans the count may reset between passes — that's
+            // acceptable; the user sees activity rather than a frozen UI. window.__quranMatches
+            // is only written post-convergence (updateWindowGlobals) to avoid test-harness
+            // instability during intermediate passes.
+            QuranMsg.emit('SCAN_PROGRESS', { scanId, finding, runningCount: STATE.findings.length, perCategoryCount: { ...perCategoryCount } });
           }
         } else if (result?.color === null || result?.color === undefined) {
           STATS.candidatesDroppedSilently++;
@@ -1166,6 +1170,11 @@ async function scanPage({ liftCap = false, subtreeRoot = null } = {}) {
 
   emitComplete(scanId, startedAt, startTime);
   await sendToBackground({ type: 'logFindings', findings: STATE.findings, url: location.href }).catch(() => {});
+
+  // T099 — install mutation + SPA observer after ANY initial full scan, not only autoscan.
+  // (The autoscan path also calls setupMutationObserver() explicitly after scanPage(); the
+  // guard inside setupMutationObserver() disconnects and rebuilds, which is harmless.)
+  if (isFreshFull) setupMutationObserver();
 }
 
 function computeFinalState() {
@@ -1541,7 +1550,9 @@ document.addEventListener('keydown', (e) => {
 
 // ── Test bridge (Playwright DOM events) ──────────────────────────────────────
 
-document.addEventListener('__quranBridgeScan', async () => {
+document.addEventListener('__quranBridgeScan', async (e) => {
+  // T098 — reject synthetic events from page-world scripts.
+  if (!e.isTrusted) return;
   if (!document.body || document.readyState === 'loading') return;
   try { await scanPage(); } catch (e) { QuranLog.error('bridge scan error:', e); }
   document.dispatchEvent(new CustomEvent('__quranBridgeDone', {

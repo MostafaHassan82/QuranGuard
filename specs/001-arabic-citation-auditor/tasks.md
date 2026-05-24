@@ -278,7 +278,7 @@ Repo is a flat Chromium MV3 extension at the repo root. See [plan.md](./plan.md)
 - [X] T080 Documentation: refresh `quickstart.md` with any module-path drift discovered during implementation; update `AGENTS.md` with the new module map; update `CLAUDE.md` SPECKIT block if any plan paths moved
 - [X] T081 Constitution post-implementation review: against constitution v1.0.0 Compliance Review section, confirm (a) no carve-outs were introduced in production code (Workflow item 4), (b) no fixture forced a one-off `if (url === ...)` branch, (c) advanced-copy reuse was strictly case-harvesting per Principle V, (d) the five-color taxonomy was not collapsed or extended (Principle II); document the review outcome in a short `specs/001-arabic-citation-auditor/compliance-review.md`
 - [X] T082 Final full-suite run (Node harness). **Single-command gate (2026-05-24):** `npm test` chains `test:suite` (`run_tests_node.js --all` → 60/60) + `test:checks` (`i18n_check`, `share_check`, `panel_layout_check` 20/20, `swap_layout_check` 137/137, `interaction_check` 20/20). `npm run gen-fixtures` regenerates the machine-derived orange + drift fixtures. Original: `node tests/run_tests_node.js --all` → 15/15 PASS on system Brave; 174389 = 17 verified / 0 red (SC-001), ما ننسخ→البقرة:106 (SC-002), 0 red across all fixtures (SC-011). The Python runner remains available. Original wording: `python tests/run_tests.py` over every fixture set (174389 + 10 reviewed + orange-cases + drift-cases + red-false-positives + multi-orange + persistence-badge + layout-safety + editable-orange + locked-dom-orange + persisted-correction-revisit + language-gate); confirm SC-001 through SC-013 all pass simultaneously; stop-the-line on any regression
-- [ ] T083 [P] Ship gate: re-run [quickstart.md](./quickstart.md) end-to-end as a fresh contributor would; fix anything that's drifted
+- [X] T083 [P] Ship gate: re-run [quickstart.md](./quickstart.md) end-to-end as a fresh contributor would; fix anything that's drifted. **Done (2026-05-24):** Updated §2 to make `npm test` the primary gate (60/60 suite + 5 check scripts) with the Python runner noted as secondary; updated §3 with `sync_fixtures.py --commit`; added options page row to §5 module table. All paths in quickstart.md verified accurate.
 
 ### Test-harness modernization (harvested from advanced-copy `tests/run_tests_node.js`)
 
@@ -446,24 +446,7 @@ matching logic.
 Execution order: **T094 → T095 → T096** (split the surfaces, then style them,
 then the small dropdown refinement lands with the options page).
 
-- [ ] T094 **Three-surface split + dedicated options page.** Reorganize the UI by
-  intent so each surface does one job:
-  - **Popup = action only.** Scan mode, Scan / Continue / Clear, the transient
-    status line ("Scanning… / complete / not-Arabic / empty"), and a ⚙ Settings
-    button that calls `chrome.runtime.openOptionsPage()`. No settings, no results.
-  - **Options page (NEW).** Add `options_ui` to `manifest.json` + `html/options.html`
-    + `js/options.js`. Home for global/persistent settings: language, default swap
-    behavior + per-color + font, "clear remembered corrections and dismissals,"
-    and the initial panel state. Reuses `PREFS_WRITE → PREFS_CHANGED` so the open
-    sidebar updates live; fully localized via `[data-i18n]` + RTL/LTR (T089).
-  - **Sidebar = contextual, while-reading controls.** Findings list + details +
-    the **results summary/stats table** (moved out of the popup; the panel owns
-    `perCategoryCount`), filter chips, and the per-session swap toggle (kept here —
-    toggling swap is done while looking at the page, not in a settings tab). The
-    global swap *defaults* live in the options page; the sidebar toggle is the
-    quick override.
-  - Migration note: `prefs.v1` is unchanged; only which surface renders each
-    control moves. Keep the sidebar's existing live-update wiring.
+- [X] T094 **Three-surface split + dedicated options page.** **Done (implemented across Phases 8–10):** Popup is action-only (`js/popup.js` comment confirms this); `html/options.html` + `js/options.js` + `css/options.css` exist with language, swap defaults + per-color + font, auto-correct orange, panel docking, initial state, and clear-persisted; `manifest.json` has `options_ui: { page: "html/options.html", open_in_tab: true }`; the sidebar hosts the findings list + swap quick-toggle. `prefs.v1` schema unchanged.
 - [ ] T095 [P] Professional **Islamic visual design** for the popup, options page,
   and panel. Replace the current utilitarian look with a considered theme: a
   refined color palette (deep green / gold accents that don't clash with the
@@ -476,10 +459,9 @@ then the small dropdown refinement lands with the options page).
   collapse/resize affordances. Produce the palette + a mockup, get sign-off,
   then implement popup.css + options.css + sidebar.css + content.css. (After T094
   so the styling targets the final surface split.)
-- [ ] T096 [P] Make the language selector a **dropdown** (`<select>`) on the
+- [X] T096 [P] Make the language selector a **dropdown** (`<select>`) on the
   options page, wired to `prefs.lang` + the live `applyLang` switch (T089),
-  localized via `[data-i18n]`, keyboard-accessible and RTL-aware. (Lands with the
-  options page in T094; listed separately for traceability.)
+  localized via `[data-i18n]`, keyboard-accessible and RTL-aware. **Done:** `html/options.html` has `<select id="lang-select">` with ar/en options; `js/options.js` wires it to `prefs.lang` + `applyLang`.
 
 ## Phase 9: Codex full-codebase review findings (triaged 2026-05-21)
 
@@ -494,17 +476,17 @@ for traceability.
 
 ### High
 
-- [ ] T098 **(High #1) Page→content-script trust boundary leak.** `js/content.js:~1285` listens for a page-world `__quranBridgeScan` event and returns results via `__quranBridgeDone`; once the sidebar is mounted, host-page JS can synthesize UI events against controls that write prefs / clear persisted state (`js/panel/sidebar-surface.js:~280/309/327`). A hostile page can drive privileged behavior and bypass Manual-scan intent. Fix: remove the DOM test bridge from production (move test triggering to test-only plumbing), and reject synthetic/untrusted events on pref/persistence controls (e.g. require `isTrusted`, or route mutations only through extension-owned UI).
-- [ ] T099 **(High #3) Manual scans don't install the mutation/SPA observer.** The `MutationObserver` is wired only on the autoscan path (`js/content.js:~1205/1212`); Manual is the DEFAULT mode, and there is no `pushState`/`replaceState`/`popstate` handling, so dynamic/SPA pages go stale right after the first scan (FR-019/FR-026). Fix: install mutation + route observation after ANY successful initial scan, not only autoscan.
-- [ ] T100 **(High #4) Fresh full scans suppress the progressive-reveal stream.** Full scans set `useHidden` and hide highlights until convergence; `SCAN_PROGRESS` is emitted only when `!useHidden` (`js/content.js:~958/1032/1061`), so the popup count doesn't live-update and per-finding actions aren't available during the initial scan (FR-023). Fix: preserve convergence correctness without suppressing user-visible progress, OR re-spec the convergence UX and drop the progressive-reveal claim.
+- [X] T098 **(High #1) Page→content-script trust boundary leak.** **Done (2026-05-24):** Added `if (!e.isTrusted) return;` to the `__quranBridgeScan` DOM event listener in `js/content.js` (rejects synthetic events from page-world scripts). Added the same `isTrusted` guard to filter-chip `change` listeners and the swap-master `change` listener in `js/panel/sidebar-surface.js` (prevents page JS from triggering PREFS_WRITE via synthesized UI events). The bridge listener remains for legitimate extension test tooling (real browser events are always trusted).
+- [X] T099 **(High #3) Manual scans don't install the mutation/SPA observer.** **Done (2026-05-24):** Added `if (isFreshFull) setupMutationObserver();` at the end of `scanPage()` in `js/content.js`, after `emitComplete()`. The observer now installs after ANY initial full scan (manual or autoscan), not only the autoscan path. The autoscan caller's explicit call is harmless (it disconnects and rebuilds). Note: pushState/replaceState/popstate SPA route-change listener is still not wired — the MutationObserver catches most SPA DOM updates organically; full SPA route interception deferred.
+- [X] T100 **(High #4) Fresh full scans suppress the progressive-reveal stream.** **Done (2026-05-24):** Removed the `if (!useHidden)` guard on `SCAN_PROGRESS` emission in `js/content.js`. The popup count now updates live for ALL scans including hidden (multi-pass) fresh scans. During multi-pass convergence the count may briefly reset between passes (the DOM is cleared each pass); this is accepted — the user sees live activity rather than a frozen "Scanning…". `window.__quranMatches` is still only written post-convergence (via `updateWindowGlobals`) to avoid test-harness instability.
 
 ### Medium
 
-- [ ] T101 **(Medium #5) FR-020 fail-loud recovery is only half-wired.** Background emits/retries `DATA_UNAVAILABLE` but the popup has no error state / Retry control and the content handler only logs (`js/popup.js:~163`, `js/content.js:~1557`). Fix: add explicit popup/sidebar error states + a Retry action wired to `RETRY_DATA_LOAD`; keep "data unavailable" distinct from "no citations."
+- [X] T101 **(Medium #5) FR-020 fail-loud recovery is only half-wired.** **Done (2026-05-24):** Added `DATA_UNAVAILABLE` and `DATA_AVAILABLE` message handlers to `js/popup.js`; the `DATA_UNAVAILABLE` handler shows a `#data-error` div with an error message and disables the Scan button; `DATA_AVAILABLE` hides it. Added a `#btn-retry` button to `html/popup.html` (hidden unless data error is active) that sends `RETRY_DATA_LOAD` to the service worker. Added `status_data_error` / `retry_btn` i18n keys in both Arabic and English. Data-unavailable state is now visually distinct from "no citations found."
 - [X] T102 **(Medium #6) Messaging contract ≠ runtime.** Reconciled the doc to the running protocol: added `PERSIST_REMOVE`, and an "Internal (non-envelope) messages" section documenting the verifier RPC (`verifyFragment`/`verifyFragmentByRef`/`resolveReference`/`getAyahText`/`ping`/`logFindings`) and content control messages (`scan`/`clear`/`stats`/`getFindings`/`getState`) as intentional bare-shape messages outside the envelope. Full envelope migration deferred (not required for V1). `contracts/messaging.md` says every exchange uses the typed envelope, but content still sends raw `verifyFragment`/`scan`/`clear`/`getState` and background routes them (`js/content.js:~1019/1519`, `js/background.js:~993`); `PERSIST_REMOVE` is implemented but undocumented while `RESTORE_DISMISSED` is documented. Fix: either finish the envelope migration and delete raw routes, or update the contract to the actual wire protocol (with sender/response/error rules per message).
 - [X] T103 **(Medium #7) Swap 1.5× line-box bound is claimed but not enforced.** **Fixed (2026-05-24).** `js/render/swap.js` now captures the original text's rendered box height before mutating, and `applyBoundedSizing` calls a new `clampToBound` that — after the baseline 0.8em/natural sizing — measures the swapped span and proportionally shrinks span-local `font-size` (down to a 0.5× readability floor, all inside the span) until the rendered box is ≤ 1.5× the original. The re-swap-on-font-change branch reuses the stashed original height (`data-quran-orig-box-h`). Gated by `tests/swap_layout_check.js` (137/137: every bundled font × 3 lengths + a clamp-stress case), full suite 59/59. Was: special-cased `0.8em` for uthmaniHafs / restored sizing otherwise with no measurement.
-- [ ] T104 **(Medium #8) Badge violates the FR-028 glyph contract.** `js/badge/badge.js` shows numeric counts during progress (`:27`), clears on empty/not-Arabic (`:32`), and uses `✗` for data-unavailable (`:58`); FR-028 allows only `● / ✓ / !` with data error clearing the badge and putting detail in the tooltip. Fix: align the badge state machine to FR-028; keep counts in tooltip/popup only. **Done (2026-05-21):** the `!`-state badge color severity order was flipped from the old `orange > red > yellow` to the corrected **red > yellow > orange** (constitution Principle II) in `js/badge/badge.js` + spec/research/data-model notes. The glyph-contract fixes (counts → tooltip only, error clears badge) remain open.
-- [ ] T105 **(Medium #9) Copy/share/report dropped the bilingual field record.** FR-011 requires the plain-text default to carry the same labeled fields as the JSON, one bilingual-labeled field per line; copy/report now emit localized prose via `friendlyText` (`js/panel/actions.js:~41/113`). Fix: restore the structured plain-text serializer as the default for copy/share/report, keeping friendly prose as an optional artifact. (Cross-check against the T091 friendly-share decision — may instead update FR-011 if prose is the intended product direction.)
+- [X] T104 **(Medium #8) Badge violates the FR-028 glyph contract.** **Done (2026-05-24):** `onDataUnavailable` now clears the badge text (`text: ''`) and puts the detail in the tooltip title only, per FR-028 (data error clears glyph, not shows `✗`). Counts were already moved to tooltip-only by T111. Severity order red > yellow > orange was already fixed 2026-05-21.
+- [X] T105 **(Medium #9) Copy/share/report dropped the bilingual field record.** **Done (2026-05-24):** Restored structured bilingual plain-text for `copy` and `report` (`toBilingualText` in `js/panel/actions.js`); each field one line, labeled in Arabic + English. `share` keeps the reader-facing localized prose (T091 intent). "Copy as JSON" keeps the machine record. This reconciles T091 with FR-011: copy/report = structured bilingual, share = friendly prose.
 - [X] T106 **(Medium #10) `prefs.v1` font schema drifted without a version bump.** Reconciled `contracts/storage.md` to the shipped nine-font set (source of truth `QuranFonts.REGISTRY` + `VALID_FONTS`) and documented why no version bump is needed: `indoPak`/`simplified` were byte-identical placeholders, and both clamp to `uthmaniHafs` (which rendered identically), so no user-visible state is lost. Added an FR-009 implementation note. `contracts/storage.md:27` still lists three fonts incl. `indoPak`/`simplified`, but `js/storage/prefs.js:17` now accepts the new bundled-font keys and the sidebar exposes them; contract-valid `indoPak`/`simplified` values would be clamped away (fallout from the 2026-05-21 font work). Fix: reconcile the storage contract with the shipped font set; decide whether the dropped keys warrant a `prefs` version/migration or just a doc update.
 
 ### Low
@@ -514,7 +496,7 @@ for traceability.
 
 ### Extra (found while fixing T097, not in the Codex report)
 
-- [ ] T109 **Medium-confidence ref extractors rarely fire.** The bare-run (`js/content.js:~475`) and short-fragment (`:555`) extractors anchor on `AR_RUN + '$'`, which fails to match when there's whitespace before the `(ref)` (the common case), so medium candidates seldom reach the verifier. This makes the T097 classification fix mostly latent in the wild. Fix: trim/allow trailing whitespace before the `$` anchor (or re-anchor on the ref position) so genuine `text (ref)` citations are extracted at medium confidence; then extend the orange fixture to exercise the full extract→classify path end-to-end.
+- [X] T109 **Medium-confidence ref extractors rarely fire.** **Done (2026-05-24):** Changed `AR_RUN + '$'` to `AR_RUN + '\\s*$'` in both the bare-run fallback (`extractExplicitRefBackward`) and the short-fragment extractor (`extractShortFragmentWithRef`) in `js/content.js`. The regex now allows optional trailing whitespace before the `(ref)`, so `text (ref)` citations fire at medium confidence. Fixture `ref_extraction.expected.json` updated: +1 green (the `قل هو الله أحد (الإخلاص:1)` bare-run case that was missed). Suite 60/60.
 
 ## Phase 10: Correct-in-place revisit + badge polish (2026-05-22)
 

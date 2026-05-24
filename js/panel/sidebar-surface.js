@@ -631,7 +631,9 @@ const QuranPanelSidebar = (() => {
     const scroller = rootEl.querySelector('.quran-ext-panel-container');
     if (scroller) scroller.addEventListener('scroll', hideRefTip, { passive: true });
     rootEl.querySelectorAll('.quran-ext-filter-chip input[type=checkbox]').forEach(cb => {
-      cb.addEventListener('change', () => {
+      cb.addEventListener('change', (e) => {
+        // T098 — reject synthetic events from page-world scripts.
+        if (!e.isTrusted) return;
         activeFilter = { ...(activeFilter || {}), [cb.dataset.color]: cb.checked };
         render();
         QuranMsg.sendRequest('PREFS_WRITE', { patch: { panelFilter: activeFilter } }).catch(() => {});
@@ -656,7 +658,9 @@ const QuranPanelSidebar = (() => {
   // the options page; T094.)
   function wireSwapAndPersist() {
     const master = rootEl.querySelector('.quran-ext-swap-master');
-    if (master) master.addEventListener('change', () => {
+    if (master) master.addEventListener('change', (e) => {
+      // T098 — reject synthetic events from page-world scripts.
+      if (!e.isTrusted) return;
       QuranMsg.sendRequest('PREFS_WRITE', { patch: { master: { authenticTextReplacement: master.checked } } }).catch(() => {});
     });
   }
