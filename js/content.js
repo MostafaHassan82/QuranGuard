@@ -933,7 +933,9 @@ function applyHighlightStyleClass(span) {
   const style = STATE.prefs?.highlightStyle?.[color] || 'highlight';
   span.classList.remove('quran-style-underline', 'quran-style-off');
   if (style === 'underline') span.classList.add('quran-style-underline');
-  else if (style === 'off' && color !== 'red') span.classList.add('quran-style-off');
+  // red + yellow can't go 'off' (clamped in prefs.js, guarded here too) — the two
+  // highest-severity findings must stay visible.
+  else if (style === 'off' && color !== 'red' && color !== 'yellow') span.classList.add('quran-style-off');
 }
 
 // Re-apply highlight styles to every live highlight (PREFS_CHANGED, no rescan).
@@ -1774,6 +1776,15 @@ async function decorateRefMarker(marker, refString) {
   marker.dataset.quranAyahFirst = String(resolved.ayahNums[0]);
   marker.dataset.quranAyahLast = String(resolved.ayahNums[resolved.ayahNums.length - 1]);
   if (STATE.prefs?.refLinks !== false) marker.classList.add('quran-ref-link');
+  applyRefHighlightStyle(marker);
+}
+
+// Item 1 — apply the reference highlight toggle (prefs.refHighlight). When off,
+// the marker keeps its tooltip + link but drops the gold visual mark. Idempotent.
+function applyRefHighlightStyle(marker) {
+  if (!marker || !marker.classList) return;
+  if (STATE.prefs?.refHighlight === false) marker.classList.add('quran-ref-style-off');
+  else marker.classList.remove('quran-ref-style-off');
 }
 
 // Build the quran.com URL for a surah + ayah range, honoring the Arabic UI
@@ -2059,14 +2070,21 @@ if (chrome?.runtime?.onMessage) {
       }
       // Item 5 — live highlight-style change (highlight / underline / off).
       try { reapplyHighlightStyles(); } catch (_) {}
-      // Live ref-link toggle: add/remove the clickable affordance on every
-      // already-placed reference marker without needing a rescan.
+      // Item 2 — refresh the sidebar's results-summary 3-state toggles so a
+      // highlight-style change made on the options page reflects in the panel.
+      if (typeof QuranPanelSidebar !== 'undefined' && QuranPanelSidebar.isMounted()) {
+        try { QuranPanelSidebar.applyHighlightPrefs(prefs); } catch (_) {}
+      }
+      // Live ref-link + ref-highlight toggle: add/remove the clickable affordance
+      // and the gold visual mark on every already-placed reference marker without
+      // needing a rescan.
       try {
         const enable = prefs.refLinks !== false;
         const fontFamily = (typeof QuranFonts !== 'undefined') ? QuranFonts.familyFor(prefs.font) : null;
         for (const m of document.querySelectorAll('.' + REF_MARKER_CLASS)) {
           if (enable && m.dataset.quranSurah) m.classList.add('quran-ref-link');
           else m.classList.remove('quran-ref-link');
+          applyRefHighlightStyle(m);
           if (fontFamily) m.style.setProperty('--quran-ref-tooltip-font', fontFamily);
           m.dataset.quranFont = prefs.font || 'uthmaniHafs';
         }

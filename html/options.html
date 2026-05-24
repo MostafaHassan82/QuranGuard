@@ -80,6 +80,7 @@
           <label class="opt-field">
             <span class="opt-field-label" data-i18n="cat_yellow">اختلاف لفظي</span>
             <select class="hl-style-select" data-hl-color="yellow"></select>
+            <span class="opt-locked-note" data-i18n="hl_yellow_locked">الأصفر يبقى ظاهرًا دائمًا</span>
           </label>
           <label class="opt-field">
             <span class="opt-field-label" data-i18n="cat_orange">مرجع غير مطابق</span>
@@ -102,9 +103,13 @@
           </label>
           <div class="opt-hint" data-i18n="autocorrect_orange_hint">يستبدل المرجع الخاطئ بالمرجع الصحيح في الصفحة عند كل فحص.</div>
           <label class="opt-row">
+            <input type="checkbox" id="ref-highlight"><span data-i18n="ref_highlight">تمييز مرجع الآية على الصفحة (لون ذهبي)</span>
+          </label>
+          <div class="opt-hint" data-i18n="ref_highlight_hint">يُبرز مرجع كل آية بخلفية ذهبية. عند الإيقاف يبقى التلميح عند المرور والرابط يعملان.</div>
+          <label class="opt-row">
             <input type="checkbox" id="ref-links"><span data-i18n="ref_links">جعل المراجع روابط قابلة للنقر (quran.com)</span>
           </label>
-          <div class="opt-hint" data-i18n="ref_links_hint">يُبرز مرجع كل آية ويعرض نصّها الكامل عند المرور، والنقر يفتح quran.com في تبويب جديد.</div>
+          <div class="opt-hint" data-i18n="ref_links_hint">يعرض نصّ الآية الكامل عند المرور، والنقر يفتح quran.com في تبويب جديد.</div>
         </div>
       </section>
 

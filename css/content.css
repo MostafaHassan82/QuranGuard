@@ -219,6 +219,19 @@
   background-color: rgba(200, 162, 74, 0.34);
 }
 
+/* Item 1 — reference highlight toggle (prefs.refHighlight=false). Drops the gold
+   fill + dashed underline so the reference reads as plain page text, while the
+   hover tooltip (full ayah) and the quran.com link affordance both stay active —
+   only the visual mark is suppressed. A corrected-in-place reference keeps its
+   confirm tint (handled by quran-ref-corrected, which wins on specificity). */
+.quran-ref-marker.quran-ref-style-off {
+  background-color: transparent;
+  border-bottom: none;
+}
+.quran-ref-marker.quran-ref-style-off.quran-ref-link:hover {
+  background-color: rgba(200, 162, 74, 0.16);
+}
+
 /* T065 — corrected-in-place reference. The marker shows the new reference with
    a subtle confirm tint layered over the base marker style. */
 .quran-ref-corrected {

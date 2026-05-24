@@ -11,6 +11,10 @@ const QuranPrefs = (() => {
     scanTrigger: 'manual',
     autoCorrectOrange: false,
     refLinks: true,
+    // Whether the cited reference is visually highlighted on the page (gold
+    // marker). Independent of refLinks (clickability) and of the hover tooltip,
+    // which both remain available when this is off.
+    refHighlight: true,
     lang: 'ar',
     panelPosition: 'auto',                  // auto | left | right | float; auto follows lang dir (ar→right, en→left)
     floatAnchor: 'auto',                    // float mode: which edge to anchor to (auto | left | right)
@@ -45,6 +49,7 @@ const QuranPrefs = (() => {
     if (!VALID_SCAN_TRIGGERS.has(p.scanTrigger)) p.scanTrigger = DEFAULTS.scanTrigger;
     if (typeof p.autoCorrectOrange !== 'boolean') p.autoCorrectOrange = DEFAULTS.autoCorrectOrange;
     if (typeof p.refLinks !== 'boolean') p.refLinks = DEFAULTS.refLinks;
+    if (typeof p.refHighlight !== 'boolean') p.refHighlight = DEFAULTS.refHighlight;
     if (!VALID_LANGS.has(p.lang)) p.lang = DEFAULTS.lang;
     if (!VALID_PANEL_POSITIONS.has(p.panelPosition)) p.panelPosition = DEFAULTS.panelPosition;
     if (!VALID_FLOAT_ANCHORS.has(p.floatAnchor)) p.floatAnchor = DEFAULTS.floatAnchor;
@@ -64,10 +69,15 @@ const QuranPrefs = (() => {
       console.warn('[QuranPrefs] perColor.red clamped to false');
       p.perColor.red = false;
     }
-    // Clamp: red highlight may not be turned off — a not-in-Quran finding stays visible.
-    if (p.highlightStyle.red === 'off') {
-      console.warn('[QuranPrefs] highlightStyle.red clamped from off to highlight');
-      p.highlightStyle.red = 'highlight';
+    // Clamp: red + yellow highlights may not be turned off — a not-in-Quran (red)
+    // and a word-level deviation (yellow) are the two highest-severity findings
+    // (severity: red > yellow > orange) and must stay visible. They may still be
+    // switched between 'highlight' and 'underline', just never 'off'.
+    for (const lockedColor of ['red', 'yellow']) {
+      if (p.highlightStyle[lockedColor] === 'off') {
+        console.warn(`[QuranPrefs] highlightStyle.${lockedColor} clamped from off to highlight`);
+        p.highlightStyle[lockedColor] = 'highlight';
+      }
     }
 
     return p;

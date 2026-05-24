@@ -286,7 +286,8 @@
 .quran-ext-summary-chevron svg { display: block; }
 /* Collapsed: hide the counts grid, point the chevron sideways, drop the
    title's bottom gap so the bar reads as a single tidy row. */
-.quran-ext-summary.quran-ext-summary-collapsed .quran-ext-summary-grid { display: none; }
+.quran-ext-summary.quran-ext-summary-collapsed .quran-ext-summary-grid,
+.quran-ext-summary.quran-ext-summary-collapsed .quran-ext-summary-hint { display: none; }
 .quran-ext-summary.quran-ext-summary-collapsed .quran-ext-summary-toggle { margin-bottom: 0; }
 .quran-ext-summary.quran-ext-summary-collapsed .quran-ext-summary-chevron { transform: rotate(-90deg); }
 .quran-ext-summary-grid {
@@ -310,8 +311,65 @@
   margin-bottom: 2px;
 }
 .quran-ext-summary-total .quran-ext-summary-label { color: var(--q-text); font-weight: 600; }
-.quran-ext-summary-orange .quran-ext-summary-label,
-.quran-ext-summary-orange .quran-ext-summary-value { color: #b25500; }
+
+/* Item 2 — interactive summary cells. Each cell's LABEL previews how the ayah is
+   actually marked on the page: the category's real color as a highlight (fill +
+   underline), as an underline only, or plain (no mark). Clicking / Space / Enter
+   cycles the state. The Total cell previews the gold reference highlight on/off. */
+.quran-ext-summary-toggle-cell {
+  cursor: pointer;
+  border-radius: 6px;
+  padding: 2px 6px;
+  margin: 0 -6px;
+  user-select: none;
+  transition: background-color 0.12s ease;
+}
+.quran-ext-summary-toggle-cell:hover { background: var(--q-card); }
+.quran-ext-summary-toggle-cell:focus-visible { outline: 2px solid var(--q-focus); outline-offset: 1px; }
+/* The label is the live preview swatch. A transparent reserved underline keeps
+   the row height stable as the state changes. */
+.quran-ext-summary-toggle-cell .quran-ext-summary-label {
+  padding: 0 5px;
+  border-radius: 3px;
+  border-bottom: 2px solid transparent;
+  color: var(--q-text);
+}
+/* Plain (off): dim the whole cell so its disabled marking reads at a glance. */
+/* .quran-ext-summary-toggle-cell[data-state="off"] .quran-ext-summary-label { opacity: 0.55; } */
+
+/* Per-category preview colors — mirror the on-page highlight rules in content.css.
+   highlight = fill + colored underline; underline = colored underline only. */
+.quran-ext-summary-green[data-state="highlight"] .quran-ext-summary-label { background-color: rgba(0, 180, 0, 0.18); }
+.quran-ext-summary-green[data-state="highlight"] .quran-ext-summary-label,
+.quran-ext-summary-green[data-state="underline"] .quran-ext-summary-label { border-bottom-color: rgba(0, 160, 0, 0.7); }
+.quran-ext-summary-lightBlue[data-state="highlight"] .quran-ext-summary-label { background-color: rgba(70, 170, 220, 0.18); }
+.quran-ext-summary-lightBlue[data-state="highlight"] .quran-ext-summary-label,
+.quran-ext-summary-lightBlue[data-state="underline"] .quran-ext-summary-label { border-bottom-color: rgba(50, 140, 200, 0.7); }
+.quran-ext-summary-lightGreen[data-state="highlight"] .quran-ext-summary-label { background-color: rgba(150, 210, 80, 0.22); }
+.quran-ext-summary-lightGreen[data-state="highlight"] .quran-ext-summary-label,
+.quran-ext-summary-lightGreen[data-state="underline"] .quran-ext-summary-label { border-bottom: 2px dashed rgba(110, 170, 50, 0.85); }
+.quran-ext-summary-yellow[data-state="highlight"] .quran-ext-summary-label { background-color: rgba(240, 200, 50, 0.25); }
+.quran-ext-summary-yellow[data-state="highlight"] .quran-ext-summary-label,
+.quran-ext-summary-yellow[data-state="underline"] .quran-ext-summary-label { border-bottom-color: rgba(210, 170, 30, 0.75); }
+.quran-ext-summary-orange[data-state="highlight"] .quran-ext-summary-label { background-color: rgba(255, 140, 0, 0.25); }
+.quran-ext-summary-orange[data-state="highlight"] .quran-ext-summary-label,
+.quran-ext-summary-orange[data-state="underline"] .quran-ext-summary-label { border-bottom-color: rgba(230, 110, 0, 0.85); }
+.quran-ext-summary-red[data-state="highlight"] .quran-ext-summary-label { background-color: rgba(220, 0, 0, 0.14); }
+.quran-ext-summary-red[data-state="highlight"] .quran-ext-summary-label,
+.quran-ext-summary-red[data-state="underline"] .quran-ext-summary-label { border-bottom-color: rgba(200, 0, 0, 0.6); }
+/* Total cell = gold reference-highlight toggle (on = gold fill + dashed underline). */
+.quran-ext-summary-ref[data-state="highlight"] .quran-ext-summary-label {
+  background-color: rgba(200, 162, 74, 0.18);
+  border-bottom: 2px dashed #c8a24a;
+}
+/* .quran-ext-summary-ref[data-state="off"] .quran-ext-summary-label { opacity: 0.55; } */
+
+.quran-ext-summary-hint {
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--q-muted);
+  line-height: 1.4;
+}
 
 /* ── Per-session master swap quick-toggle (T094) ────────────────────────────
    Item 2 — styled as a chip toggle to match the filter chips: hidden native

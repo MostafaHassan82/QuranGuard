@@ -69,7 +69,8 @@ function syncHighlightStyles(prefs) {
   ];
   document.querySelectorAll('.hl-style-select').forEach(sel => {
     const color = sel.dataset.hlColor;
-    const opts = color === 'red' ? OPTS.filter(([v]) => v !== 'off') : OPTS;
+    // red + yellow omit 'off' — the two highest-severity findings stay visible.
+    const opts = (color === 'red' || color === 'yellow') ? OPTS.filter(([v]) => v !== 'off') : OPTS;
     sel.innerHTML = '';
     for (const [value, key] of opts) {
       const o = document.createElement('option');
@@ -94,6 +95,9 @@ async function applyPrefsToUI(prefs) {
 
   const refLinks = document.getElementById('ref-links');
   if (refLinks) refLinks.checked = prefs?.refLinks !== false;
+
+  const refHighlight = document.getElementById('ref-highlight');
+  if (refHighlight) refHighlight.checked = prefs?.refHighlight !== false;
 
   const posSel = document.getElementById('panel-position-select');
   if (posSel) posSel.value = prefs?.panelPosition || 'auto';
@@ -152,6 +156,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Auto-correct all orange (reference-mismatch) findings.
   document.getElementById('autocorrect-orange').addEventListener('change', (e) => {
     savePrefs({ autoCorrectOrange: e.target.checked });
+  });
+
+  // Highlight the cited reference on the page (gold marker).
+  document.getElementById('ref-highlight').addEventListener('change', (e) => {
+    savePrefs({ refHighlight: e.target.checked });
   });
 
   // Make references clickable quran.com links.

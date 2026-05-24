@@ -17,6 +17,13 @@ const QuranPanelSidebar = (() => {
   // Whether references render as clickable quran.com links (prefs.refLinks),
   // and the effective UI language for the /ar/ locale prefix in those links.
   let refLinksEnabled = true;
+  // Item 2 — local mirror of prefs.highlightStyle, so the results-summary cells
+  // can render + cycle their 3-state (highlight / underline / off) marking.
+  // Updated on mount, on each toggle click, and on PREFS_CHANGED (applyHighlightPrefs).
+  let highlightStyle = {};
+  // Item 2 — local mirror of prefs.refHighlight (the gold reference marker on/off),
+  // toggled from the summary's Total cell.
+  let refHighlightEnabled = true;
   let uiLang = 'ar';
   let uiFont = 'uthmaniHafs';
   // Sticky for this page session: once the user closes the sidebar (X button),
@@ -529,8 +536,73 @@ const QuranPanelSidebar = (() => {
     return section;
   }
 
+  // Item 2 — per-category highlight-style cycle for the results-summary cells.
+  // red + yellow can't go 'off' (the two highest-severity findings stay visible),
+  // so they cycle between highlight ↔ underline only; everything else cycles
+  // highlight → underline → off → highlight. Mirrors the clamp in prefs.js.
+  function styleSeqFor(color) {
+    return (color === 'red' || color === 'yellow')
+      ? ['highlight', 'underline']
+      : ['highlight', 'underline', 'off'];
+  }
+  function nextStyleFor(color, current) {
+    const seq = styleSeqFor(color);
+    let i = seq.indexOf(current);
+    if (i === -1) i = 0;
+    return seq[(i + 1) % seq.length];
+  }
+  function styleLabel(style) {
+    return T(style === 'underline' ? 'hl_style_underline' : style === 'off' ? 'hl_style_off' : 'hl_style_highlight');
+  }
+
+  // Re-render the summary while preserving keyboard focus on the cell the user
+  // just activated (renderSummary rebuilds every cell), so repeated Space/Enter
+  // presses keep operating on the same cell.
+  function rerenderSummaryKeepingFocus(selector) {
+    const hadFocus = rootEl && rootEl.querySelector(selector) === document.activeElement;
+    renderSummary();
+    if (hadFocus) {
+      const cell = rootEl && rootEl.querySelector(selector);
+      if (cell) cell.focus();
+    }
+  }
+
+  // Cycle a category's on-page highlight style and persist it. PREFS_WRITE
+  // broadcasts PREFS_CHANGED, which content.js uses to reapply styles on the page
+  // (and to call applyHighlightPrefs back here, which re-renders the summary).
+  function cycleCategoryStyle(color) {
+    const cur = highlightStyle[color] || 'highlight';
+    const next = nextStyleFor(color, cur);
+    highlightStyle = { ...highlightStyle, [color]: next };
+    rerenderSummaryKeepingFocus(`.quran-ext-summary-toggle-cell[data-color="${color}"]`);
+    QuranMsg.sendRequest('PREFS_WRITE', { patch: { highlightStyle: { [color]: next } } }).catch(() => {});
+  }
+
+  // Item 2 — the Total cell toggles the gold reference highlight (prefs.refHighlight,
+  // on/off). content.js reconciles the on-page markers on the resulting PREFS_CHANGED.
+  function toggleRefHighlight() {
+    refHighlightEnabled = !refHighlightEnabled;
+    rerenderSummaryKeepingFocus('.quran-ext-summary-total');
+    QuranMsg.sendRequest('PREFS_WRITE', { patch: { refHighlight: refHighlightEnabled } }).catch(() => {});
+  }
+
+  // Turn a cell into an activatable toggle (mouse + Space/Enter), rejecting
+  // page-world synthetic events (T098).
+  function wireToggleCell(cell, onActivate) {
+    cell.setAttribute('role', 'button');
+    cell.setAttribute('tabindex', '0');
+    cell.addEventListener('click', (e) => { if (e.isTrusted) onActivate(); });
+    cell.addEventListener('keydown', (e) => {
+      if (!e.isTrusted) return;
+      if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); onActivate(); }
+    });
+  }
+
   // Results summary table (moved from the popup; T094). Counts derive from the
   // panel model so the sidebar owns perCategoryCount without extra messaging.
+  // Item 2 — every category cell is a 3-state toggle whose label PREVIEWS the
+  // ayah's actual on-page appearance (the category color, highlighted / underlined
+  // / plain). The Total cell toggles the gold reference highlight on/off.
   function renderSummary() {
     if (!rootEl) return;
     const grid = rootEl.querySelector('.quran-ext-summary-grid');
@@ -550,9 +622,6 @@ const QuranPanelSidebar = (() => {
     grid.replaceChildren();
     for (const [key, n] of cells) {
       const cell = document.createElement('div');
-      cell.className = key === 'total'
-        ? 'quran-ext-summary-cell quran-ext-summary-total'
-        : `quran-ext-summary-cell quran-ext-summary-${key}`;
       const label = document.createElement('span');
       label.className = 'quran-ext-summary-label';
       label.textContent = T(key === 'total' ? 'stat_total'
@@ -560,7 +629,28 @@ const QuranPanelSidebar = (() => {
       const value = document.createElement('span');
       value.className = 'quran-ext-summary-value';
       value.textContent = n;
-      cell.append(label, value);
+
+      if (key === 'total') {
+        // The Total cell doubles as the gold reference-highlight on/off toggle.
+        const state = refHighlightEnabled ? 'highlight' : 'off';
+        cell.className = 'quran-ext-summary-cell quran-ext-summary-total quran-ext-summary-toggle-cell quran-ext-summary-ref';
+        cell.dataset.state = state;
+        cell.setAttribute('aria-label',
+          T('summary_ref_aria', { state: T(refHighlightEnabled ? 'state_on' : 'state_off') }));
+        cell.title = T('summary_ref_title');
+        wireToggleCell(cell, toggleRefHighlight);
+        cell.append(label, value);
+      } else {
+        const style = highlightStyle[key] || 'highlight';
+        cell.className = `quran-ext-summary-cell quran-ext-summary-toggle-cell quran-ext-summary-${key}`;
+        cell.dataset.color = key;
+        cell.dataset.state = style;
+        cell.setAttribute('aria-label',
+          T('summary_state_aria', { label: label.textContent, n, state: styleLabel(style) }));
+        cell.title = styleLabel(style);
+        wireToggleCell(cell, () => cycleCategoryStyle(key));
+        cell.append(label, value);
+      }
       grid.append(cell);
     }
   }
@@ -750,6 +840,16 @@ const QuranPanelSidebar = (() => {
     if (isFloat() && rootEl) { applyLayout(); persistUi(); }
   }
 
+  // Item 2 — called by content.js on PREFS_CHANGED so a highlight-style change
+  // made elsewhere (e.g. the options page) re-renders the summary's 3-state
+  // toggles without a reload.
+  function applyHighlightPrefs(prefs) {
+    if (!prefs) return;
+    if (prefs.highlightStyle) highlightStyle = prefs.highlightStyle;
+    if (typeof prefs.refHighlight === 'boolean') refHighlightEnabled = prefs.refHighlight;
+    renderSummary();
+  }
+
   // Mount the sidebar into the host page if not already present. Reads filter
   // from PREFS_READ so chips render in the saved state.
   async function mount() {
@@ -772,6 +872,8 @@ const QuranPanelSidebar = (() => {
       const resp = await QuranMsg.sendRequest('PREFS_READ', {});
       prefs = resp?.payload?.result || {};
       activeFilter = prefs.panelFilter || { orange: true };
+      highlightStyle = prefs.highlightStyle || {};
+      refHighlightEnabled = prefs.refHighlight !== false;
       refLinksEnabled = prefs.refLinks !== false;
       uiLang = prefs.lang === 'en' ? 'en' : 'ar';
       uiFont = prefs.font || 'uthmaniHafs';
@@ -938,5 +1040,5 @@ const QuranPanelSidebar = (() => {
     if (!rootEl) document.documentElement.classList.remove('quran-ext-sidebar-mounted');
   }
 
-  return { mount, unmount, upsert, ingest, reset, tagPersisted, clearPersistedBadges, isMounted, clearUserClosed, focusRow, applyLang, setPosition, setFloatAnchor, showError, clearError };
+  return { mount, unmount, upsert, ingest, reset, tagPersisted, clearPersistedBadges, isMounted, clearUserClosed, focusRow, applyLang, setPosition, setFloatAnchor, applyHighlightPrefs, showError, clearError };
 })();
