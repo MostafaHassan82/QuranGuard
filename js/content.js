@@ -961,6 +961,10 @@ async function scanPage({ liftCap = false, subtreeRoot = null } = {}) {
   const maxPasses = isFreshFull ? SCAN_SAFETY_MAX : 1;
   let prevCount = -1;
 
+  // FR-019 — record the URL this fresh scan ran against so the MutationObserver
+  // can tell an SPA route change (URL changed) from in-page content growth.
+  if (isFreshFull) STATE.lastScanUrl = location.href;
+
   // ── Timing instrumentation (paste the [QuranExt][timing] summary to profile) ──
   const T = { passes: 0, pingMs: 0, extractMs: 0, verifyMs: 0, bgMs: 0, verifyCalls: 0, cacheHits: 0, roundTrips: 0, walkMs: 0, materializeMs: 0 };
 
@@ -1335,6 +1339,42 @@ function updateWindowGlobals(scanId, startedAt, payload) {
   window.__quranMatches = STATE.findings.slice();
 }
 
+// ── SPA route changes (FR-019 / FR-026) ──────────────────────────────────────
+
+// A history navigation (popstate) or a pushState/replaceState document swap is a
+// "fresh page": stale highlights from the prior route must not linger, and
+// Autoscan must re-trigger per FR-026. Debounced so the SPA framework has time to
+// render the new route before we scan it.
+async function handleRouteChange() {
+  if (STATE.scanning) return;
+  if (location.href === STATE.lastScanUrl) return;
+  clearTimeout(STATE.routeDebounceTimer);
+  STATE.routeDebounceTimer = setTimeout(async () => {
+    if (STATE.scanning) return;
+    QuranLog.scope('route').debug(`SPA route change → ${location.href}`);
+    // Drop everything tied to the prior route. Gate the observer (as the `clear`
+    // handler does) so clearHighlights()'s own DOM edits don't queue a phantom
+    // rescan; the autoscan branch then re-gates via STATE.scanning.
+    STATE.swapInProgress = true;
+    clearHighlights();
+    STATE.findings = [];
+    STATE.highlightedSpans = [];
+    STATE.lastScanUrl = location.href;
+    if (typeof QuranPanelSidebar !== 'undefined') QuranPanelSidebar.unmount();
+    setTimeout(() => { STATE.swapInProgress = false; }, 600);
+    // FR-026: Autoscan re-scans the new document; Manual leaves the page reset to
+    // idle (no stale highlights) and waits for the user. scanPage() reinstalls the
+    // MutationObserver for the new route on completion (T099).
+    if (STATE.prefs?.scanTrigger === 'autoscan') {
+      try { await scanPage(); } catch (_) {}
+    }
+  }, 500);
+}
+
+// popstate covers back/forward navigation; the MutationObserver URL check covers
+// pushState/replaceState content swaps (see setupMutationObserver). Installed once.
+window.addEventListener('popstate', () => { handleRouteChange().catch(() => {}); });
+
 // ── MutationObserver (T028) ───────────────────────────────────────────────────
 
 function setupMutationObserver() {
@@ -1354,6 +1394,16 @@ function setupMutationObserver() {
     // gate the swap text mutations would trigger a phantom rescan that
     // re-walks authentic text instead of the page's original wording.
     if (STATE.swapInProgress) return;
+    // FR-019 — a URL change since the last scan means this DOM churn is an SPA
+    // route navigation (pushState/replaceState swapping the document content),
+    // not in-page growth. Content scripts run in an isolated world and cannot
+    // intercept the page's own history.pushState calls, so we detect the route
+    // change by its effect (URL + DOM both changed) here and on popstate below.
+    // Handle it as a fresh page rather than an incremental subtree rescan.
+    if (STATE.lastScanUrl && location.href !== STATE.lastScanUrl) {
+      handleRouteChange();
+      return;
+    }
     STATS.mutationsObserved += mutations.length;
     const roots = new Set();
     for (const m of mutations) {
@@ -1916,13 +1966,19 @@ if (chrome?.runtime?.onMessage) {
       return;
     }
 
-    // DATA_UNAVAILABLE — refuse to scan
+    // DATA_UNAVAILABLE — refuse to scan + show the fail-loud error surface (FR-020).
     if (type === 'DATA_UNAVAILABLE') {
       QuranLog.warn('Data unavailable:', payload);
+      if (typeof QuranPanelSidebar !== 'undefined') {
+        try { QuranPanelSidebar.showError(payload?.reason); } catch (_) {}
+      }
       return;
     }
-    // DATA_AVAILABLE — re-enable
+    // DATA_AVAILABLE — clear the error surface; normal operation resumes on next scan.
     if (type === 'DATA_AVAILABLE') {
+      if (typeof QuranPanelSidebar !== 'undefined') {
+        try { QuranPanelSidebar.clearError(); } catch (_) {}
+      }
       return;
     }
     // JUMP_TO_FINDING — popup surface jump-to-highlight handler (FR-011a).

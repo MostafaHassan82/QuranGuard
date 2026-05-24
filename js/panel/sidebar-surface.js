@@ -841,5 +841,60 @@ const QuranPanelSidebar = (() => {
     return true;
   }
 
-  return { mount, unmount, upsert, ingest, reset, tagPersisted, clearPersistedBadges, isMounted, clearUserClosed, focusRow, applyLang, setPosition, setFloatAnchor };
+  // FR-020 — data-unavailable error surface. The findings panel needs the Quran
+  // data to populate, so when the data fails to load we show a standalone,
+  // self-contained error panel (themed via the shared .quran-ext-panel tokens)
+  // with a Retry that re-attempts the load. Kept distinct from the "no citations"
+  // empty state so a data error is never indistinguishable from a clean page.
+  let errorEl = null;
+  function showError(reason) {
+    clearError();
+    if (!document.body) return;
+    // Drop any stale findings panel so the two surfaces don't overlap.
+    if (rootEl) { try { unmount(); } catch (_) {} }
+    const lang = (typeof QuranI18n !== 'undefined') ? QuranI18n.getLang() : 'ar';
+    const dir = (typeof QuranI18n !== 'undefined') ? QuranI18n.dir() : 'rtl';
+    const t = (k, v) => (typeof QuranI18n !== 'undefined') ? QuranI18n.t(k, v) : k;
+
+    errorEl = document.createElement('div');
+    errorEl.className = 'quran-ext-panel quran-ext-panel-error';
+    errorEl.setAttribute('lang', lang);
+    errorEl.setAttribute('dir', dir);
+    errorEl.style.direction = dir === 'ltr' ? 'ltr' : 'rtl';
+    errorEl.setAttribute('role', 'region');
+    errorEl.setAttribute('aria-label', t('sidebar_title'));
+
+    const header = document.createElement('div');
+    header.className = 'quran-ext-panel-header';
+    header.textContent = t('sidebar_title');
+
+    const body = document.createElement('div');
+    body.className = 'quran-ext-error-body';
+    const msg = document.createElement('p');
+    msg.className = 'quran-ext-error-msg';
+    msg.setAttribute('role', 'alert');
+    msg.textContent = t('data_error_panel');
+    const retry = document.createElement('button');
+    retry.className = 'quran-ext-error-retry';
+    retry.textContent = t('retry_btn');
+    retry.addEventListener('click', (e) => {
+      // T098 — only act on real user clicks, not synthetic page events.
+      if (!e.isTrusted) return;
+      retry.disabled = true;
+      QuranMsg.sendRequest('RETRY_DATA_LOAD', {})
+        .catch(() => {})
+        .finally(() => { retry.disabled = false; });
+    });
+    body.append(msg, retry);
+    errorEl.append(header, body);
+    document.body.appendChild(errorEl);
+    document.documentElement.classList.add('quran-ext-sidebar-mounted');
+  }
+  function clearError() {
+    if (errorEl && errorEl.parentNode) errorEl.parentNode.removeChild(errorEl);
+    errorEl = null;
+    if (!rootEl) document.documentElement.classList.remove('quran-ext-sidebar-mounted');
+  }
+
+  return { mount, unmount, upsert, ingest, reset, tagPersisted, clearPersistedBadges, isMounted, clearUserClosed, focusRow, applyLang, setPosition, setFloatAnchor, showError, clearError };
 })();

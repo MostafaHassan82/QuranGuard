@@ -78,6 +78,7 @@ const QuranI18n = (() => {
       status_error: 'خطأ: {msg}',
       status_start_error: 'تعذّر بدء الفحص',
       status_data_error: 'خطأ في بيانات القرآن: {msg}',
+      data_error_panel: 'بيانات القرآن غير متوفرة — لا يمكن للإضافة التحقّق من الاقتباسات.',
       retry_btn: 'إعادة المحاولة',
       progress_suffix: 'نتيجة حتى الآن…',
       // sidebar
@@ -209,6 +210,7 @@ const QuranI18n = (() => {
       status_error: 'Error: {msg}',
       status_start_error: 'Could not start the scan',
       status_data_error: 'Quran data error: {msg}',
+      data_error_panel: 'Quran data unavailable — the extension cannot verify citations.',
       retry_btn: 'Retry',
       progress_suffix: 'findings so far…',
       sidebar_title: 'Verification results',

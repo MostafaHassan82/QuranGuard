@@ -462,3 +462,39 @@
 }
 .quran-ext-panel-action-btn:hover { background: var(--q-gold-soft); }
 .quran-ext-panel-action-btn:focus { outline: 2px solid var(--q-focus); outline-offset: 1px; }
+
+/* FR-020 — data-unavailable error surface (T101 sidebar half). Reuses the panel
+   theme tokens; shown by QuranPanelSidebar.showError() when the Quran data fails
+   to load, kept visually distinct from the "no citations" empty state. */
+.quran-ext-panel-error .quran-ext-panel-header {
+  color: var(--q-on-primary);
+  font-size: 16px;
+  font-weight: 700;
+}
+.quran-ext-error-body {
+  padding: 18px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.quran-ext-error-msg {
+  margin: 0;
+  color: var(--q-text);
+  font-size: 14px;
+  line-height: 1.6;
+}
+.quran-ext-error-retry {
+  all: unset;
+  align-self: flex-start;
+  background: var(--q-primary);
+  color: var(--q-on-primary);
+  border: 1px solid var(--q-primary-strong);
+  border-radius: 6px;
+  padding: 8px 18px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.quran-ext-error-retry:hover { background: var(--q-primary-strong); }
+.quran-ext-error-retry:focus-visible { outline: 2px solid var(--q-focus); outline-offset: 2px; }
+.quran-ext-error-retry:disabled { opacity: 0.5; cursor: not-allowed; }
