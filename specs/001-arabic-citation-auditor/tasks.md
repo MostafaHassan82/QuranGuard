@@ -447,18 +447,20 @@ Execution order: **T094 → T095 → T096** (split the surfaces, then style them
 then the small dropdown refinement lands with the options page).
 
 - [X] T094 **Three-surface split + dedicated options page.** **Done (implemented across Phases 8–10):** Popup is action-only (`js/popup.js` comment confirms this); `html/options.html` + `js/options.js` + `css/options.css` exist with language, swap defaults + per-color + font, auto-correct orange, panel docking, initial state, and clear-persisted; `manifest.json` has `options_ui: { page: "html/options.html", open_in_tab: true }`; the sidebar hosts the findings list + swap quick-toggle. `prefs.v1` schema unchanged.
-- [ ] T095 [P] Professional **Islamic visual design** for the popup, options page,
-  and panel. Replace the current utilitarian look with a considered theme: a
-  refined color palette (deep green / gold accents that don't clash with the
-  five-color highlight taxonomy — keep the swatch colors intact and legible),
-  tasteful spacing/typography, a subtle geometric (arabesque) motif in headers, an
-  app icon/wordmark, and proper light/dark support. Constraints: pure CSS (no
-  build step, no frameworks per Tech Constraints); the sidebar stays namespaced
-  under `.quran-ext-panel` with `all: initial` so host pages can't bleed in;
-  must not regress the five-color swatches, RTL/LTR flip (T089), or the
-  collapse/resize affordances. Produce the palette + a mockup, get sign-off,
-  then implement popup.css + options.css + sidebar.css + content.css. (After T094
-  so the styling targets the final surface split.)
+- [X] T095 [P] Professional **Islamic visual design** for the popup, options page,
+  and panel. **Done.** Theme (deep-green `#0b5d3b` + gold `#c8a24a`, 8-point
+  Rub-el-Hizb arabesque header motif as an inline SVG data-URI, full light/dark via
+  `prefers-color-scheme`) implemented across `css/popup.css`, `css/options.css`,
+  `css/sidebar.css` in commit `0e036d9`; signed off 2026-05-24. The five-color
+  swatches in `css/content.css` are intentionally NOT themed (Principle II) and
+  the sidebar stays namespaced under `.quran-ext-panel` with `all: initial`. RTL/LTR
+  flip (T089) and collapse/resize affordances verified by `tests/panel_layout_check.js`
+  (20/20). **App icon/wordmark (2026-05-24):** new `icons/icon.svg` (gold 8-point star
+  + verification check on a deep-green tile, tying the toolbar mark to the header
+  motif); rendered to `icons/icon-{16,32,48,128}.png` via `tools/render-icons.js`
+  (system-Chromium screenshot, no new dep, no extension build step); `manifest.json`
+  `icons` + `action.default_icon` wired to the per-size set; removed the legacy
+  `icons/quran_PNG52.png`. Pure CSS, no frameworks. Suite 60/60.
 - [X] T096 [P] Make the language selector a **dropdown** (`<select>`) on the
   options page, wired to `prefs.lang` + the live `applyLang` switch (T089),
   localized via `[data-i18n]`, keyboard-accessible and RTL-aware. **Done:** `html/options.html` has `<select id="lang-select">` with ar/en options; `js/options.js` wires it to `prefs.lang` + `applyLang`.

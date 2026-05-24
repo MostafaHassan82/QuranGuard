@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- App icon / wordmark mark for the Quran Citation Verifier (T095).
+     Deep-green + gold theme, an 8-point Rub-el-Hizb star (the same geometric
+     motif as the surface headers) with a verification check at the center.
+     Vector source of truth; PNGs are rendered from this via tools/render-icons.js. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0d6a44"/>
+      <stop offset="1" stop-color="#08482e"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#e2c373"/>
+      <stop offset="0.5" stop-color="#c8a24a"/>
+      <stop offset="1" stop-color="#a8843a"/>
+    </linearGradient>
+  </defs>
+
+  <!-- rounded-square tile -->
+  <rect x="6" y="6" width="116" height="116" rx="26" fill="url(#bg)"/>
+  <rect x="6.75" y="6.75" width="114.5" height="114.5" rx="25.25" fill="none"
+        stroke="#c8a24a" stroke-opacity="0.55" stroke-width="1.5"/>
+
+  <!-- 8-point star = two superimposed squares, gold stroke -->
+  <g fill="none" stroke="url(#gold)" stroke-width="4.5" stroke-linejoin="round">
+    <rect x="34" y="34" width="60" height="60" rx="4"/>
+    <rect x="34" y="34" width="60" height="60" rx="4" transform="rotate(45 64 64)"/>
+  </g>
+
+  <!-- inner disc to seat the check -->
+  <circle cx="64" cy="64" r="25" fill="#08482e"/>
+  <circle cx="64" cy="64" r="25" fill="none" stroke="url(#gold)" stroke-width="2.5"/>
+
+  <!-- verification check -->
+  <path d="M52 65 L60.5 74 L78 53" fill="none" stroke="#f3e6c0"
+        stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

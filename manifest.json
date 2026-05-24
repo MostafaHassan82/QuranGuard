@@ -4,8 +4,10 @@
   "version": "1.0.0",
   "description": "Detects and verifies Quran citations on web pages",
   "icons": {
-    "48": "icons/quran_PNG52.png",
-    "128": "icons/quran_PNG52.png"
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
   },
   "background": {
     "service_worker": "js/background.js"
@@ -31,7 +33,12 @@
   ],
   "action": {
     "default_popup": "html/popup.html",
-    "default_icon": "icons/quran_PNG52.png"
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png",
+      "48": "icons/icon-48.png",
+      "128": "icons/icon-128.png"
+    }
   },
   "options_ui": {
     "page": "html/options.html",
