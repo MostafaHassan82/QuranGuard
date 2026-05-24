@@ -12,12 +12,16 @@ const QuranPrefs = (() => {
     autoCorrectOrange: false,
     refLinks: true,
     lang: 'ar',
+    panelPosition: 'auto',                  // auto | left | right | float; auto follows lang dir (ar→right, en→left)
+    floatAnchor: 'auto',                    // float mode: which edge to anchor to (auto | left | right)
     panelFilter: { orange: true, green: false, lightBlue: false, lightGreen: false, yellow: false, red: false },
   };
 
   const VALID_FONTS = new Set(['uthmaniHafs', 'qpcHafs', 'qpcV2', 'qpcV4Tajweed', 'digitalKhattIndopak', 'digitalKhattV1', 'digitalKhattV2', 'indopakNastaleeq', 'kfgqpcNastaleeq']);
   const VALID_SCAN_TRIGGERS = new Set(['manual', 'autoscan']);
   const VALID_LANGS = new Set(['ar', 'en']);
+  const VALID_PANEL_POSITIONS = new Set(['auto', 'left', 'right', 'float']);
+  const VALID_FLOAT_ANCHORS = new Set(['auto', 'left', 'right']);
 
   function applyDefaults(raw) {
     const p = raw ? JSON.parse(JSON.stringify(raw)) : {};
@@ -36,6 +40,8 @@ const QuranPrefs = (() => {
     if (typeof p.autoCorrectOrange !== 'boolean') p.autoCorrectOrange = DEFAULTS.autoCorrectOrange;
     if (typeof p.refLinks !== 'boolean') p.refLinks = DEFAULTS.refLinks;
     if (!VALID_LANGS.has(p.lang)) p.lang = DEFAULTS.lang;
+    if (!VALID_PANEL_POSITIONS.has(p.panelPosition)) p.panelPosition = DEFAULTS.panelPosition;
+    if (!VALID_FLOAT_ANCHORS.has(p.floatAnchor)) p.floatAnchor = DEFAULTS.floatAnchor;
 
     if (!p.panelFilter || typeof p.panelFilter !== 'object') p.panelFilter = {};
     for (const color of ['orange', 'green', 'lightBlue', 'lightGreen', 'yellow', 'red']) {
@@ -78,3 +84,7 @@ const QuranPrefs = (() => {
 
   return { read, write, patch, DEFAULTS };
 })();
+
+// CommonJS export so the Node prefs-validation test can require it (mirrors
+// js/shared/i18n.js). Harmless in the browser/service-worker (no `module`).
+if (typeof module !== 'undefined' && module.exports) module.exports = QuranPrefs;

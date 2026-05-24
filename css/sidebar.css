@@ -52,7 +52,7 @@
   min-width: 240px;
   max-width: 90vw;
   height: 100vh;
-  overflow-y: auto;
+  overflow: hidden;          /* the findings list scrolls, not the whole panel */
   background: var(--q-bg);
   color: var(--q-text);
   font-family: "Segoe UI", Tahoma, Arial, sans-serif;
@@ -67,6 +67,58 @@
 }
 
 .quran-ext-panel * { box-sizing: border-box; }
+
+/* ── Docking position (prefs.v1.panelPosition) ──────────────────────────────
+   The base rule above pins right; these classes (set by sidebar-surface.js)
+   re-pin for left-dock and detach for float. Shadow direction follows the
+   docking edge. */
+.quran-ext-panel.quran-ext-pos-right { right: 0; left: auto; box-shadow: -2px 0 12px rgba(0, 0, 0, 0.18); }
+.quran-ext-panel.quran-ext-pos-left  { left: 0; right: auto; box-shadow: 2px 0 12px rgba(0, 0, 0, 0.18); }
+/* Docked float renders like a docked panel but overlays the page (no host gutter
+   is reserved — set in sidebar-surface.js). A heftier shadow signals it sits
+   over the content. The side pin + resize edge come from the pos-left/right
+   class, applied alongside pos-float. */
+.quran-ext-panel.quran-ext-pos-float { box-shadow: 0 0 24px rgba(0, 0, 0, 0.32); }
+/* Undocked float: a free-floating card at an inline top/left, sized to content
+   up to the viewport, rounded with an all-around shadow. */
+.quran-ext-panel.quran-ext-pos-float-free {
+  right: auto;
+  height: auto;
+  max-height: calc(100vh - 32px);
+  border: 1px solid var(--q-gold);
+  border-radius: 10px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.32);
+}
+/* In float mode the title bar is the drag handle (tear off / reposition). */
+.quran-ext-panel.quran-ext-pos-float .quran-ext-panel-header,
+.quran-ext-panel.quran-ext-pos-float-free .quran-ext-panel-header { cursor: move; }
+/* Collapsed free box = just the header bar, kept at its float position. */
+.quran-ext-panel.quran-ext-pos-float-free.quran-ext-float-collapsed {
+  height: auto;
+  max-height: none;
+}
+.quran-ext-panel.quran-ext-pos-float-free.quran-ext-float-collapsed > *:not(.quran-ext-panel-header) {
+  display: none !important;
+}
+/* In-header collapse/expand button (free-floating only; toggled inline by JS). */
+.quran-ext-panel-float-toggle {
+  all: unset;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--q-on-primary);
+  padding: 2px 4px;
+  border-radius: 4px;
+  opacity: 0.9;
+}
+.quran-ext-panel-float-toggle:hover { opacity: 1; background: rgba(255, 255, 255, 0.12); }
+.quran-ext-panel-float-toggle:focus-visible { outline: 2px solid var(--q-focus); }
+.quran-ext-panel-float-toggle svg { display: block; }
+/* Resize handle rides the page-facing edge: left when on the right (base),
+   right when on the left or floating free. */
+.quran-ext-panel.quran-ext-pos-left .quran-ext-panel-resize,
+.quran-ext-panel.quran-ext-pos-float-free .quran-ext-panel-resize { left: auto; right: 0; }
 
 .quran-ext-panel-header {
   display: flex;
@@ -145,6 +197,16 @@
 .quran-ext-panel-tab:hover { background: var(--q-primary-strong); }
 .quran-ext-panel-tab svg { display: block; }
 
+/* Left-docked / left-floating: mirror the tab to the left screen edge. */
+.quran-ext-panel-tab.quran-ext-tab-left {
+  right: auto;
+  left: 0;
+  border: 1px solid var(--q-gold);
+  border-left: none;
+  border-radius: 0 6px 6px 0;
+  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.18);
+}
+
 /* Generic content padding wrapper: everything below the header gets gutters. */
 .quran-ext-panel-hint,
 .quran-ext-summary,
@@ -169,12 +231,28 @@
   border-radius: 6px;
   padding: 8px 10px;
 }
+.quran-ext-summary-toggle {
+  all: unset;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  cursor: pointer;
+  margin-bottom: 6px;
+}
+.quran-ext-summary-toggle:focus-visible { outline: 2px solid var(--q-focus); outline-offset: 2px; }
 .quran-ext-summary-title {
   font-size: 13px;
   font-weight: 700;
   color: var(--q-primary);
-  margin-bottom: 6px;
 }
+.quran-ext-summary-chevron { display: inline-flex; color: var(--q-primary); transition: transform 0.15s ease; }
+.quran-ext-summary-chevron svg { display: block; }
+/* Collapsed: hide the counts grid, point the chevron sideways, drop the
+   title's bottom gap so the bar reads as a single tidy row. */
+.quran-ext-summary.quran-ext-summary-collapsed .quran-ext-summary-grid { display: none; }
+.quran-ext-summary.quran-ext-summary-collapsed .quran-ext-summary-toggle { margin-bottom: 0; }
+.quran-ext-summary.quran-ext-summary-collapsed .quran-ext-summary-chevron { transform: rotate(-90deg); }
 .quran-ext-summary-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -250,6 +328,11 @@
   flex-direction: column;
   gap: 8px;
   margin-top: 10px;
+  /* Only the results list scrolls; the header/summary/chips/swap stay put.
+     min-height:0 lets this flex child shrink below content so it can scroll. */
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .quran-ext-panel-empty {

@@ -69,6 +69,14 @@ async function applyPrefsToUI(prefs) {
   const refLinks = document.getElementById('ref-links');
   if (refLinks) refLinks.checked = prefs?.refLinks !== false;
 
+  const posSel = document.getElementById('panel-position-select');
+  if (posSel) posSel.value = prefs?.panelPosition || 'auto';
+  const anchorSel = document.getElementById('float-anchor-select');
+  if (anchorSel) {
+    anchorSel.value = prefs?.floatAnchor || 'auto';
+    anchorSel.disabled = (prefs?.panelPosition || 'auto') !== 'float';  // only relevant when floating
+  }
+
   const collapsed = await loadSidebarCollapsed();
   const elState = document.getElementById(collapsed ? 'state-collapsed' : 'state-expanded');
   if (elState) elState.checked = true;
@@ -111,6 +119,19 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Make references clickable quran.com links.
   document.getElementById('ref-links').addEventListener('change', (e) => {
     savePrefs({ refLinks: e.target.checked });
+  });
+
+  // Panel docking position (auto / left / right / float). PREFS_CHANGED
+  // re-docks any open sidebar live.
+  document.getElementById('panel-position-select').addEventListener('change', (e) => {
+    savePrefs({ panelPosition: e.target.value });
+    const anchorSel = document.getElementById('float-anchor-select');
+    if (anchorSel) anchorSel.disabled = e.target.value !== 'float';
+  });
+
+  // Floating anchor side (auto / left / right). Only meaningful in float mode.
+  document.getElementById('float-anchor-select').addEventListener('change', (e) => {
+    savePrefs({ floatAnchor: e.target.value });
   });
 
   // Initial sidebar state (collapsed / expanded).

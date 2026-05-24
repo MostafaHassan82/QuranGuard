@@ -30,51 +30,164 @@ const QuranPanelSidebar = (() => {
   // it survives reloads without touching the prefs.v1 schema).
   let panelWidth = 320;
   let collapsed = false;
+  let summaryCollapsed = false;   // results-summary counts grid collapsed?
   let tabEl = null;
   const MIN_PANEL_W = 240;
   const TAB_W = 26;
   const UI_KEY = 'quran.sidebar.ui';
 
-  // Set the host root's right gutter (inline + important so it beats any host
-  // stylesheet) to match the visible sidebar width — or the tab when collapsed.
-  function setHostMargin(px) {
-    document.documentElement.style.setProperty('margin-right', px + 'px', 'important');
+  // Panel docking preference (prefs.v1.panelPosition): auto | left | right | float.
+  // 'auto' (and the resting side used by 'float') follow the UI language: Arabic
+  // docks right, English docks left.
+  //
+  // 'float' has two runtime sub-states:
+  //   • DOCKED  — rests as a full-height overlay pinned to a side, with the edge
+  //               collapse tab, but reserves no host gutter (overlays the page).
+  //   • UNDOCKED— grab the title bar to tear it off into a free-floating box at
+  //               an arbitrary top/left. Drag it back near either screen edge and
+  //               it re-docks to that side.
+  let panelPosition = 'auto';
+  // Which edge a floating panel anchors to from the options page (auto|left|right).
+  let floatAnchor = 'auto';
+  // Runtime float sub-state (persisted in the UI key, not prefs):
+  let floatUndocked = false;          // true → free-floating box
+  let floatSide = null;               // 'left'|'right' edge chosen by dragging, overrides floatAnchor
+  let floatTop = null;                // free-box top/left; null until first placed
+  let floatLeft = null;
+  const SNAP_PX = 40;                 // drag within this of an edge → (re)dock to it
+
+  function resolveSide() {
+    if (panelPosition === 'left') return 'left';
+    if (panelPosition === 'right') return 'right';
+    if (panelPosition === 'float') {
+      if (floatSide === 'left' || floatSide === 'right') return floatSide;   // chosen by dragging
+      if (floatAnchor === 'left') return 'left';
+      if (floatAnchor === 'right') return 'right';
+    }
+    return uiLang === 'en' ? 'left' : 'right';   // auto (docked + float) follows language dir
+  }
+  function isFloat() { return panelPosition === 'float'; }
+
+  // Set the host root's gutter (inline + important so it beats any host
+  // stylesheet) on the docking side to match the visible sidebar width — or the
+  // tab when collapsed. Float mode reserves no gutter (px === 0), so it overlays.
+  function setHostMargin(px, side) {
+    const de = document.documentElement.style;
+    de.removeProperty('margin-left');
+    de.removeProperty('margin-right');
+    if (px > 0) de.setProperty('margin-' + side, px + 'px', 'important');
   }
 
   function clampWidth(w) {
     const max = Math.round(window.innerWidth * 0.9);
     return Math.max(MIN_PANEL_W, Math.min(max, w));
   }
+  function clampFloatLeft(x) { return Math.max(0, Math.min(x, window.innerWidth - 60)); }
+  function clampFloatTop(y) { return Math.max(0, Math.min(y, window.innerHeight - 40)); }
+
+  // Position the free-floating box at its saved (or default-by-side) corner.
+  function applyFloatPosition() {
+    if (floatTop == null) floatTop = 16;
+    if (floatLeft == null) {
+      const side = resolveSide();
+      floatLeft = side === 'left' ? 16 : Math.max(16, window.innerWidth - panelWidth - 16);
+    }
+    rootEl.style.top = clampFloatTop(floatTop) + 'px';
+    rootEl.style.left = clampFloatLeft(floatLeft) + 'px';
+    rootEl.style.right = 'auto';
+  }
 
   // Chevron icons for the persistent edge toggle. Left = expand (pull the panel
   // out); right = collapse (push it to the edge).
   const CHEVRON_LEFT  = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
   const CHEVRON_RIGHT = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><path d="M9 5l7 7-7 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  // Up = collapse the free-floating box to its header bar; down = expand it again.
+  const CHEVRON_UP   = '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false"><path d="M5 15l7-7 7 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  const CHEVRON_DOWN = '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false"><path d="M5 9l7 7 7-7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
-  // Reflect collapsed/width state into the DOM (panel, host margin, tab). The
-  // edge tab stays mounted in BOTH states: when collapsed it's the only handle;
-  // when expanded it rides the panel's left edge as a persistent collapse
-  // toggle.
+  // Position the edge tab on `side` at `offsetPx` from that edge, with the
+  // chevron pointing the right way: toward the page center when collapsed (it
+  // opens) and toward the edge when expanded (it collapses).
+  function placeTab(side, offsetPx, isCollapsed) {
+    const tab = ensureTab();
+    tab.style.left = '';
+    tab.style.right = '';
+    tab.style[side] = offsetPx + 'px';
+    const openIcon = side === 'right' ? CHEVRON_LEFT : CHEVRON_RIGHT;
+    const collapseIcon = side === 'right' ? CHEVRON_RIGHT : CHEVRON_LEFT;
+    tab.innerHTML = isCollapsed ? openIcon : collapseIcon;
+    tab.setAttribute('aria-label', isCollapsed ? T('tab_open_aria') : T('collapse_aria'));
+    tab.title = isCollapsed ? T('tab_open_aria') : T('collapse');
+  }
+
+  // Reflect collapsed/width/position state into the DOM (panel, host margin,
+  // tab).
+  //
+  // Docked (incl. docked-float): the edge tab stays mounted in both states and
+  // on whichever side the panel sits; docked-float renders identically to a
+  // docked panel but reserves no host gutter (overlays the page). Position
+  // classes drive the side-specific CSS (shadow, resize edge, tab corner).
+  //
+  // Undocked float: a free-floating box at an inline top/left, no edge tab, with
+  // an all-around shadow and rounded corners (the pos-float-free class).
   function applyLayout() {
     if (!rootEl) return;
     const tab = ensureTab();
-    tab.style.display = 'flex';
-    if (collapsed) {
-      rootEl.style.display = 'none';
-      tab.style.right = '0px';
-      tab.innerHTML = CHEVRON_LEFT;
-      tab.setAttribute('aria-label', T('tab_open_aria'));
-      tab.title = T('tab_open_aria');
-      setHostMargin(TAB_W);
-    } else {
+    const side = resolveSide();
+    const float = isFloat();
+    const undocked = float && floatUndocked;
+
+    rootEl.classList.toggle('quran-ext-pos-left', !undocked && side === 'left');
+    rootEl.classList.toggle('quran-ext-pos-right', !undocked && side === 'right');
+    rootEl.classList.toggle('quran-ext-pos-float', float && !undocked);
+    rootEl.classList.toggle('quran-ext-pos-float-free', undocked);
+    tab.classList.toggle('quran-ext-tab-left', side === 'left');
+
+    // Free-floating box: no edge tab; its own header button collapses it to just
+    // the header bar (kept at the float position), matching the docked behavior.
+    if (undocked) {
+      tab.style.display = 'none';
       rootEl.style.display = 'flex';
       rootEl.style.width = panelWidth + 'px';
-      tab.style.right = panelWidth + 'px';
-      tab.innerHTML = CHEVRON_RIGHT;
-      tab.setAttribute('aria-label', T('collapse_aria'));
-      tab.title = T('collapse');
-      setHostMargin(panelWidth);
+      rootEl.classList.toggle('quran-ext-float-collapsed', collapsed);
+      applyFloatPosition();
+      setHostMargin(0, side);
+      updateFloatToggle();
+      return;
     }
+
+    rootEl.classList.remove('quran-ext-float-collapsed');
+    updateFloatToggle();   // hides the header button unless free-floating
+    tab.style.display = 'flex';
+    const gutter = float ? 0 : panelWidth;     // float overlays; docked reserves space
+    if (collapsed) {
+      rootEl.style.display = 'none';
+      placeTab(side, 0, true);
+      setHostMargin(float ? 0 : TAB_W, side);
+      return;
+    }
+
+    rootEl.style.display = 'flex';
+    rootEl.style.width = panelWidth + 'px';
+    // Clear any free-box inline geometry so the CSS edge pin governs.
+    rootEl.style.left = '';
+    rootEl.style.right = '';
+    rootEl.style.top = '';
+    placeTab(side, panelWidth, false);
+    setHostMargin(gutter, side);
+  }
+
+  // Sync the in-header collapse/expand button (shown only when free-floating;
+  // the docked states use the edge tab instead).
+  function updateFloatToggle() {
+    if (!rootEl) return;
+    const btn = rootEl.querySelector('.quran-ext-panel-float-toggle');
+    if (!btn) return;
+    if (!(isFloat() && floatUndocked)) { btn.style.display = 'none'; return; }
+    btn.style.display = 'flex';
+    btn.innerHTML = collapsed ? CHEVRON_DOWN : CHEVRON_UP;
+    btn.setAttribute('aria-label', collapsed ? T('tab_open_aria') : T('collapse_aria'));
+    btn.title = collapsed ? T('tab_open_aria') : T('collapse');
   }
 
   function ensureTab() {
@@ -92,7 +205,12 @@ const QuranPanelSidebar = (() => {
   }
 
   function persistUi() {
-    try { chrome.storage.local.set({ [UI_KEY]: { width: panelWidth, collapsed } }); } catch (_) {}
+    try {
+      chrome.storage.local.set({ [UI_KEY]: {
+        width: panelWidth, collapsed, summaryCollapsed,
+        floatUndocked, floatSide, floatTop, floatLeft,
+      } });
+    } catch (_) {}
   }
 
   async function loadUi() {
@@ -101,24 +219,76 @@ const QuranPanelSidebar = (() => {
       const ui = r?.[UI_KEY] || {};
       if (typeof ui.width === 'number') panelWidth = clampWidth(ui.width);
       collapsed = !!ui.collapsed;
+      summaryCollapsed = !!ui.summaryCollapsed;
+      floatUndocked = !!ui.floatUndocked;
+      floatSide = (ui.floatSide === 'left' || ui.floatSide === 'right') ? ui.floatSide : null;
+      if (typeof ui.floatTop === 'number') floatTop = ui.floatTop;
+      if (typeof ui.floatLeft === 'number') floatLeft = ui.floatLeft;
     } catch (_) {}
   }
 
   function collapse() { collapsed = true; applyLayout(); persistUi(); }
   function expand() { collapsed = false; applyLayout(); persistUi(); focusFirstRow(); }
 
-  // Drag the left edge to resize. Panel is pinned right, so width tracks the
-  // distance from the cursor to the right viewport edge.
+  // Drag the inner edge to resize. The handle sits on whichever edge faces the
+  // page: left edge when the panel sits on the right (width = distance to the
+  // right viewport edge), right edge when it sits on the left or floats free
+  // (width = cursor − panel left). Float reserves no host gutter, so only docked
+  // updates it.
   function wireResize() {
     const handle = rootEl.querySelector('.quran-ext-panel-resize');
     if (!handle) return;
     handle.addEventListener('mousedown', (e) => {
       e.preventDefault();
+      const side = resolveSide();
+      const float = isFloat();
+      const free = float && floatUndocked && !collapsed;
       const onMove = (ev) => {
-        panelWidth = clampWidth(window.innerWidth - ev.clientX);
+        if (free || side === 'left') {
+          panelWidth = clampWidth(ev.clientX - rootEl.getBoundingClientRect().left);
+        } else {
+          panelWidth = clampWidth(window.innerWidth - ev.clientX);
+        }
         rootEl.style.width = panelWidth + 'px';
-        setHostMargin(panelWidth);
-        if (tabEl) tabEl.style.right = panelWidth + 'px';
+        if (!float) setHostMargin(panelWidth, side);
+        if (tabEl && !free) { tabEl.style.left = ''; tabEl.style.right = ''; tabEl.style[side] = panelWidth + 'px'; }
+      };
+      const onUp = () => {
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+        document.body.style.userSelect = '';
+        persistUi();
+      };
+      document.body.style.userSelect = 'none';
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+  }
+
+  // Float only: grab the title bar to tear the panel off into a free-floating
+  // box; drag it near a screen edge and it re-docks to that side. No-op when
+  // the panel is docked left/right (that's a fixed dock, not a float).
+  function wireHeaderDrag() {
+    const header = rootEl.querySelector('.quran-ext-panel-header');
+    if (!header) return;
+    header.addEventListener('mousedown', (e) => {
+      if (!isFloat() || e.target.closest('button')) return;
+      e.preventDefault();
+      const rect = rootEl.getBoundingClientRect();
+      const dx = e.clientX - rect.left;
+      const dy = e.clientY - rect.top;
+      const onMove = (ev) => {
+        if (ev.clientX <= SNAP_PX) {
+          // magnetic dock to the left edge
+          if (!(floatSide === 'left' && !floatUndocked)) { floatSide = 'left'; floatUndocked = false; applyLayout(); }
+        } else if (ev.clientX >= window.innerWidth - SNAP_PX) {
+          if (!(floatSide === 'right' && !floatUndocked)) { floatSide = 'right'; floatUndocked = false; applyLayout(); }
+        } else {
+          floatUndocked = true;
+          floatLeft = clampFloatLeft(ev.clientX - dx);
+          floatTop = clampFloatTop(ev.clientY - dy);
+          applyLayout();
+        }
       };
       const onUp = () => {
         document.removeEventListener('mousemove', onMove);
@@ -428,11 +598,38 @@ const QuranPanelSidebar = (() => {
     });
   }
 
+  // Reflect the results-summary collapsed state into the DOM (hides the counts
+  // grid; the chevron rotates via CSS). The toggle button is the title row.
+  function applySummaryCollapsed() {
+    if (!rootEl) return;
+    const summary = rootEl.querySelector('.quran-ext-summary');
+    const btn = rootEl.querySelector('.quran-ext-summary-toggle');
+    const chev = rootEl.querySelector('.quran-ext-summary-chevron');
+    if (chev && !chev.firstChild) chev.innerHTML = CHEVRON_DOWN;
+    if (summary) summary.classList.toggle('quran-ext-summary-collapsed', summaryCollapsed);
+    if (btn) btn.setAttribute('aria-expanded', String(!summaryCollapsed));
+  }
+
   function wireEvents() {
     wireResize();
-    // The ref tooltip is position:fixed, so hide it when the panel scrolls
-    // (otherwise it lingers detached from its anchor).
+    wireHeaderDrag();
+    const floatToggle = rootEl.querySelector('.quran-ext-panel-float-toggle');
+    if (floatToggle) floatToggle.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (collapsed) expand(); else collapse();
+    });
+    const summaryToggle = rootEl.querySelector('.quran-ext-summary-toggle');
+    if (summaryToggle) summaryToggle.addEventListener('click', () => {
+      summaryCollapsed = !summaryCollapsed;
+      applySummaryCollapsed();
+      persistUi();
+    });
+    // The ref tooltip is position:fixed, so hide it when the list scrolls
+    // (otherwise it lingers detached from its anchor). The findings container is
+    // the scroll surface now (the panel itself no longer scrolls).
     rootEl.addEventListener('scroll', hideRefTip, { passive: true });
+    const scroller = rootEl.querySelector('.quran-ext-panel-container');
+    if (scroller) scroller.addEventListener('scroll', hideRefTip, { passive: true });
     rootEl.querySelectorAll('.quran-ext-filter-chip input[type=checkbox]').forEach(cb => {
       cb.addEventListener('change', () => {
         activeFilter = { ...(activeFilter || {}), [cb.dataset.color]: cb.checked };
@@ -470,6 +667,10 @@ const QuranPanelSidebar = (() => {
     QuranI18n.setLang(QuranI18n.detect(lang));
     rootEl.setAttribute('lang', QuranI18n.getLang());
     rootEl.setAttribute('dir', QuranI18n.dir());
+    // The panel's base CSS sets `direction: rtl`, and the CSS property beats the
+    // `dir` attribute — so pin direction inline to match the language (LTR for
+    // English) or the whole panel keeps reading right-to-left.
+    rootEl.style.direction = QuranI18n.dir() === 'ltr' ? 'ltr' : 'rtl';
     QuranI18n.applyDom(rootEl);
   }
 
@@ -477,8 +678,31 @@ const QuranPanelSidebar = (() => {
   // open sidebar (static markup + dynamic rows) without a reload.
   function applyLang(lang) {
     if (!rootEl) return;
+    uiLang = lang === 'en' ? 'en' : 'ar';
     setLangDom(lang);
+    applyLayout();   // 'auto'/'float' docking side tracks the language direction
     render();
+  }
+
+  // Called by content.js on PREFS_CHANGED when panelPosition changes, so the
+  // open sidebar re-docks (or floats) without a reload.
+  function setPosition(pos) {
+    panelPosition = (pos === 'left' || pos === 'right' || pos === 'float') ? pos : 'auto';
+    if (rootEl) applyLayout();
+  }
+
+  // Called on every PREFS_CHANGED. Only act when the anchor pref actually
+  // changed (PREFS_CHANGED also fires for unrelated edits like the swap toggle);
+  // otherwise we'd wipe the user's drag-chosen side/undocked state and snap the
+  // panel back to the anchor default on every pref write. An explicit anchor
+  // change clears the runtime override so the options choice wins.
+  function setFloatAnchor(anchor) {
+    const next = (anchor === 'left' || anchor === 'right') ? anchor : 'auto';
+    if (next === floatAnchor) return;
+    floatAnchor = next;
+    floatSide = null;
+    floatUndocked = false;
+    if (isFloat() && rootEl) { applyLayout(); persistUi(); }
   }
 
   // Mount the sidebar into the host page if not already present. Reads filter
@@ -506,12 +730,15 @@ const QuranPanelSidebar = (() => {
       refLinksEnabled = prefs.refLinks !== false;
       uiLang = prefs.lang === 'en' ? 'en' : 'ar';
       uiFont = prefs.font || 'uthmaniHafs';
+      panelPosition = prefs.panelPosition || 'auto';
+      floatAnchor = prefs.floatAnchor || 'auto';
     } catch (_) { activeFilter = { orange: true }; }
 
     setLangDom(prefs.lang); // localize static markup + set dir/lang on the panel
     syncChips();
     wireEvents();
     syncSwapControls(prefs);
+    applySummaryCollapsed(); // restore saved summary collapsed state + chevron
     render();
     applyLayout(); // restore saved width / collapsed state
 
@@ -565,6 +792,7 @@ const QuranPanelSidebar = (() => {
     refTipEl = null;
     document.documentElement.classList.remove('quran-ext-sidebar-mounted');
     document.documentElement.style.removeProperty('margin-right');
+    document.documentElement.style.removeProperty('margin-left');
   }
 
   function focusFirstRow() {
@@ -609,5 +837,5 @@ const QuranPanelSidebar = (() => {
     return true;
   }
 
-  return { mount, unmount, upsert, ingest, reset, tagPersisted, clearPersistedBadges, isMounted, clearUserClosed, focusRow, applyLang };
+  return { mount, unmount, upsert, ingest, reset, tagPersisted, clearPersistedBadges, isMounted, clearUserClosed, focusRow, applyLang, setPosition, setFloatAnchor };
 })();

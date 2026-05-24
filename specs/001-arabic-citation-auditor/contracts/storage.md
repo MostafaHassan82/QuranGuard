@@ -29,6 +29,8 @@ Single object. Schema-driven; absent fields fall back to defaults.
   "scanTrigger": "manual",                       // FR-026: manual | autoscan
   "autoCorrectOrange": false,                    // FR-024b: auto-correct every orange on scan
   "refLinks": true,                              // ref markers link to quran.com (default on)
+  "panelPosition": "auto",                       // auto | left | right | float; auto follows lang dir (ar→right, en→left)
+  "floatAnchor": "auto",                         // float mode only: edge to anchor to (auto | left | right)
   "panelFilter": {                               // FR-010 default: orange only
     "orange":     true,
     "green":      false,
@@ -46,6 +48,8 @@ Single object. Schema-driven; absent fields fall back to defaults.
 - `font` MUST be one of the known font keys (see below); otherwise reset to `uthmaniHafs`.
 - `lang` MUST be `ar` or `en`; otherwise reset to `ar`.
 - `scanTrigger` MUST be `manual` or `autoscan`; otherwise reset to `manual`.
+- `panelPosition` MUST be `auto`, `left`, `right`, or `float`; otherwise reset to `auto`. (`auto` resolves to a side at render time from the effective UI language: `ar`→right, `en`→left. `float` rests as a docked-style overlay — full height, same side, edge collapse tab — but reserves no host gutter, so content isn't pushed aside. Grabbing the title bar tears it into a free-floating box; dragging it near a screen edge re-docks it there.)
+- `floatAnchor` MUST be `auto`, `left`, or `right`; otherwise reset to `auto`. Only consulted when `panelPosition === "float"`: it sets the resting edge the overlay anchors to (`auto` follows the language side). The free-box geometry and the drag-chosen side/undocked flag live in `quran.sidebar.ui` (`floatTop`, `floatLeft`, `floatSide`, `floatUndocked`), not here — changing `floatAnchor` from the options page clears that runtime override.
 
 **Default fill on read**: any missing leaf is filled with the default above before the consumer sees the object.
 

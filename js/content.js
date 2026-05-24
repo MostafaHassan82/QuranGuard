@@ -1953,6 +1953,8 @@ if (chrome?.runtime?.onMessage) {
       if (typeof QuranI18n !== 'undefined') QuranI18n.setLang(QuranI18n.detect(prefs.lang));
       if (typeof QuranPanelSidebar !== 'undefined' && QuranPanelSidebar.isMounted()) {
         try { QuranPanelSidebar.applyLang(prefs.lang); } catch (_) {}
+        try { QuranPanelSidebar.setPosition(prefs.panelPosition); } catch (_) {}
+        try { QuranPanelSidebar.setFloatAnchor(prefs.floatAnchor); } catch (_) {}
       }
       // T060 — reapply / revert authentic-text swaps to match the new master,
       // per-color, and font selections (FR-008, FR-009, FR-015). Gate the

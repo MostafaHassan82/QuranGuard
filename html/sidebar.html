@@ -8,17 +8,31 @@
   <div class="quran-ext-panel-resize" role="separator" aria-orientation="vertical" data-i18n-aria="resize_aria" aria-label="تغيير العرض"></div>
   <header class="quran-ext-panel-header">
     <h2 class="quran-ext-panel-title" data-i18n="sidebar_title">نتائج التحقق</h2>
+    <!-- Collapse/expand handle shown only when the panel is free-floating
+         (torn off); docked states use the edge tab. Icon + aria set by JS. -->
+    <button type="button" class="quran-ext-panel-float-toggle" data-i18n-aria="collapse_aria" aria-label="طيّ اللوحة" style="display:none"></button>
   </header>
   <div class="quran-ext-panel-hint" data-i18n-title="hint_title" data-i18n="hint" title="اضغط Alt+Shift+Q من أي مكان في الصفحة للعودة إلى اللوحة">
     اختصار: Alt+Shift+Q لإظهار/إخفاء اللوحة
   </div>
 
   <!-- Results summary / stats table (moved from popup; T094). Counts are
-       computed from the panel model and rendered by sidebar-surface.js. -->
+       computed from the panel model and rendered by sidebar-surface.js. The
+       title row is a button that collapses/expands the counts grid. -->
   <div class="quran-ext-summary">
-    <div class="quran-ext-summary-title" data-i18n="summary_title">ملخّص النتائج</div>
+    <button type="button" class="quran-ext-summary-toggle" aria-expanded="true">
+      <span class="quran-ext-summary-title" data-i18n="summary_title">ملخّص النتائج</span>
+      <span class="quran-ext-summary-chevron" aria-hidden="true"></span>
+    </button>
     <div class="quran-ext-summary-grid"></div>
   </div>
+
+  <!-- Quick access to the global authentic-text swap master toggle (the same
+       prefs.v1 setting the options page exposes; per-color + font defaults live
+       in the options page; T094, FR-009). -->
+  <label class="quran-ext-swap-row quran-ext-swap-quick">
+    <input type="checkbox" class="quran-ext-swap-master"><span data-i18n="swap_summary">عرض النص القرآني الأصلي</span>
+  </label>
 
   <div class="quran-ext-filter-chips" role="group" aria-label="تصفية حسب الفئة">
     <label class="quran-ext-filter-chip quran-ext-filter-orange" tabindex="0">
@@ -40,13 +54,6 @@
       <input type="checkbox" data-color="red"><span data-i18n="chip_red">✗ لم يُتحقَّق</span>
     </label>
   </div>
-
-  <!-- Quick access to the global authentic-text swap master toggle (the same
-       prefs.v1 setting the options page exposes; per-color + font defaults live
-       in the options page; T094, FR-009). -->
-  <label class="quran-ext-swap-row quran-ext-swap-quick">
-    <input type="checkbox" class="quran-ext-swap-master"><span data-i18n="swap_summary">عرض النص القرآني الأصلي</span>
-  </label>
 
   <div class="quran-ext-panel-container"></div>
 </aside>

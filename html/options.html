@@ -70,6 +70,29 @@
         <div class="opt-hint" data-i18n="ref_links_hint">يُبرز مرجع كل آية ويعرض نصّها الكامل عند المرور، والنقر يفتح quran.com في تبويب جديد.</div>
       </section>
 
+      <!-- Panel docking position -->
+      <section class="opt-card">
+        <label class="opt-field">
+          <span class="opt-field-label" data-i18n="panel_position_label">موضع اللوحة:</span>
+          <select id="panel-position-select">
+            <option value="auto" data-i18n="pos_auto">تلقائي (حسب اتجاه اللغة)</option>
+            <option value="right" data-i18n="pos_right">يمين</option>
+            <option value="left" data-i18n="pos_left">يسار</option>
+            <option value="float" data-i18n="pos_float">عائمة</option>
+          </select>
+        </label>
+        <div class="opt-hint" data-i18n="panel_position_hint">التلقائي يجعل اللوحة على اليمين للعربية وعلى اليسار للإنجليزية.</div>
+        <label class="opt-field">
+          <span class="opt-field-label" data-i18n="float_anchor_label">ارتساء اللوحة العائمة:</span>
+          <select id="float-anchor-select">
+            <option value="auto" data-i18n="anchor_auto">تلقائي (حسب اتجاه اللغة)</option>
+            <option value="right" data-i18n="anchor_right">يمين</option>
+            <option value="left" data-i18n="anchor_left">يسار</option>
+          </select>
+        </label>
+        <div class="opt-hint" data-i18n="float_anchor_hint">يحدّد الجهة التي ترتسي إليها اللوحة العائمة، ويمكن سحبها لتلتصق بأي حافة.</div>
+      </section>
+
       <!-- Initial panel state -->
       <section class="opt-card">
         <div class="opt-field">
