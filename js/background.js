@@ -498,6 +498,31 @@ function findOrderedContiguousSoftGlobal(t1Words) {
   return results;
 }
 
+// Drift-tolerant ("fuzzy") candidate set for the writer-side cascade (FR-007,
+// the "red" tier). Looser than findOrderedContiguousSoftGlobal: the typed words
+// need not be a contiguous subsequence — a verse qualifies if its first AND last
+// typed word soft-match it and a sliding-window edit distance stays within a
+// loose budget. Reuses the SAME primitives the reader-side partial path uses
+// (softWordIndexLookup + wordLevelCompareSingleAyahLoose) — no new matching
+// logic (Principle V). Mirrors findAllGlobalMatches's partial branch.
+function findFuzzyGlobal(t1Words) {
+  if (t1Words.length < 2) return [];
+  const softFirst = softWordIndexLookup(t1Words[0], indexes.wordIndex);
+  const softLast = softWordIndexLookup(t1Words[t1Words.length - 1], indexes.wordIndex);
+  const cands = new Set();
+  for (const k of softFirst) if (softLast.has(k)) cands.add(k);
+  const looseDiffs = Math.max(2, Math.ceil(t1Words.length / 4));
+  const results = [];
+  for (const key of cands) {
+    const { surahNum, ayahNum } = parseKey(key);
+    const rec = indexes.byRef[surahNum]?.[ayahNum];
+    if (!rec) continue;
+    const diffs = wordLevelCompareSingleAyahLoose(t1Words, rec.tier1Words, looseDiffs);
+    if (diffs !== null && diffs > 0) results.push(rec);
+  }
+  return results;
+}
+
 // Returns all Quran locations where the candidate text occurs, exact and partial.
 // Used to populate allExactRefs / allPartialRefs in the result for tooltip display.
 function findAllGlobalMatches(t1, words) {
@@ -1049,9 +1074,11 @@ function getAyahText(surahNum, ayahNum) {
 //   - findExactGlobal / findOrderedContiguousGlobal → exact-wording matches (the
 //     typed words appear as a contiguous subsequence somewhere in the verse).
 //   - findOrderedContiguousSoftGlobal → drift-tolerant ("word-level") matches.
+//   - findFuzzyGlobal → loosely-similar ("fuzzy") matches (interior drift beyond
+//     a contiguous subsequence).
 // Ordering is tier-first (exact > wordLevel > fuzzy) then mushaf order (ascending
-// surah, then ayah) — see FR-013. Fuzzy is wired in T021 (US3); exact + wordLevel
-// cover US1/US2.
+// surah, then ayah) — see FR-013. The full cascade exact → wordLevel → fuzzy →
+// none backs US1/US2 (exact) and US3 (wordLevel/fuzzy drift + not-recognized).
 const TIER_RANK = { exact: 0, wordLevel: 1, fuzzy: 2 };
 function matchPartial(text, limit = 8) {
   if (!indexes) return { candidates: [] };
@@ -1082,6 +1109,8 @@ function matchPartial(text, limit = 8) {
   for (const rec of sortRecs(findOrderedContiguousGlobal(words))) push(rec, 'exact');
   // Tier 2 — drift-tolerant ("word-level") contiguous match
   if (out.length < limit) for (const rec of sortRecs(findOrderedContiguousSoftGlobal(words))) push(rec, 'wordLevel');
+  // Tier 3 — loosely-similar ("fuzzy") match (FR-007 red tier)
+  if (out.length < limit) for (const rec of sortRecs(findFuzzyGlobal(words))) push(rec, 'fuzzy');
 
   out.sort((a, b) =>
     TIER_RANK[a.tier] - TIER_RANK[b.tier] || a.ref.surah - b.ref.surah || a.ref.ayah - b.ref.ayah);

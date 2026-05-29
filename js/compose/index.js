@@ -137,14 +137,18 @@
 
     qc('match', `${candidates.length} candidate(s) for "${qcPreview(det.citationText)}"`);
     if (!candidates.length) {
-      // Not recognized (FR-008). Full red rendering + fall-through is US3/US4;
-      // for now just clear the dropdown.
+      // No exact/wordLevel/fuzzy match → recognized-but-not-Quran (FR-008): mark
+      // the citation red where the surface supports styling, and record the
+      // fall-through verdict (FR-011a). US4's render-editable.js owns the full
+      // verdict/Quran-font rendering; this is the minimal red flag.
+      markNotRecognized(freshDet);
       closeInstance('classified');
-      hook.lastClassification = { ref: null, verdict: 'red', viaFallthrough: true };
       return;
     }
     STATE.candidates = candidates;
     STATE.selIndex = 0;
+    STATE.mode = 'candidates';      // fresh detection abandons any prior scope/end-word menu
+    STATE.pending = null;
     publishCandidates();
     setActive('suggesting');
     QuranComposeDropdown.show(candidates, 0, QuranComposeEditable.caretRect(fresh), (idx) => accept(idx));
@@ -255,6 +259,23 @@
     // Let host frameworks observe the programmatic edit.
     try { targetEl.dispatchEvent(new Event('input', { bubbles: true })); } catch (_) {}
     return null;
+  }
+
+  // Flag a recognized-but-unmatched citation as not-recognized red (FR-008).
+  // Records the fall-through verdict on the hook for every surface; applies a
+  // minimal red span in contenteditable (plain inputs carry no markup, FR-018b).
+  // Full verdict/Quran-font rendering is US4 (render-editable.js).
+  function markNotRecognized(det) {
+    hook.lastClassification = { ref: null, verdict: 'red', viaFallthrough: true };
+    const ctx = STATE.ctx;
+    if (!ctx || !det) return;
+    const end = det.citeStart + det.citationText.length;
+    inserting = true;
+    try {
+      QuranComposeEditable.markRange(ctx, det.citeStart, end, 'quran-ac-cite quran-red');
+    } finally {
+      inserting = false;
+    }
   }
 
   // ── Event wiring ────────────────────────────────────────────────────────────

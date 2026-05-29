@@ -394,6 +394,102 @@ async function inPageTests() {
         window.__quranCompose.active && window.__quranCompose.active.state === 'scopeMenu',
         window.__quranCompose.active && window.__quranCompose.active.state);
     }
+
+    // ── US3: drift cascade + not-recognized flag (T021-T024) ────────────────────
+    // The cascade is exact → wordLevel → fuzzy → none. Ground truth is derived
+    // from the index (Principle I); the only hand-typed strings are the lead-in
+    // and deliberately NON-Quranic drift/gibberish tokens.
+    const waitFor = async (pred) => {
+      for (let i = 0; i < 80; i++) { if (pred()) return true; await sleep(25); }
+      return false;
+    };
+    const t1 = (w) => QuranNormalize.tier1(w);
+
+    // (a) Word-level drift: drop one written alef from an INTERIOR word of a clean
+    // exact fragment. The exact contiguous match then fails, but the soft (one-
+    // letter drift) contiguous match still resolves البقرة:255 → wordLevel tier.
+    {
+      const base = verseWords.slice(0, 5);
+      let drifted = null;
+      for (let i = 1; i < base.length - 1; i++) {        // interior words; keep anchors clean
+        const w = base[i];
+        const ai = w.indexOf('ا');
+        if (ai < 0) continue;
+        const cand = w.slice(0, ai) + w.slice(ai + 1);   // remove one alef
+        if (cand && t1(cand) && t1(cand) !== t1(w)) { drifted = base.slice(); drifted[i] = cand; break; }
+      }
+      T('US3 a word-level drift fragment was constructible from the index', !!drifted);
+      if (drifted) {
+        const f = document.createElement('input');
+        f.type = 'text';
+        host.appendChild(f);
+        f.focus();
+        f.value = 'قال تعالى: ' + drifted.join(' ');
+        f.setSelectionRange(f.value.length, f.value.length);
+        f.dispatchEvent(new Event('input', { bubbles: true }));
+        await waitFor(() => (window.__quranCompose.candidates || []).length > 0);
+        const cs = window.__quranCompose.candidates || [];
+        T('US3 word-level drift offers البقرة:255 as a wordLevel candidate (FR-007)',
+          cs.some(c => c.ref === 'البقرة:255' && c.tier === 'wordLevel'), JSON.stringify(cs));
+        T('US3 word-level drift offers no exact candidate for البقرة:255',
+          !cs.some(c => c.ref === 'البقرة:255' && c.tier === 'exact'), JSON.stringify(cs));
+      }
+    }
+
+    // (b) Fuzzy: substitute an interior word with a clearly non-Quranic token of
+    // distinctly different length (so it is neither equal nor one-letter-soft-equal
+    // to the real word). The contiguous-soft match then breaks, but the loose edit-
+    // distance match still resolves البقرة:255 → fuzzy tier.
+    {
+      const base = verseWords.slice(0, 5);
+      const foreigns = ['برثقومةٌ', 'ثقثقثقث', 'غضغضغضغ'];
+      const target = base[2];
+      const foreign = foreigns.find(f => Math.abs(t1(f).length - t1(target).length) >= 2) || foreigns[0];
+      const fuzz = base.slice(); fuzz[2] = foreign;
+      const f = document.createElement('input');
+      f.type = 'text';
+      host.appendChild(f);
+      f.focus();
+      f.value = 'قال تعالى: ' + fuzz.join(' ');
+      f.setSelectionRange(f.value.length, f.value.length);
+      f.dispatchEvent(new Event('input', { bubbles: true }));
+      await waitFor(() => (window.__quranCompose.candidates || []).length > 0);
+      const cs = window.__quranCompose.candidates || [];
+      T('US3 a loosely-similar fragment offers البقرة:255 as a fuzzy candidate (FR-007)',
+        cs.some(c => c.ref === 'البقرة:255' && c.tier === 'fuzzy'), JSON.stringify(cs));
+    }
+
+    // (c) No match: gibberish Arabic words after a lead-in → recognized citation,
+    // zero candidates → not-recognized red (FR-008), in a contenteditable so the
+    // minimal red mark is observable.
+    {
+      const ce = document.createElement('div');
+      ce.contentEditable = 'true';
+      host.appendChild(ce);
+      ce.textContent = 'قال تعالى: ثقثقثق غضغضغض';
+      ce.focus();
+      const tn = ce.firstChild;
+      const range = document.createRange();
+      range.setStart(tn, tn.textContent.length);
+      range.collapse(true);
+      const sel = document.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+      ce.dispatchEvent(new Event('input', { bubbles: true }));
+      const flagged = await waitFor(() => {
+        const lc = window.__quranCompose.lastClassification;
+        return lc && lc.viaFallthrough === true && lc.verdict === 'red' && lc.ref === null;
+      });
+      T('US3 unmatched text → not-recognized red via fall-through (FR-008/011a)', flagged,
+        JSON.stringify(window.__quranCompose.lastClassification));
+      T('US3 unmatched text offers no candidates', (window.__quranCompose.candidates || []).length === 0,
+        JSON.stringify(window.__quranCompose.candidates));
+      T('US3 not-recognized applies a minimal red mark in contenteditable (FR-008)',
+        !!ce.querySelector('.quran-red'), ce.innerHTML);
+      T('US3 not-recognized hook state is classified',
+        window.__quranCompose.active && window.__quranCompose.active.state === 'classified',
+        window.__quranCompose.active && window.__quranCompose.active.state);
+    }
   }
 
   return results;
