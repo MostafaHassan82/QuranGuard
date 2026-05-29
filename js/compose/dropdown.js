@@ -62,19 +62,61 @@ const QuranComposeDropdown = (() => {
       row.appendChild(ref);
       node.appendChild(row);
     });
-    position(node, rect);
+    // Reveal before positioning so offsetHeight reflects the real rendered menu
+    // (the flip-above decision below needs the measured height).
     node.style.display = 'block';
+    position(node, rect);
   }
+
+  const GAP = 2;          // px between caret and menu
+  const VIEWPORT_PAD = 4; // keep this far from the viewport edges
 
   function position(node, rect) {
     const sx = window.scrollX || window.pageXOffset || 0;
     const sy = window.scrollY || window.pageYOffset || 0;
-    // Anchor below the caret; clamp into the viewport horizontally.
-    let left = (rect.left || 0) + sx;
-    const top = (rect.bottom || rect.top || 0) + sy + 2;
-    node.style.top = top + 'px';
-    node.style.left = Math.max(4 + sx, left) + 'px';
+    const vh = window.innerHeight || document.documentElement.clientHeight || 0;
+    const vw = window.innerWidth || document.documentElement.clientWidth || 0;
+    const caretTop = rect.top || 0;
+    const caretBottom = rect.bottom || rect.top || 0;
+    const caretLeft = rect.left || 0;
+
+    const spaceBelow = vh - caretBottom;
+    const spaceAbove = caretTop;
+    // Measure the rendered menu; cap to whichever side we land on so a tall list
+    // never spills past the viewport edge (e.g. a field at the very bottom).
+    node.style.maxHeight = '';
+    const menuHeight = node.offsetHeight;
+    const menuWidth = node.offsetWidth;
+
+    // ── Vertical: flip above the caret when there isn't room below AND above has
+    // more space (the bottom-of-page case — anchoring below pushed the list under
+    // the fold). Cap max-height to the chosen side so it never overflows.
+    const flipUp = menuHeight + GAP > spaceBelow && spaceAbove > spaceBelow;
+    let top;
+    if (flipUp) {
+      const avail = Math.max(0, spaceAbove - GAP - VIEWPORT_PAD);
+      if (menuHeight > avail) node.style.maxHeight = avail + 'px';
+      top = caretTop - GAP - Math.min(menuHeight, avail);
+    } else {
+      const avail = Math.max(0, spaceBelow - GAP - VIEWPORT_PAD);
+      if (menuHeight > avail) node.style.maxHeight = avail + 'px';
+      top = caretBottom + GAP;
+    }
+    // Final guard so the top edge never lands above the viewport either.
+    top = clamp(top, VIEWPORT_PAD, Math.max(VIEWPORT_PAD, vh - VIEWPORT_PAD));
+
+    // ── Horizontal: anchor at the caret, then slide left so the full width fits
+    // inside the viewport (right-edge case), and never past the left edge.
+    let left = caretLeft;
+    if (left + menuWidth > vw - VIEWPORT_PAD) left = vw - VIEWPORT_PAD - menuWidth;
+    left = Math.max(VIEWPORT_PAD, left);
+
+    // Convert viewport coords → page coords (the menu is position:absolute).
+    node.style.top = (top + sy) + 'px';
+    node.style.left = (left + sx) + 'px';
   }
+
+  function clamp(v, lo, hi) { return Math.min(Math.max(v, lo), hi); }
 
   function setSelected(index) {
     if (!el) return;

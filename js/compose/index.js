@@ -27,6 +27,22 @@
   // Live state for the active citation/dropdown.
   const STATE = { el: null, ctx: null, det: null, candidates: [], selIndex: 0 };
 
+  // ── Opt-in trace ─────────────────────────────────────────────────────────────
+  // Toggle from the page console:  __quranDebug(true)  then type in the field.
+  // Shares the scanner's debug bridge (debug-bridge.js → __quranDebugSet event).
+  // All lines start with [QC:] so a bug report can be grepped/copied as a block.
+  let QC_TRACE = false;
+  document.addEventListener('__quranDebugSet', (e) => {
+    QC_TRACE = !!(e && e.detail && e.detail.on);
+    console.log(`[QC] compose trace ${QC_TRACE ? 'ON' : 'OFF'} — type in the field to capture`);
+  });
+  function qc(stage, msg) { if (QC_TRACE) console.log(`[QC:${stage}] ${msg}`); }
+  function qcPreview(s, max = 80) {
+    if (!s) return '∅';
+    const flat = String(s).replace(/[\x00\n\r]/g, '·').replace(/\s+/g, ' ');
+    return flat.length <= max ? flat : '…' + flat.slice(flat.length - max);
+  }
+
   // ── Test/observability hook ────────────────────────────────────────────────
   const hook = {
     active: null,
@@ -76,13 +92,20 @@
   }
 
   async function process(el) {
-    if (!settings.enabled) return;
+    if (!settings.enabled) { qc('process', 'feature disabled (prefs.autocomplete.enabled=false)'); return; }
     const ctx = QuranComposeEditable.getContext(el);
-    if (!ctx) { STATE.det = null; STATE.ctx = null; closeInstance('idle'); return; }
+    if (!ctx) {
+      qc('process', `getContext → null (surface=${QuranComposeEditable.surfaceOf(el) || 'none'}; ` +
+        `selection not a collapsed caret inside the field?)`);
+      STATE.det = null; STATE.ctx = null; closeInstance('idle'); return;
+    }
+    qc('process', `surface=${ctx.surface} before="${qcPreview(ctx.before)}"`);
     STATE.el = el;
     STATE.ctx = ctx;
     const det = QuranComposeDetect.detect(ctx.before);
     STATE.det = det;
+    qc('detect', det ? `cite="${qcPreview(det.citationText)}" words=${det.wordCount} (minWords=${settings.minWords})`
+                     : 'null — no lead-in / open-brace marker found before the caret');
     if (!det || det.wordCount < settings.minWords) { closeInstance('detecting'); return; }
 
     setActive('suggesting');
@@ -97,6 +120,7 @@
     STATE.ctx = fresh;
     STATE.det = freshDet;
 
+    qc('match', `${candidates.length} candidate(s) for "${qcPreview(det.citationText)}"`);
     if (!candidates.length) {
       // Not recognized (FR-008). Full red rendering + fall-through is US3/US4;
       // for now just clear the dropdown.
@@ -150,8 +174,16 @@
 
   // ── Event wiring ────────────────────────────────────────────────────────────
   function onInput(e) {
-    if (inserting || composing) return;
-    if (!QuranComposeEditable.surfaceOf(e.target)) return;
+    if (inserting || composing) { qc('input', `ignored (inserting=${inserting} composing=${composing})`); return; }
+    const surface = QuranComposeEditable.surfaceOf(e.target);
+    if (!surface) {
+      // Only note misses for plausibly-editable targets, to avoid console spam.
+      if (QC_TRACE && e.target && (e.target.isContentEditable || /^(INPUT|TEXTAREA)$/.test(e.target.tagName || ''))) {
+        qc('input', `surfaceOf → null for <${(e.target.tagName || '?').toLowerCase()}> (type not free-text?)`);
+      }
+      return;
+    }
+    qc('input', `fired on <${(e.target.tagName || '?').toLowerCase()}> surface=${surface}`);
     clearTimeout(debounceTimer);
     const el = e.target;
     debounceTimer = setTimeout(() => { process(el); }, DEBOUNCE_MS);

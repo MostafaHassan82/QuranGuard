@@ -27,9 +27,39 @@ const QuranComposeEditable = (() => {
     return null;
   }
 
+  // Nearest block-level ancestor of `node` within `root` (else `root` itself).
+  // Managed editors (e.g. WhatsApp's Lexical composer) wrap each typed line in a
+  // <p>/<div> and split it into several inline <span> text nodes; the block is
+  // the right unit to read the whole line being typed.
+  function blockAncestor(node, root) {
+    let n = node && node.nodeType === 1 ? node : (node ? node.parentNode : null);
+    while (n && n !== root && root.contains(n)) {
+      const tag = n.tagName;
+      if (tag === 'P' || tag === 'DIV' || tag === 'LI' || tag === 'PRE') return n;
+      n = n.parentNode;
+    }
+    return root;
+  }
+
+  // Map a character offset (counted over text nodes, document order — the same
+  // basis as Range.toString()) to a concrete {node, offset} DOM point in `root`.
+  function textOffsetToPoint(root, offset) {
+    const doc = root.ownerDocument || document;
+    const walker = doc.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    let remaining = offset, node, last = null;
+    while ((node = walker.nextNode())) {
+      const len = node.textContent.length;
+      last = node;
+      if (remaining <= len) return { node, offset: remaining };
+      remaining -= len;
+    }
+    if (last) return { node: last, offset: last.textContent.length };
+    return { node: root, offset: 0 };
+  }
+
   // Returns { surface, el, node, text, before, caret } or null when there is no
-  // usable collapsed caret. `node` is the text container being edited; `caret`
-  // is the offset within `text`; `before` is text up to the caret.
+  // usable collapsed caret. `node` is the container being edited; `caret` is the
+  // offset within `text` (character count); `before` is text up to the caret.
   function getContext(el) {
     const surface = surfaceOf(el);
     if (!surface) return null;
@@ -38,14 +68,26 @@ const QuranComposeEditable = (() => {
       return { surface, el, node: el, text: el.value, before: el.value.slice(0, caret), caret };
     }
     // contenteditable
-    const sel = (el.ownerDocument || document).getSelection();
+    const doc = el.ownerDocument || document;
+    const sel = doc.getSelection();
     if (!sel || sel.rangeCount === 0 || !sel.isCollapsed) return null;
-    const node = sel.anchorNode;
-    if (!node || node.nodeType !== 3) return null;            // need a text node
-    if (!el.contains(node)) return null;
-    const caret = sel.anchorOffset;
-    const text = node.textContent || '';
-    return { surface, el, node, text, before: text.slice(0, caret), caret };
+    const anchorNode = sel.anchorNode;
+    if (!anchorNode || !el.contains(anchorNode)) return null;
+    // Read the whole block before the caret, not just the caret's single text
+    // node — a citation's lead-in ("قال تعالى") and the ayah words can land in
+    // separate text nodes inside the same line (Lexical-style editors). Reading
+    // one node hid the lead-in and detection never fired. A Range from the start
+    // of the block to the caret concatenates across nodes (no element-boundary
+    // separators), which matches how textOffsetToPoint maps offsets back.
+    const block = blockAncestor(anchorNode, el);
+    let before;
+    try {
+      const pre = doc.createRange();
+      pre.selectNodeContents(block);
+      pre.setEnd(anchorNode, sel.anchorOffset);
+      before = pre.toString();
+    } catch (_) { return null; }
+    return { surface, el, node: block, text: block.textContent || '', before, caret: before.length };
   }
 
   // Replace [start, end) within the editing context with newText, then place the
@@ -60,20 +102,27 @@ const QuranComposeEditable = (() => {
       try { el.setSelectionRange(pos, pos); } catch (_) {}
       return pos;
     }
-    // contenteditable: splice within the text node, restore the caret.
-    const node = ctx.node;
-    const t = node.textContent || '';
-    node.textContent = t.slice(0, start) + newText + t.slice(end);
+    // contenteditable: delete [start, end) and insert newText via a DOM Range,
+    // mapping the character offsets across however many text nodes the block
+    // spans (so this works in editors that split a line into multiple nodes).
+    const root = ctx.node;
+    const doc = root.ownerDocument || document;
     const pos = start + newText.length;
     try {
-      const doc = node.ownerDocument || document;
+      const a = textOffsetToPoint(root, start);
+      const b = textOffsetToPoint(root, end);
       const range = doc.createRange();
-      const max = (node.textContent || '').length;
-      range.setStart(node, Math.min(pos, max));
-      range.collapse(true);
+      range.setStart(a.node, a.offset);
+      range.setEnd(b.node, b.offset);
+      range.deleteContents();
+      const tn = doc.createTextNode(newText);
+      range.insertNode(tn);
+      const after = doc.createRange();
+      after.setStart(tn, tn.length);
+      after.collapse(true);
       const sel = doc.getSelection();
       sel.removeAllRanges();
-      sel.addRange(range);
+      sel.addRange(after);
     } catch (_) {}
     return pos;
   }

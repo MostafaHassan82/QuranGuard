@@ -275,6 +275,42 @@ async function inPageTests() {
       T('US1 contenteditable accept inserted authentic ayah + ref',
         ce.textContent.includes(ayah.text) && ce.textContent.includes('(البقرة:255)'), ce.textContent);
     }
+
+    // contenteditable split across multiple text nodes (WhatsApp/Lexical shape):
+    // the lead-in lives in one <span> and the ayah words in another. Reading only
+    // the caret's single text node hid the lead-in and the dropdown never opened
+    // (the reported bug); the block-scoped read fixes it.
+    const ceSplit = document.createElement('div');
+    ceSplit.contentEditable = 'true';
+    ceSplit.id = 'ac-ce-split';
+    const span1 = document.createElement('span');
+    span1.textContent = 'قال تعالى: ';
+    const span2 = document.createElement('span');
+    span2.textContent = lead4;
+    ceSplit.appendChild(span1);
+    ceSplit.appendChild(span2);
+    host.appendChild(ceSplit);
+    ceSplit.focus();
+    {
+      const r = document.createRange();
+      const tn2 = span2.firstChild;             // caret at end of the ayah-words node
+      r.setStart(tn2, tn2.textContent.length);
+      r.collapse(true);
+      const s = document.getSelection();
+      s.removeAllRanges();
+      s.addRange(r);
+    }
+    ceSplit.dispatchEvent(new Event('input', { bubbles: true }));
+    const gotSplit = await waitCandidates();
+    T('US1 contenteditable split-node surfaces candidates (WhatsApp shape)',
+      gotSplit, JSON.stringify(window.__quranCompose.candidates));
+    if (gotSplit) {
+      window.__quranCompose.acceptSelected();
+      await sleep(20);
+      T('US1 contenteditable split-node accept inserted authentic ayah + ref',
+        ceSplit.textContent.includes(ayah.text) && ceSplit.textContent.includes('(البقرة:255)'),
+        ceSplit.textContent);
+    }
   }
 
   return results;
