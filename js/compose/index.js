@@ -179,9 +179,12 @@
     // menu (and possibly the end-word input), so we can't rely on a live caret.
     STATE.pending = {
       cand, ctx,
-      start: det.citeStart,
+      // Replace FROM the opening bracket (if any) so it isn't left dangling; the
+      // inserter re-emits a balanced pair.
+      start: det.openBracket ? det.citeBraceStart : det.citeStart,
       end: ctx.caret,
       typedText: det.citationText,
+      openBracket: det.openBracket || null,
       rect: QuranComposeEditable.caretRect(ctx),
     };
     openScopeMenu();
@@ -234,7 +237,7 @@
     const p = STATE.pending;
     if (!p) return null;
     const built = QuranComposeInsert.buildInsertText(p.cand, scope, settings, {
-      typedText: p.typedText, endWord,
+      typedText: p.typedText, endWord, openBracket: p.openBracket,
     });
     if (built.error) return built.error;
 

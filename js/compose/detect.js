@@ -60,9 +60,12 @@ const QuranComposeDetect = (() => {
     return s.split(/\s+/).filter(w => w && AR_RE.test(w)).length;
   }
 
-  // Returns { citationText, citeStart, wordCount } or null.
-  // `citeStart` is the offset (in the same coordinate space as `textBeforeCaret`)
-  // where the citation content begins; the citation ends at the caret.
+  // Returns { citationText, citeStart, wordCount, openBracket, citeBraceStart }
+  // or null. `citeStart` is the offset (in the same coordinate space as
+  // `textBeforeCaret`) where the citation content begins; the citation ends at the
+  // caret. When the citation was opened with a bracket, `openBracket` is that char
+  // and `citeBraceStart` is its offset (so the inserter can replace from the
+  // bracket and emit a balanced pair, not leave a dangling opener).
   function detect(textBeforeCaret) {
     if (!textBeforeCaret) return null;
     const markerEnd = Math.max(
@@ -74,7 +77,25 @@ const QuranComposeDetect = (() => {
 
     let rest = textBeforeCaret.slice(markerEnd);
     const lead = rest.match(/^[\s:：{«\[ ﴿]+/u);     // strip separators / opening punct
-    const citeStart = markerEnd + (lead ? lead[0].length : 0);
+    const stripped = lead ? lead[0] : '';
+    const citeStart = markerEnd + stripped.length;
+
+    // If a bracket opened the citation, record which one and where, so the insert
+    // replaces FROM the bracket and emits a balanced pair (no dangling opener).
+    let openBracket = null, citeBraceStart = citeStart;
+    const prev = markerEnd > 0 ? textBeforeCaret[markerEnd - 1] : '';
+    if (prev && '{«[﴿'.indexOf(prev) >= 0) {
+      // lastOpenBrace was the rightmost marker: the bracket sits just before markerEnd.
+      openBracket = prev; citeBraceStart = markerEnd - 1;
+    } else {
+      // a lead-in was the marker: the bracket (if any) is in the stripped separators.
+      let at = -1, ob = null;
+      for (const ch of ['{', '«', '[', '﴿']) {
+        const i = stripped.lastIndexOf(ch);
+        if (i > at) { at = i; ob = ch; }
+      }
+      if (at >= 0) { openBracket = ob; citeBraceStart = markerEnd + at; }
+    }
     let citationText = textBeforeCaret.slice(citeStart);
 
     if (/[}»\]﴾]/.test(citationText)) return null;        // citation already closed
@@ -83,7 +104,7 @@ const QuranComposeDetect = (() => {
 
     const wordCount = countArabicWords(citationText);
     if (wordCount === 0) return null;
-    return { citationText, citeStart, wordCount };
+    return { citationText, citeStart, wordCount, openBracket, citeBraceStart };
   }
 
   return { detect, countArabicWords };

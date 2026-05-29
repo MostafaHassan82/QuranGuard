@@ -93,13 +93,20 @@ const QuranComposeInsert = (() => {
     return { body: verse };
   }
 
+  // Matching closer for an opening citation bracket, so a citation the user
+  // opened with one is emitted balanced (e.g. "{…" → "{ayah}") instead of leaving
+  // a dangling opener (FR-014). The reference is placed OUTSIDE the brackets.
+  const CLOSERS = { '{': '}', '«': '»', '[': ']', '﴿': '﴾' };
+
   // Returns { text } ready to insert, or { error } (e.g. 'endWordNotFound').
   function buildInsertText(candidate, scope, settings, opts) {
     const r = buildBody(candidate, scope, opts);
     if (r.error) return { error: r.error };
     const ref = buildReference(candidate, settings);
+    const ob = opts && opts.openBracket;
+    const body = (ob && CLOSERS[ob]) ? `${ob}${r.body}${CLOSERS[ob]}` : r.body;
     const text = (settings && settings.refPlacement === 'before')
-      ? `${ref} ${r.body}` : `${r.body} ${ref}`;
+      ? `${ref} ${body}` : `${body} ${ref}`;
     return { text };
   }
 

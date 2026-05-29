@@ -282,6 +282,8 @@ async function inPageTests() {
       await sleep(20);
       T('US1 contenteditable accept inserted authentic ayah + ref',
         ce.textContent.includes(ayah.text) && ce.textContent.includes('(البقرة:255)'), ce.textContent);
+      T('US1 contenteditable keeps the lead-in (start not dropped)',
+        ce.textContent.includes('قال تعالى'), ce.textContent);
     }
 
     // contenteditable split across multiple text nodes (WhatsApp/Lexical shape):
@@ -320,6 +322,8 @@ async function inPageTests() {
       T('US1 contenteditable split-node accept inserted authentic ayah + ref',
         ceSplit.textContent.includes(ayah.text) && ceSplit.textContent.includes('(البقرة:255)'),
         ceSplit.textContent);
+      T('US1 contenteditable split-node keeps the lead-in (start not dropped)',
+        ceSplit.textContent.includes('قال تعالى'), ceSplit.textContent);
     }
 
     // ── US2: insertion-scope menu (T017-T020) ──────────────────────────────────
@@ -508,6 +512,27 @@ async function inPageTests() {
       T('ornate bracket offers البقرة:255',
         (window.__quranCompose.candidates || []).some(c => c.ref === 'البقرة:255'),
         JSON.stringify(window.__quranCompose.candidates));
+    }
+
+    // (1b) A bracket the user opened must be emitted BALANCED (no dangling opener),
+    // with the reference OUTSIDE the brackets, and the lead-in preserved.
+    {
+      const f = document.createElement('input');
+      f.type = 'text';
+      host.appendChild(f);
+      f.focus();
+      f.value = 'قوله تعالى: {' + lead4;
+      f.setSelectionRange(f.value.length, f.value.length);
+      f.dispatchEvent(new Event('input', { bubbles: true }));
+      await waitFor(() => (window.__quranCompose.candidates || []).length > 0);
+      window.__quranCompose.acceptSelected();
+      await sleep(20);
+      window.__quranCompose.chooseScope('whole');
+      await sleep(20);
+      T('opening { is emitted balanced as {ayah} (no dangling opener)',
+        f.value.includes('{' + ayah.text + '}'), f.value);
+      T('balanced brace keeps the lead-in and puts the ref outside',
+        f.value.includes('قوله تعالى') && f.value.includes('} (البقرة:255)'), f.value);
     }
 
     // (2) Enter on the field while the menu is open accepts like a mouse click AND

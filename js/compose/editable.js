@@ -102,9 +102,8 @@ const QuranComposeEditable = (() => {
       try { el.setSelectionRange(pos, pos); } catch (_) {}
       return pos;
     }
-    // contenteditable: delete [start, end) and insert newText via a DOM Range,
-    // mapping the character offsets across however many text nodes the block
-    // spans (so this works in editors that split a line into multiple nodes).
+    // contenteditable: select [start, end) — mapping the character offsets across
+    // however many text nodes the block spans — then replace it.
     const root = ctx.node;
     const doc = root.ownerDocument || document;
     const pos = start + newText.length;
@@ -114,15 +113,36 @@ const QuranComposeEditable = (() => {
       const range = doc.createRange();
       range.setStart(a.node, a.offset);
       range.setEnd(b.node, b.offset);
-      range.deleteContents();
-      const tn = doc.createTextNode(newText);
-      range.insertNode(tn);
-      const after = doc.createRange();
-      after.setStart(tn, tn.length);
-      after.collapse(true);
       const sel = doc.getSelection();
       sel.removeAllRanges();
-      sel.addRange(after);
+      sel.addRange(range);
+
+      // Prefer execCommand('insertText'): framework editors (Lexical/Draft/
+      // ProseMirror — e.g. WhatsApp) maintain their own document model and treat a
+      // raw DOM splice as a foreign mutation, reconciling it away and dropping the
+      // surrounding text (the "lost lead-in" bug). insertText flows through their
+      // input pipeline so only the selection is replaced. Needs the editable
+      // focused with the selection applied.
+      let ok = false;
+      try {
+        const editable = ctx.el;
+        if (editable && typeof editable.focus === 'function') editable.focus();
+        sel.removeAllRanges();
+        sel.addRange(range);                          // re-apply: focus() can collapse it
+        ok = !!(doc.execCommand && doc.execCommand('insertText', false, newText));
+      } catch (_) { ok = false; }
+
+      if (!ok) {
+        // Fallback: raw range edit (plain contenteditable / no execCommand).
+        range.deleteContents();
+        const tn = doc.createTextNode(newText);
+        range.insertNode(tn);
+        const after = doc.createRange();
+        after.setStart(tn, tn.length);
+        after.collapse(true);
+        sel.removeAllRanges();
+        sel.addRange(after);
+      }
     } catch (_) {}
     return pos;
   }
