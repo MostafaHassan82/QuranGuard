@@ -281,6 +281,10 @@
   // ── Event wiring ────────────────────────────────────────────────────────────
   function onInput(e) {
     if (inserting || composing) { qc('input', `ignored (inserting=${inserting} composing=${composing})`); return; }
+    // Events from our OWN menu UI (e.g. typing/pasting into the end-word prompt,
+    // which is itself an <input>) must not be treated as host-field typing — that
+    // would tear down the very instance the prompt belongs to.
+    if (QuranComposeDropdown.contains(e.target)) { qc('input', 'ignored (inside our menu)'); return; }
     const surface = QuranComposeEditable.surfaceOf(e.target);
     if (!surface) {
       // Only note misses for plausibly-editable targets, to avoid console spam.
@@ -299,10 +303,16 @@
     if (!QuranComposeDropdown.isVisible()) return;
     // In end-word mode the prompt input owns the keyboard — let it through.
     if (STATE.mode === 'endword') return;
-    if (e.key === 'ArrowDown') { e.preventDefault(); moveSelection(1); }
-    else if (e.key === 'ArrowUp') { e.preventDefault(); moveSelection(-1); }
+    // Keys we act on must be FULLY consumed: preventDefault stops the host's
+    // default (newline / form submit), and stopImmediatePropagation stops the
+    // host's own keydown handlers (e.g. WhatsApp "send on Enter") from ever
+    // seeing the key. Enter therefore behaves exactly like a mouse click on the
+    // selected row — accept/choose, and nothing reaches the page.
+    const consume = () => { e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation(); };
+    if (e.key === 'ArrowDown') { consume(); moveSelection(1); }
+    else if (e.key === 'ArrowUp') { consume(); moveSelection(-1); }
     else if (e.key === 'Enter' || e.key === 'Tab') {
-      e.preventDefault();
+      consume();
       if (STATE.mode === 'scope') chooseScope(SCOPES[STATE.selIndex].key);
       else accept(STATE.selIndex);
     }
@@ -312,6 +322,7 @@
   function onCompositionStart() { composing = true; }
   function onCompositionEnd(e) {
     composing = false;
+    if (QuranComposeDropdown.contains(e.target)) return;   // IME inside our own end-word prompt
     if (QuranComposeEditable.surfaceOf(e.target)) process(e.target);
   }
   function onFocusOut(e) {

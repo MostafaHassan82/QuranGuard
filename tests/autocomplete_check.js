@@ -490,6 +490,77 @@ async function inPageTests() {
         window.__quranCompose.active && window.__quranCompose.active.state === 'classified',
         window.__quranCompose.active && window.__quranCompose.active.state);
     }
+
+    // ── Bug fixes (reported in manual testing) ──────────────────────────────────
+
+    // (1) Ornate Quran brackets ﴿ ﴾ are valid citation delimiters — ﴿ (U+FD3F)
+    // OPENS a quote. Typing the opener + verse words must surface candidates.
+    {
+      const f = document.createElement('input');
+      f.type = 'text';
+      host.appendChild(f);
+      f.focus();
+      f.value = 'قال تعالى: ﴿' + lead4;          // ﴿ = ﴿ ornate opener
+      f.setSelectionRange(f.value.length, f.value.length);
+      f.dispatchEvent(new Event('input', { bubbles: true }));
+      const got = await waitFor(() => (window.__quranCompose.candidates || []).length > 0);
+      T('ornate opening bracket ﴿ surfaces candidates', got, JSON.stringify(window.__quranCompose.candidates));
+      T('ornate bracket offers البقرة:255',
+        (window.__quranCompose.candidates || []).some(c => c.ref === 'البقرة:255'),
+        JSON.stringify(window.__quranCompose.candidates));
+    }
+
+    // (2) Enter on the field while the menu is open accepts like a mouse click AND
+    // is NOT passed to the host page (no newline / "send on Enter" leak).
+    {
+      const f = document.createElement('input');
+      f.type = 'text';
+      host.appendChild(f);
+      f.focus();
+      f.value = 'قال تعالى: ' + lead4;
+      f.setSelectionRange(f.value.length, f.value.length);
+      f.dispatchEvent(new Event('input', { bubbles: true }));
+      await waitFor(() => (window.__quranCompose.candidates || []).length > 0);
+      let hostSawEnter = false;
+      const hostKey = (ev) => { if (ev.key === 'Enter') hostSawEnter = true; };
+      f.addEventListener('keydown', hostKey);
+      f.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+      await sleep(20);
+      f.removeEventListener('keydown', hostKey);
+      T('Enter on the field accepts like a click (opens scope menu)',
+        window.__quranCompose.active && window.__quranCompose.active.state === 'scopeMenu',
+        window.__quranCompose.active && window.__quranCompose.active.state);
+      T('Enter is not passed through to the host page', hostSawEnter === false);
+    }
+
+    // (3) Typing/pasting into the end-word prompt must NOT tear down the instance
+    // (regression: the prompt's own <input> fired document-level input → teardown),
+    // and Enter on the prompt submits the pasted word.
+    {
+      const vn = verseWords.map(w => QuranNormalize.tier1(w));
+      let endIdx = -1;
+      for (let i = 3; i < vn.length - 1; i++) { if (vn.indexOf(vn[i]) === i) { endIdx = i; break; } }
+      const f = await setupCitation(verseWords.slice(0, 3).join(' '));
+      window.__quranCompose.chooseScope('startToEndWord');
+      await sleep(20);
+      const prompt = document.querySelector('.quran-ac-endword');
+      T('end-word prompt input is present', !!prompt);
+      if (prompt) {
+        prompt.value = verseWords[endIdx];                 // simulate a paste landing in the prompt
+        prompt.dispatchEvent(new Event('input', { bubbles: true }));
+        await sleep(150);                                  // > debounce: a stray teardown would have fired
+        T('typing/pasting in the end-word prompt keeps the instance alive',
+          window.__quranCompose.active && window.__quranCompose.active.state === 'scopeMenu',
+          window.__quranCompose.active && window.__quranCompose.active.state);
+        prompt.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+        await sleep(20);
+        const ins = window.__quranCompose.lastInsertion;
+        const expected = verseWords.slice(0, endIdx + 1).join(' ');
+        T('end-word Enter submits the pasted word and inserts the passage',
+          endIdx > 0 && ins && ins.scope === 'startToEndWord' && f.value.includes(expected),
+          JSON.stringify({ value: f.value, expected, ins }));
+      }
+    }
   }
 
   return results;

@@ -43,14 +43,16 @@ const QuranComposeDetect = (() => {
   }
 
   // Index just AFTER the last unclosed opening citation brace, or -1.
+  // Note the ornate Quran brackets: ﴿ (U+FD3F, ORNATE LEFT) OPENS a quote and
+  // ﴾ (U+FD3E, ORNATE RIGHT) CLOSES it — they read open→close in RTL.
   function lastOpenBrace(text) {
     let idx = -1;
-    for (const ch of ['{', '«', '[', '﴾']) {
+    for (const ch of ['{', '«', '[', '﴿']) {
       const i = text.lastIndexOf(ch);
       if (i > idx) idx = i;
     }
     if (idx < 0) return -1;
-    if (/[}»\]﴿]/.test(text.slice(idx + 1))) return -1; // a close after it → already closed
+    if (/[}»\]﴾]/.test(text.slice(idx + 1))) return -1; // a close after it → already closed
     return idx + 1;
   }
 
@@ -71,11 +73,11 @@ const QuranComposeDetect = (() => {
     if (markerEnd < 0) return null;
 
     let rest = textBeforeCaret.slice(markerEnd);
-    const lead = rest.match(/^[\s:：{«\[ ﴾]+/u);     // strip separators / opening punct
+    const lead = rest.match(/^[\s:：{«\[ ﴿]+/u);     // strip separators / opening punct
     const citeStart = markerEnd + (lead ? lead[0].length : 0);
     let citationText = textBeforeCaret.slice(citeStart);
 
-    if (/[}»\]﴿]/.test(citationText)) return null;        // citation already closed
+    if (/[}»\]﴾]/.test(citationText)) return null;        // citation already closed
     citationText = citationText.replace(/\s+$/u, '');          // trim trailing whitespace for matching
     if (!citationText || !AR_RE.test(citationText)) return null;
 
