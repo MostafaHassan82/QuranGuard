@@ -1,11 +1,17 @@
 'use strict';
 /*
- * Writer-side autocomplete — caret-anchored suggestion dropdown (feature 003, T012).
+ * Writer-side autocomplete — caret-anchored suggestion dropdown (feature 003,
+ * T012 + T017 scope menu / end-word prompt).
  *
- * Pure view: renders the ranked candidate list near the caret and reports
- * selection/click back to the orchestrator. It owns no matching or insertion
- * logic. Keyboard handling (Tab/Enter/Arrows) and the "no Esc" rule live in the
- * orchestrator (index.js), which calls setSelected/accept here.
+ * Pure view. Three renders, all anchored at the caret via the same positioner:
+ *   - show()        the ranked candidate list (US1).
+ *   - showScope()   the second insertion-scope menu (US2, FR-012a/015).
+ *   - showEndWord() the inline end-word prompt for the start-to-end-word scope
+ *                   (US2, FR-015c), optionally carrying the "not found" note
+ *                   (FR-016).
+ * It owns no matching/insertion logic. Keyboard handling (Tab/Enter/Arrows) and
+ * the "no Esc" rule live in the orchestrator (index.js); list-item picks are
+ * reported via the onPick(index) handler, scope/end-word via their callbacks.
  *
  * Exposed as the QuranComposeDropdown global.
  */
@@ -68,6 +74,66 @@ const QuranComposeDropdown = (() => {
     position(node, rect);
   }
 
+  // The second menu (US2): the three insertion scopes. `scopes` is a list of
+  // { key, label }; picking one calls pickHandler(index).
+  function showScope(scopes, selectedIndex, rect, pickHandler) {
+    items = scopes || [];
+    onPick = pickHandler;
+    const node = ensureEl();
+    node.innerHTML = '';
+    items.forEach((s, i) => {
+      const row = document.createElement('div');
+      row.className = 'quran-ac-item';
+      row.setAttribute('role', 'option');
+      row.setAttribute('data-idx', String(i));
+      row.setAttribute('aria-selected', i === selectedIndex ? 'true' : 'false');
+      row.textContent = s.label;
+      node.appendChild(row);
+    });
+    node.style.display = 'block';
+    position(node, rect);
+  }
+
+  // Inline end-word prompt for the start-to-end-word scope. Calls onSubmit(word)
+  // on Enter. `noteText` (optional) shows a hint or the "not found" message above
+  // the input. Item-pick handling is disabled here (no .quran-ac-item rows).
+  function showEndWord(rect, onSubmit, promptText, noteText) {
+    items = [];
+    onPick = null;
+    const node = ensureEl();
+    node.innerHTML = '';
+    if (noteText) {
+      const note = document.createElement('div');
+      note.className = 'quran-ac-note';
+      note.textContent = noteText;
+      node.appendChild(note);
+    }
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'quran-ac-endword';
+    input.setAttribute('dir', 'rtl');
+    input.setAttribute('placeholder', promptText || '');
+    input.addEventListener('keydown', (e) => {
+      // Keep keystrokes local — the orchestrator's document-level capture skips
+      // end-word mode, but stop bubbling so the host page never sees them.
+      e.stopPropagation();
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        if (onSubmit) onSubmit(input.value.trim());
+      }
+    });
+    // Don't let the mousedown-blur guard above (registered for items) swallow
+    // clicks meant to focus the input.
+    input.addEventListener('mousedown', (e) => e.stopPropagation());
+    node.appendChild(input);
+    node.style.display = 'block';
+    position(node, rect);
+    // Focus so the user can type the end word immediately. index.js guards
+    // focusout against focus moving into this menu.
+    try { input.focus(); } catch (_) {}
+    return input;
+  }
+
   const GAP = 2;          // px between caret and menu
   const VIEWPORT_PAD = 4; // keep this far from the viewport edges
 
@@ -126,6 +192,10 @@ const QuranComposeDropdown = (() => {
     });
   }
 
+  // True iff a node (e.g. focusout's relatedTarget) is inside the menu — used by
+  // index.js so focusing the end-word input doesn't close the instance.
+  function contains(node) { return !!(el && node && el.contains(node)); }
+
   function hide() {
     if (el) el.style.display = 'none';
     items = [];
@@ -138,5 +208,5 @@ const QuranComposeDropdown = (() => {
 
   function count() { return items.length; }
 
-  return { show, hide, setSelected, isVisible, count };
+  return { show, showScope, showEndWord, hide, setSelected, isVisible, count, contains };
 })();

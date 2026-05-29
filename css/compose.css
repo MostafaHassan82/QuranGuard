@@ -81,6 +81,24 @@
   color: #6b5d2a;
 }
 
+/* end-word prompt input (start-to-end-word scope) */
+.quran-ac-endword {
+  all: unset;
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  margin: 2px 0;
+  padding: 6px 10px;
+  border: 1px solid #c8a24a;
+  border-radius: 6px;
+  background: #fffdf6;
+  font-family: inherit;
+  font-size: 1em;
+  color: #14241c;
+  direction: rtl;
+  text-align: right;
+}
+
 /* ── In-editor citation scaffolding (contenteditable persistent markup) ──────
  * Verdict colors come from content.css's verdict classes; here we only ensure
  * the inline span flows with the surrounding text and carries the Quran font

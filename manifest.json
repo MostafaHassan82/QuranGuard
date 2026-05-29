@@ -26,6 +26,7 @@
         "js/render/fonts.js",
         "js/render/swap.js",
         "js/content.js",
+        "js/verifier/normalize.js",
         "js/compose/editable.js",
         "js/compose/detect.js",
         "js/compose/match.js",

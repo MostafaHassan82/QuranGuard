@@ -229,6 +229,12 @@ async function inPageTests() {
       window.__quranCompose.active && window.__quranCompose.active.state);
     window.__quranCompose.acceptSelected();
     await sleep(20);
+    // FR-012a: accept now opens the scope menu instead of inserting immediately.
+    T('US1 accept opens the scope menu (FR-012a)',
+      window.__quranCompose.active && window.__quranCompose.active.state === 'scopeMenu',
+      window.__quranCompose.active && window.__quranCompose.active.state);
+    window.__quranCompose.chooseScope('whole');
+    await sleep(20);
     T('US1 accept replaced typed text with authentic ayah', inp.value.includes(ayah.text), inp.value);
     T('US1 accept appended the (surahName:ayah) reference', inp.value.includes('(البقرة:255)'), inp.value);
     T('US1 lastInsertion recorded on the hook',
@@ -272,6 +278,8 @@ async function inPageTests() {
     if (gotCe) {
       window.__quranCompose.acceptSelected();
       await sleep(20);
+      window.__quranCompose.chooseScope('whole');
+      await sleep(20);
       T('US1 contenteditable accept inserted authentic ayah + ref',
         ce.textContent.includes(ayah.text) && ce.textContent.includes('(البقرة:255)'), ce.textContent);
     }
@@ -307,9 +315,84 @@ async function inPageTests() {
     if (gotSplit) {
       window.__quranCompose.acceptSelected();
       await sleep(20);
+      window.__quranCompose.chooseScope('whole');
+      await sleep(20);
       T('US1 contenteditable split-node accept inserted authentic ayah + ref',
         ceSplit.textContent.includes(ayah.text) && ceSplit.textContent.includes('(البقرة:255)'),
         ceSplit.textContent);
+    }
+
+    // ── US2: insertion-scope menu (T017-T020) ──────────────────────────────────
+    // Three scopes off one accepted candidate: whole / typedPortion /
+    // startToEndWord, plus the end-word-not-found refusal (FR-015/016).
+    // Ground truth is derived from the index (Principle I) — no hand-typed Quran.
+    const lead5 = verseWords.slice(0, 5).join(' ');           // a clean exact-tier fragment
+    const typedPortionAuthentic = lead5;                      // exact tier → typed == authentic words
+    const setupCitation = async (text) => {
+      const f = document.createElement('input');
+      f.type = 'text';
+      host.appendChild(f);
+      f.focus();
+      f.value = 'قال تعالى: ' + text;
+      f.setSelectionRange(f.value.length, f.value.length);
+      f.dispatchEvent(new Event('input', { bubbles: true }));
+      await waitCandidates();
+      window.__quranCompose.acceptSelected();
+      await sleep(20);
+      return f;
+    };
+
+    // (a) typedPortion → only the authentic words the typed fragment maps to
+    // (NOT the whole verse), still with the reference.
+    {
+      const f = await setupCitation(lead5);
+      const atScope = window.__quranCompose.active && window.__quranCompose.active.state === 'scopeMenu';
+      T('US2 scope menu state reported on the hook', atScope, window.__quranCompose.active && window.__quranCompose.active.state);
+      window.__quranCompose.chooseScope('typedPortion');
+      await sleep(20);
+      const ins = window.__quranCompose.lastInsertion;
+      T('US2 typedPortion inserts only the typed span (authentic words, not whole verse)',
+        ins && ins.scope === 'typedPortion' && f.value.includes(typedPortionAuthentic)
+          && f.value.includes('(البقرة:255)') && !f.value.includes(ayah.text),
+        JSON.stringify({ value: f.value, ins }));
+    }
+
+    // (b) startToEndWord → from the typed start through a chosen end word.
+    // Pick the first verse word after the typed start whose normalized form is
+    // unique (no earlier duplicate), so the expected slice is deterministic.
+    {
+      const vn = verseWords.map(w => QuranNormalize.tier1(w));
+      let endIdx = -1;
+      for (let i = 3; i < vn.length - 1; i++) { if (vn.indexOf(vn[i]) === i) { endIdx = i; break; } }
+      const f = await setupCitation(verseWords.slice(0, 3).join(' '));
+      window.__quranCompose.chooseScope('startToEndWord');
+      await sleep(20);
+      window.__quranCompose.submitEndWord(verseWords[endIdx]);
+      await sleep(20);
+      const ins = window.__quranCompose.lastInsertion;
+      const expected = verseWords.slice(0, endIdx + 1).join(' ');
+      T('US2 startToEndWord inserts start-through-end-word passage',
+        endIdx > 0 && ins && ins.scope === 'startToEndWord'
+          && f.value.includes(expected) && f.value.includes('(البقرة:255)') && !f.value.includes(ayah.text),
+        JSON.stringify({ value: f.value, expected, endIdx, ins }));
+    }
+
+    // (c) end word not in the verse → refuse, no truncated insert (FR-016).
+    {
+      const f = await setupCitation(verseWords.slice(0, 3).join(' '));
+      const before = f.value;
+      window.__quranCompose.chooseScope('startToEndWord');
+      await sleep(20);
+      window.__quranCompose.submitEndWord('زقزقةٌ');           // not a word of this verse
+      await sleep(20);
+      T('US2 end-word-not-found makes no insertion (FR-016)',
+        f.value === before && (!window.__quranCompose.lastInsertion
+          || window.__quranCompose.lastInsertion.scope !== 'startToEndWord'
+          || window.__quranCompose.lastInsertion.insertedText.indexOf('زقزقةٌ') === -1),
+        JSON.stringify({ before, after: f.value }));
+      T('US2 end-word-not-found keeps the prompt open (state scopeMenu)',
+        window.__quranCompose.active && window.__quranCompose.active.state === 'scopeMenu',
+        window.__quranCompose.active && window.__quranCompose.active.state);
     }
   }
 
