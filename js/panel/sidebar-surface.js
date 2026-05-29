@@ -520,6 +520,13 @@ const QuranPanelSidebar = (() => {
     if (finding.color === 'orange') {
       actions.append(makeActionBtn(T('act_correct'), () => runAction('correctInPlace', finding)));
     }
+    // T201 P3 — gated text-replace to authentic wording (manual). yellow drift →
+    // "fix wording"; a red finding WITH a near-match → "accept suggestion".
+    if (finding.color === 'yellow') {
+      actions.append(makeActionBtn(T('act_fix_wording'), () => runAction('correctTextInPlace', finding)));
+    } else if (finding.color === 'red' && finding.nearMatch && finding.nearMatch.authenticText) {
+      actions.append(makeActionBtn(T('act_accept_near'), () => runAction('correctTextInPlace', finding)));
+    }
     actions.append(
       makeActionBtn(T('act_copy'),   () => runAction('copy',   finding)),
       makeActionBtn(T('act_share'),  () => runAction('share',  finding)),
@@ -645,6 +652,7 @@ const QuranPanelSidebar = (() => {
         // T067 — correct-in-place runs directly in this content context; the
         // sidebar model is updated by content.js via QuranPanelSidebar.ingest.
         case 'correctInPlace': await QuranActions.correctInContent(finding.id); break;
+        case 'correctTextInPlace': await QuranActions.correctTextInContent(finding.id); break;
         // T069/T070 — dismiss; T071 — restore. Update this surface's model + persist.
         case 'dismiss':
           QuranPanelModel.markDismissedThisSession(finding.id);

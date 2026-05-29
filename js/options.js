@@ -90,8 +90,13 @@ async function applyPrefsToUI(prefs) {
   syncSwapControls(prefs);
   syncHighlightStyles(prefs);
 
+  const ac = prefs?.autoCorrect || {};
   const auto = document.getElementById('autocorrect-orange');
-  if (auto) auto.checked = prefs?.autoCorrectOrange === true;
+  if (auto) auto.checked = (ac.orange === true) || prefs?.autoCorrectOrange === true;
+  const autoLB = document.getElementById('autocorrect-lightblue');
+  if (autoLB) autoLB.checked = ac.lightBlue === true;
+  const autoY = document.getElementById('autocorrect-yellow');
+  if (autoY) autoY.checked = ac.yellow === true;
 
   const refLinks = document.getElementById('ref-links');
   if (refLinks) refLinks.checked = prefs?.refLinks !== false;
@@ -167,10 +172,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     savePrefs({ font: e.target.value });
   });
 
-  // Auto-correct all orange (reference-mismatch) findings.
+  // Auto-correct all orange (reference-mismatch) findings. Writes both the new
+  // autoCorrect.orange and the legacy mirror (prefs.js keeps them in sync anyway).
   document.getElementById('autocorrect-orange').addEventListener('change', (e) => {
-    savePrefs({ autoCorrectOrange: e.target.checked });
+    savePrefs({ autoCorrect: { orange: e.target.checked } });
   });
+  // T201 P3 — auto-suggest lightBlue ref (panel-only) + auto-fix yellow wording.
+  const lbEl = document.getElementById('autocorrect-lightblue');
+  if (lbEl) lbEl.addEventListener('change', (e) => savePrefs({ autoCorrect: { lightBlue: e.target.checked } }));
+  const yEl = document.getElementById('autocorrect-yellow');
+  if (yEl) yEl.addEventListener('change', (e) => savePrefs({ autoCorrect: { yellow: e.target.checked } }));
 
   // Highlight the cited reference on the page (gold marker).
   document.getElementById('ref-highlight').addEventListener('change', (e) => {

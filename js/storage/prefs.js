@@ -9,7 +9,13 @@ const QuranPrefs = (() => {
     perColor: { green: true, lightBlue: true, yellow: true, orange: true, red: false },
     font: 'uthmaniHafs',
     scanTrigger: 'manual',
+    // Legacy single-color autocorrect flag (kept as a back-compat mirror of
+    // autoCorrect.orange — see applyDefaults). Superseded by `autoCorrect`.
     autoCorrectOrange: false,
+    // T201 P3 — generalized autocorrect. orange (rewrite wrong ref), lightBlue
+    // (auto-surface the suggested ref — panel only, no page edit), yellow (gated
+    // text-replace to authentic wording). red is NEVER auto (ratified Q-D).
+    autoCorrect: { orange: false, lightBlue: false, yellow: false },
     refLinks: true,
     // Whether the cited reference is visually highlighted on the page (gold
     // marker). Independent of refLinks (clickability) and of the hover tooltip,
@@ -55,7 +61,19 @@ const QuranPrefs = (() => {
 
     if (!VALID_FONTS.has(p.font)) p.font = DEFAULTS.font;
     if (!VALID_SCAN_TRIGGERS.has(p.scanTrigger)) p.scanTrigger = DEFAULTS.scanTrigger;
-    if (typeof p.autoCorrectOrange !== 'boolean') p.autoCorrectOrange = DEFAULTS.autoCorrectOrange;
+
+    // Generalized autocorrect (T201 P3) with migration from the legacy
+    // autoCorrectOrange boolean: seed autoCorrect.orange from it when the new
+    // object hasn't set orange yet. red is intentionally absent (never auto).
+    const legacyOrange = (typeof p.autoCorrectOrange === 'boolean') ? p.autoCorrectOrange : undefined;
+    if (!p.autoCorrect || typeof p.autoCorrect !== 'object') p.autoCorrect = {};
+    for (const k of ['orange', 'lightBlue', 'yellow']) {
+      if (typeof p.autoCorrect[k] !== 'boolean') {
+        p.autoCorrect[k] = (k === 'orange' && legacyOrange !== undefined) ? legacyOrange : DEFAULTS.autoCorrect[k];
+      }
+    }
+    // Keep the legacy mirror in lock-step so existing readers keep working.
+    p.autoCorrectOrange = p.autoCorrect.orange;
     if (typeof p.refLinks !== 'boolean') p.refLinks = DEFAULTS.refLinks;
     if (typeof p.refHighlight !== 'boolean') p.refHighlight = DEFAULTS.refHighlight;
     if (!VALID_LANGS.has(p.lang)) p.lang = DEFAULTS.lang;
@@ -128,7 +146,7 @@ const QuranPrefs = (() => {
     return validated;
   }
 
-  return { read, write, patch, DEFAULTS };
+  return { read, write, patch, DEFAULTS, applyDefaults };
 })();
 
 // CommonJS export so the Node prefs-validation test can require it (mirrors

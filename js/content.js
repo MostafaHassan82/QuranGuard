@@ -1306,6 +1306,25 @@ async function autoCorrectOranges({ persistedKeys, autoAll }) {
   return n;
 }
 
+// T201 P3 — auto-apply the gated text-replace to yellow findings (ratified Q-D:
+// yellow may autocorrect). Mirrors autoCorrectOranges: always re-apply prior
+// vetted corrections; when prefs.autoCorrect.yellow, correct every other yellow
+// that passes the integrity gate in correctTextInPlace (shaky matches are
+// refused there). red is NEVER auto-applied.
+async function autoCorrectYellows({ persistedKeys, autoAll }) {
+  const yellows = STATE.findings.filter(f => f.color === 'yellow');
+  let n = 0;
+  for (const f of yellows) {
+    const vetted = persistedKeys && persistedKeys.has(f.id);
+    if (!vetted && !autoAll) continue;
+    try {
+      const r = await correctTextInPlace(f.id, { persist: false, silent: true });
+      if (r?.ok && !r.result.fellBackToClipboard) n++;
+    } catch (_) {}
+  }
+  return n;
+}
+
 async function maybeMountSidebar(finalState) {
   if (typeof QuranPanelSidebar === 'undefined') return;
   if (finalState === 'empty' || finalState === 'notArabic') return;
@@ -1331,8 +1350,10 @@ async function maybeMountSidebar(finalState) {
       if (kind === 'correction' || kind === 'correct') correctedKeys.add(e.compositeKey);
     }
   }
-  const autoAll = STATE.prefs?.autoCorrectOrange === true;
-  const reapplied = await autoCorrectOranges({ persistedKeys: correctedKeys, autoAll });
+  const autoAll = STATE.prefs?.autoCorrect?.orange === true || STATE.prefs?.autoCorrectOrange === true;
+  let reapplied = await autoCorrectOranges({ persistedKeys: correctedKeys, autoAll });
+  // T201 P3 — yellow gated text-replace (autocorrect or prior vetted re-apply).
+  reapplied += await autoCorrectYellows({ persistedKeys: correctedKeys, autoAll: STATE.prefs?.autoCorrect?.yellow === true });
 
   // If anything changed, re-settle the badge/popup to the post-correction state.
   if (reapplied) {
@@ -1950,6 +1971,139 @@ async function correctInPlace(findingId, options = {}) {
   return { ok: true, result: { successorFindingId: successorId, fellBackToClipboard } };
 }
 
+// T201 P3 (FR-012/FR-022, ratified Q-B) — replace the cited TEXT in the page
+// with the AUTHENTIC mushaf wording and re-verify to a green/lightGreen
+// successor. Used by the yellow "fix wording" action and the red "accept
+// near-match" action. INTEGRITY (Principle I): we only ever write the authentic
+// JSON wording — never a guess, never the user's drift — so the citation becomes
+// MORE correct, never less; the write is gated so we never rewrite on a shaky
+// match. Mirrors correctInPlace's successor/persist/ingest plumbing.
+//   options.persist=false / options.silent=true: as in correctInPlace.
+async function correctTextInPlace(findingId, options = {}) {
+  const persist = options.persist !== false;
+  const silent = options.silent === true;
+  const f = STATE.findings.find(x => x.id === findingId);
+  if (!f) return { ok: false, error: { code: 'NOT_FOUND', message: 'finding not found' } };
+
+  // Resolve the authentic wording + the reference to re-verify against.
+  let authentic = null, verifyRef = null;
+  if (f.color === 'yellow') {
+    authentic = f.authenticExcerpt || f.authenticText || null;
+    verifyRef = f.matchedRef || f.matchedReference || null;
+  } else if (f.color === 'red' && f.nearMatch) {
+    authentic = f.nearMatch.authenticText || null;
+    verifyRef = f.nearMatch.refLabel || f.nearMatch.ref || null;
+  }
+  if (!authentic || !verifyRef) {
+    return { ok: false, error: { code: 'NOT_CORRECTABLE', message: 'no authentic wording / reference' } };
+  }
+  // Integrity gate: refuse shaky matches (multi-location text, or a `*` ayah-span
+  // excerpt that collapsed onto a single verse). Replacing on those could corrupt
+  // a possibly-correct citation.
+  const text = String(f.text || '');
+  const shaky = (text.includes('*') && !String(verifyRef).includes('-'))
+    || (Array.isArray(f.matchedRefs) && f.matchedRefs.length > 1);
+  if (shaky) return { ok: false, error: { code: 'AMBIGUOUS', message: 'match too shaky to rewrite' } };
+
+  const ayahSpan = document.querySelector(`[data-finding-id="${cssEscapeId(findingId)}"]`);
+
+  // Re-verify the authentic wording at its reference → the successor verdict
+  // (expected green; we never fabricate it).
+  let vres = null;
+  try { vres = await sendToBackground({ type: 'verifyFragmentByRef', text: authentic, ref: verifyRef, candidateConfidence: 'high' }); } catch (_) {}
+  const successorColor = (vres && vres.color) || 'green';
+  const successorMatchedRef = (vres && vres.matchedRef) || verifyRef;
+  const displayColor = (successorColor === 'green') ? 'lightGreen' : successorColor;
+  const successorId = computeCompositeFindingId(authentic, verifyRef, successorMatchedRef, f.domPath);
+  const correctedFromText = f.text;
+
+  let fellBackToClipboard = false;
+  STATE.swapInProgress = true;
+  try {
+    if (ayahSpan) {
+      // Permanent rewrite: stash the original page wording for transparency, then
+      // write the authentic text. (This is intentionally NOT the reversible swap;
+      // the citation is being corrected, not merely display-swapped.)
+      if (ayahSpan.dataset.quranCorrectedFrom == null) ayahSpan.dataset.quranCorrectedFrom = ayahSpan.textContent;
+      ayahSpan.textContent = authentic;
+      for (const c of ALL_HIGHLIGHT_CLASSES) ayahSpan.classList.remove(c);
+      if (CSS_BY_COLOR[displayColor]) ayahSpan.classList.add(CSS_BY_COLOR[displayColor]);
+      const tip = buildTooltip(displayColor, { color: displayColor, claimedRef: verifyRef, matchedRef: successorMatchedRef, deviation: vres && vres.deviation });
+      ayahSpan.dataset.findingId = successorId;
+      ayahSpan.dataset.color = displayColor;
+      ayahSpan.dataset.claimedRef = verifyRef;
+      ayahSpan.dataset.matchedRef = successorMatchedRef;
+      ayahSpan.dataset.tooltip = tip;
+      if (CATEGORY_LABEL_AR[displayColor]) ayahSpan.setAttribute('aria-label', tt('cat_' + displayColor) + (tip ? '. ' + tip : ''));
+    } else {
+      // No editable span (shadow DOM / cross-node) → copy the authentic citation
+      // for manual paste, like correctInPlace. Skipped on silent auto-apply.
+      fellBackToClipboard = true;
+      if (!silent) {
+        const clip = `${authentic} (${successorMatchedRef})`;
+        try {
+          if (typeof QuranActions !== 'undefined' && QuranActions.copy) await QuranActions.copy(clip);
+          else if (navigator.clipboard) await navigator.clipboard.writeText(clip);
+        } catch (_) {}
+      }
+    }
+  } finally {
+    setTimeout(() => { STATE.swapInProgress = false; }, 50);
+  }
+
+  if (silent && fellBackToClipboard) {
+    return { ok: true, result: { successorFindingId: null, fellBackToClipboard: true } };
+  }
+
+  const successor = {
+    ...f,
+    id: successorId,
+    category: successorColor,
+    color: displayColor,
+    correctedFromText,               // the original (drifted) wording we replaced
+    correctedFromRef: f.claimedRef || f.citedReference || null,
+    text: authentic,
+    citedReference: verifyRef,
+    claimedRef: verifyRef,
+    matchedReference: successorMatchedRef,
+    matchedRef: successorMatchedRef,
+    matchedRefs: [],
+    authenticText: (vres && vres.authenticText) || authentic,
+    authenticExcerpt: (vres && vres.authenticExcerpt) || authentic,
+    deviation: (vres && vres.deviation) || null,
+    diff: null,
+    nearMatch: null,
+    priorFindingId: findingId,
+    persistedBadge: null,
+  };
+  const idx = STATE.findings.findIndex(x => x.id === findingId);
+  if (idx !== -1) STATE.findings.splice(idx, 1, successor); else STATE.findings.push(successor);
+
+  if (!fellBackToClipboard && typeof QuranSwap !== 'undefined' && STATE.prefs) {
+    STATE.swapInProgress = true;
+    try { QuranSwap.applySwap(successor, STATE.prefs); } catch (_) {}
+    setTimeout(() => { STATE.swapInProgress = false; }, 50);
+  }
+
+  const perCategoryCount = { green: 0, lightBlue: 0, lightGreen: 0, yellow: 0, orange: 0, red: 0 };
+  for (const x of STATE.findings) if (perCategoryCount[x.color] !== undefined) perCategoryCount[x.color]++;
+  if (!silent) {
+    QuranMsg.emit('SCAN_COMPLETE', {
+      scanId: STATE.scanId, totalCount: STATE.findings.length, perCategoryCount,
+      finalState: computeFinalState(), languageDetected: STATE.languageDetected || 'ar',
+    });
+    if (typeof QuranPanelSidebar !== 'undefined' && QuranPanelSidebar.isMounted()) {
+      try { QuranPanelSidebar.ingest(successor, findingId); } catch (_) {}
+    }
+  }
+  window.__quranMatches = STATE.findings.slice();
+
+  if (persist) {
+    try { await QuranMsg.sendRequest('PERSIST_WRITE', { urlKey: pageUrlKey(), compositeKey: findingId, kind: 'correction', at: new Date().toISOString() }); } catch (_) {}
+  }
+  return { ok: true, result: { successorFindingId: successorId, fellBackToClipboard } };
+}
+
 if (chrome?.runtime?.onMessage) {
   chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     const { type, requestId, payload = {} } = msg;
@@ -2041,6 +2195,17 @@ if (chrome?.runtime?.onMessage) {
       return true;
     }
 
+    // CORRECT_TEXT_IN_PLACE — panel → content (T201 P3). Replace the cited TEXT
+    // with the authentic mushaf wording (yellow "fix wording" / red "accept
+    // near-match") and emit the green/lightGreen successor.
+    if (type === 'CORRECT_TEXT_IN_PLACE') {
+      const id = payload.findingId || msg.findingId;
+      correctTextInPlace(id)
+        .then(r => sendResponse(r.ok ? QuranMsg.okResponse(requestId, r.result) : QuranMsg.errResponse(requestId, r.error.code, r.error.message)))
+        .catch(e => sendResponse(QuranMsg.errResponse(requestId, 'INTERNAL', e.message)));
+      return true;
+    }
+
     // PERSISTED_CLEARED — the options page cleared saved corrections/dismissals;
     // drop stale badges from the open sidebar (T094 follow-up).
     if (type === 'PERSISTED_CLEARED') {
@@ -2097,7 +2262,10 @@ if (chrome?.runtime?.onMessage) {
       // Live "auto-correct all orange" toggle: if it's now on and the current
       // scan still has uncorrected orange findings, correct them in place now
       // and re-sync the sidebar/badge (rather than waiting for the next scan).
-      if (prefs.autoCorrectOrange && STATE.findings.some(f => f.color === 'orange')) {
+      const acOrange = prefs.autoCorrect?.orange === true || prefs.autoCorrectOrange === true;
+      const acYellow = prefs.autoCorrect?.yellow === true;
+      if ((acOrange && STATE.findings.some(f => f.color === 'orange')) ||
+          (acYellow && STATE.findings.some(f => f.color === 'yellow'))) {
         maybeMountSidebar(computeFinalState()).catch(() => {});
       }
       return;

@@ -184,6 +184,13 @@ const QuranActions = (() => {
     try { return await correctInPlace(findingId); } catch (_) { return { ok: false }; }
   }
 
+  // T201 P3 — text-replace correction (yellow "fix wording" / red "accept
+  // near-match") from the CONTENT world. content.js defines correctTextInPlace().
+  async function correctTextInContent(findingId) {
+    if (!findingId || typeof correctTextInPlace !== 'function') return { ok: false };
+    try { return await correctTextInPlace(findingId); } catch (_) { return { ok: false }; }
+  }
+
   // FR-012 from the POPUP world: ask the active tab's content script to perform
   // the correction. Resolves with the response payload {ok, result}.
   async function correctFromPopup(tabId, findingId) {
@@ -232,7 +239,7 @@ const QuranActions = (() => {
   return {
     buildRecord, friendlyText, toJson, buildShareUrl, buildShareArtifact,
     copy, copyRecord, copyRecordJson, copyShareArtifact, copyReport,
-    jumpInContent, jumpFromPopup, correctInContent, correctFromPopup,
+    jumpInContent, jumpFromPopup, correctInContent, correctTextInContent, correctFromPopup,
     urlKey, dismiss, restore,
   };
 })();
