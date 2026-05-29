@@ -46,3 +46,45 @@ All functional ambiguity was resolved by the 6 clarifications in [spec.md](./spe
 - **Alternatives considered**: a separate top-level prefs key — rejected: the existing `prefs.v1` object already centralizes preferences with default-fill/clamp.
 
 **No NEEDS CLARIFICATION items remain.**
+
+## T032 — Porting-Discipline Pass (Principle V)
+
+Read the advanced copy's autocomplete (read-only) at
+`C:\Users\mosta\PycharmProjects\QuranChromePlugin\js\content.js` (functions
+`isAutocompleteTarget`, `getEditableTextBeforeCaret`, the citation-detection
+regexes ~L1464-1496, `getTextControlCaretRect` mirror-div ~L1652, the typeahead
+dropdown, and `insertTypeaheadSuggestion` / `replaceContentEditableCitation`
+~L1824-1879). Confirmed **no implementation was ported verbatim** — the rebuild
+redesigns the shape in `js/compose/` and reuses the rebuilt verifier RPC.
+
+**Cases harvested (and where each is covered):**
+- Editable-target gating across `<input>`/`<textarea>`/contenteditable →
+  `editable.js#surfaceOf` + gate hosts in `autocomplete_check.js`.
+- Citation detection before the caret incl. bracket/quote openers → `detect.js`
+  (lead-in reuse + ornate-bracket case; gate covers `﴿ { ( " “`).
+- Caret-rect positioning for text controls vs contenteditable → `editable.js#caretRect`
+  (we deliberately use the field box for inputs rather than porting the advanced
+  copy's mirror-div pixel measurement — simpler, and the dropdown only needs to be
+  near the caret).
+- Multi-node contenteditable citation (lead-in + words in separate text nodes) →
+  the advanced copy **bails** (`range.startContainer.nodeType !== TEXT_NODE` →
+  return false); our `editable.js` block-scoped read + offset mapping **handles**
+  it (gate: "split-node (WhatsApp shape)").
+- End-word truncation / multi-citation fields → our scope menu + `startToEndWord`
+  with the FR-016 not-found refusal (US2 gate); the advanced copy has no scope menu.
+
+**Key divergences (shape redesigned, NOT ported):**
+- **Insertion**: advanced copy does a raw `range.deleteContents()` + `insertNode`
+  DOM splice (and a single insertion string `"{text} (ref)"`). Our `editable.js`
+  uses `execCommand('insertText')` so framework editors (Lexical/Draft/ProseMirror)
+  reconcile cleanly (the "lost lead-in" bug), with a raw-range **fallback** only for
+  plain contenteditable — and never deletes the user's surrounding text.
+- **Rendering**: the advanced copy has no persistent verdict/Quran-font markup; our
+  `render-editable.js` adds additive, text-preserving verdict spans (FR-018b),
+  pre-existing-on-focus (FR-018a), and fall-through (FR-011a).
+- **IME/composition**: the advanced copy has no `compositionstart/end` guard; our
+  `index.js` skips matching while `composing` and re-runs on `compositionend`.
+- **Matching**: reuses the rebuilt verifier via `MATCH_PARTIAL` (Principle V) — the
+  advanced copy's matching code was not consulted for our implementation.
+
+No verbatim code was copied; only the *case inventory* informed the design.

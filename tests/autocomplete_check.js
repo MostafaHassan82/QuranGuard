@@ -749,6 +749,34 @@ async function inPageTests() {
         ce.textContent.includes(ayah.text) && ce.textContent.includes('(البقرة:255)'), ce.textContent);
       await setLiveRender(true);
     }
+
+    // ── Polish: performance (T030 / SC-005) ────────────────────────────────────
+    // Matching is min-word gated + debounced: a rapid burst of keystrokes inside
+    // the debounce window must NOT fan out into one background round-trip per key.
+    {
+      let matchCalls = 0;
+      const origSend = chrome.runtime.sendMessage.bind(chrome.runtime);
+      chrome.runtime.sendMessage = function (msg, cb) {
+        if (msg && msg.type === 'MATCH_PARTIAL') matchCalls++;
+        return origSend(msg, cb);
+      };
+      const f = document.createElement('input');
+      f.type = 'text';
+      host.appendChild(f);
+      f.focus();
+      let acc = 'قال تعالى:';
+      for (const w of verseWords.slice(0, 5)) {        // type word-by-word, < debounce apart
+        acc += ' ' + w;
+        f.value = acc;
+        f.setSelectionRange(f.value.length, f.value.length);
+        f.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+      await waitCandidates();
+      await sleep(60);
+      chrome.runtime.sendMessage = origSend;
+      T('SC-005 rapid typing burst coalesces to a single match query (debounced)',
+        matchCalls === 1, 'matchCalls=' + matchCalls);
+    }
   }
 
   return results;
