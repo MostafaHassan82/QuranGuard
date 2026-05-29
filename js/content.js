@@ -857,6 +857,11 @@ function applyHighlight(candidate, result, { hidden = false } = {}) {
       // T058a — authentic wording for just the cited span (excerpt shape
       // preserved); swap.js prefers this over the full ayah.
       authenticExcerpt: result.authenticExcerpt || null,
+      // T201 V1.2 correction (P1, info-only): aligned word diff for yellow,
+      // fuzzy near-match suggestion for red. The panel surfaces these; they
+      // never alter the page.
+      diff: result.diff || null,
+      nearMatch: result.nearMatch || null,
       deviation: result.deviation,
       strategy: candidate.strategy,
       // T065 — exact on-page text of the cited reference (e.g. "(البقرة:3)").

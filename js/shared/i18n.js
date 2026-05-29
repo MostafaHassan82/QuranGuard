@@ -194,6 +194,12 @@ const QuranI18n = (() => {
       ac_endword_not_found: 'لم يُعثر على كلمة النهاية في الآية.',
       ac_not_recognized: 'لم يُتعرَّف على هذا الاقتباس',
       ac_no_matches: 'لا توجد آية مطابقة',
+      corr_diff_heading: 'الفرق عن النص الأصلي:',
+      corr_cited_label: 'المكتوب',
+      corr_authentic_label: 'الصواب',
+      corr_diff_missing: 'ناقص',
+      corr_diff_extra: 'زائد',
+      corr_did_you_mean: 'هل تقصد:',
     },
     en: {
       cat_green: 'Verified with reference',
@@ -364,6 +370,12 @@ const QuranI18n = (() => {
       ac_endword_not_found: 'End word not found in the ayah.',
       ac_not_recognized: 'Citation not recognized',
       ac_no_matches: 'No matching ayah',
+      corr_diff_heading: 'Difference from the authentic text:',
+      corr_cited_label: 'Written',
+      corr_authentic_label: 'Authentic',
+      corr_diff_missing: 'missing',
+      corr_diff_extra: 'extra',
+      corr_did_you_mean: 'Did you mean:',
     },
   };
 

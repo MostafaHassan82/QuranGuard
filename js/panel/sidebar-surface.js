@@ -496,6 +496,17 @@ const QuranPanelSidebar = (() => {
     row.append(head, snippet);
     if (refsLabel) row.append(refs);
 
+    // T201 P1 — yellow aligned diff: show the cited words vs the authentic ayah,
+    // missing words marked as insertions, extra words struck through, subs paired.
+    // Pure information (the design's §2a); never edits the page.
+    if (finding.color === 'yellow' && Array.isArray(finding.diff) && finding.diff.length) {
+      row.append(makeDiffBlock(finding.diff));
+    }
+    // T201 P1 — red near-match suggestion ("هل تقصد …؟"). Suggestion only.
+    if (finding.color === 'red' && finding.nearMatch && finding.nearMatch.authenticText) {
+      row.append(makeNearMatchBlock(finding.nearMatch));
+    }
+
     // Action buttons (T052). Primary action is row click = jump (FR-011a).
     const actions = document.createElement('div');
     actions.className = 'quran-ext-panel-actions';
@@ -528,6 +539,52 @@ const QuranPanelSidebar = (() => {
       row.append(badge);
     }
     return row;
+  }
+
+  // Render an aligned word-level diff (T201 P1 §2a). `keep` words are plain,
+  // `sub` shows authentic (the cited form is in the snippet above), `missing`
+  // (omitted by the author) is added, `extra` (in the citation, not the ayah) is
+  // struck through. Authentic-side wording only — never the author's drift.
+  function makeDiffBlock(diff) {
+    const wrap = document.createElement('div');
+    wrap.className = 'quran-ext-panel-diff';
+    const heading = document.createElement('div');
+    heading.className = 'quran-ext-panel-diff-heading';
+    heading.textContent = T('corr_diff_heading');
+    wrap.append(heading);
+    const line = document.createElement('div');
+    line.className = 'quran-ext-panel-diff-line quran-swap';
+    line.dir = 'rtl';
+    diff.forEach((d, i) => {
+      const w = document.createElement('span');
+      if (d.op === 'keep') { w.className = 'quran-ext-diff-keep'; w.textContent = d.authentic || d.cited || ''; }
+      else if (d.op === 'sub') { w.className = 'quran-ext-diff-sub'; w.textContent = d.authentic || ''; w.title = `${T('corr_cited_label')}: ${d.cited || ''}`; }
+      else if (d.op === 'missing') { w.className = 'quran-ext-diff-missing'; w.textContent = d.authentic || ''; w.title = T('corr_diff_missing'); }
+      else if (d.op === 'extra') { w.className = 'quran-ext-diff-extra'; w.textContent = d.cited || ''; w.title = T('corr_diff_extra'); }
+      if (w.textContent) { wrapAppendWord(line, w, i); }
+    });
+    wrap.append(line);
+    return wrap;
+  }
+  function wrapAppendWord(line, w, i) {
+    if (i > 0) line.append(document.createTextNode(' '));
+    line.append(w);
+  }
+
+  // Render a red near-match suggestion (T201 P1 §3): "هل تقصد: <ref> — <ayah>".
+  function makeNearMatchBlock(nm) {
+    const wrap = document.createElement('div');
+    wrap.className = 'quran-ext-panel-nearmatch';
+    const heading = document.createElement('span');
+    heading.className = 'quran-ext-panel-nearmatch-heading';
+    heading.textContent = T('corr_did_you_mean') + ' ';
+    wrap.append(heading, refToken(nm.refLabel || nm.ref || ''));
+    const ayah = document.createElement('div');
+    ayah.className = 'quran-ext-panel-nearmatch-text quran-swap';
+    ayah.dir = 'rtl';
+    ayah.textContent = nm.authenticText || '';
+    wrap.append(ayah);
+    return wrap;
   }
 
   function makeActionBtn(label, onClick) {
