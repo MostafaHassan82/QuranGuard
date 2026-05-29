@@ -692,6 +692,89 @@ no verifier or taxonomy change. Suite stayed 60/60 + checks green throughout.
     yellow autocorrect-on-scan; panel "fix wording" / "accept suggestion". Gate
     `tests/correction_prefs_check.js` (11/11). Full suite green; no regression.
 
+## Phase 14: Live highlighting on dynamic SPAs + memory hygiene (requested 2026-05-28)
+
+Two field reports against the shipped reader-side (validated by reading the
+current code, not yet fixed):
+
+- **#3 — Single-page apps don't highlight live.** On WhatsApp Web an ayah inside
+  a streamed message (and its mirror in the chat-list "last message") is NOT
+  highlighted as it arrives; clicking **Scan Page** does highlight it. Root
+  causes: (a) the first autoscan runs against the English app shell →
+  `detectLanguage()` returns non-Arabic → the fresh scan bails
+  `finalState:'notArabic'` (content.js); the real conversation streams in
+  *later* via mutations. (b) The T128 runaway/no-progress circuit breaker
+  **permanently disconnects** the `MutationObserver` (`pause()` →
+  `disconnect(); STATE.mutationObserver = null`) — fatal on a chat app that
+  re-renders constantly, so after the breaker trips nothing live-highlights and
+  only a manual scan works. Relates to **FR-019** (SPA route change vs. in-page
+  growth).
+- **#5 — Memory growth with many highlighted tabs.** Each tab retains
+  `STATE.findings` + `STATE.highlightedSpans`, a live `document.body`-subtree
+  observer, and a keep-warm port; nothing is released while a tab is
+  backgrounded. Needs measurement before optimization.
+
+**Constraints**: Principle V — harvest the WhatsApp/Telegram-web *cases* (DOM
+shape, mutation cadence) from the advanced copy at
+`C:\Users\mosta\PycharmProjects\QuranChromePlugin`; do not port its observer
+implementation. Principle VI — a dynamic fixture is the quality gate; capture
+intent (fixture fails today) before fixing.
+
+### #3 — Live highlighting on dynamic SPAs
+
+- [ ] T140 [P] **Dynamic-content repro fixture.** Build a synthetic fixture (+
+  harvest a WhatsApp/Telegram-web case per Principle V) that, after initial
+  load, inserts Arabic ayah nodes in bursts interleaved with non-Arabic UI
+  churn (presence/typing/timestamps). Drive via `tests/run_tests_node.js` (or a
+  small dynamic harness) and assert a highlight appears post-mutation WITHOUT a
+  manual scan. Must FAIL against today's code first. (`tests/fixtures/`, `tests/`)
+- [ ] T141 **Gate mutation rescans on NEW Arabic text.** In `setupMutationObserver`,
+  before scheduling a rescan require ≥1 added node whose text contains an Arabic
+  char (`AR_CHAR`). WhatsApp's non-Arabic churn currently counts toward
+  `MUT_MAX_RESCANS` and trips the breaker before any ayah arrives. (`js/content.js`)
+- [ ] T142 **Back-off + re-arm instead of permanent disconnect.** Replace the
+  T128 `pause()` kill-switch with a temporary pause + exponential re-arm
+  (e.g. 5s→10s→…cap). Keep the rate and no-progress signals as back-off
+  triggers, not life-of-page disconnects, so a true re-render fight stays cheap
+  but a chat app that keeps delivering Arabic resumes highlighting. (`js/content.js`)
+- [ ] T143 **Arm the observer even when the initial scan is `notArabic`.**
+  `maybeAutoscan()` wires the observer after `scanPage()`, but an English-shell
+  SPA returns `notArabic`; later Arabic messages must still highlight. Ensure
+  the observer is armed regardless of the initial language verdict (subtree
+  rescans already skip the language gate), or re-run language detection when
+  substantial new text arrives. (`js/content.js`)
+- [ ] T144 **Coalesce burst mutations + tune debounce for SPA cadence.** Streamed
+  messages produce many sibling roots; rescanning each subtree separately
+  multiplies work and trips the rate cap. Coalesce roots to a bounded nearest
+  common ancestor and re-evaluate `MUT_WINDOW_MS` / debounce for chat-app
+  timing. (`js/content.js`)
+
+**Checkpoint (#3)**: WhatsApp/Telegram-web ayahs highlight live without a manual
+Scan; the observer recovers after churn instead of dying; T140 fixture passes;
+existing suite stays green.
+
+### #5 — Memory hygiene across many tabs
+
+- [ ] T145 **Baseline memory profile (measure before optimizing).** Instrument
+  per-tab retained state (`STATE.findings` / `STATE.highlightedSpans` counts,
+  live observer, keep-warm port) and measure with N tabs (e.g. 20 / 50) each
+  highlighting. Record where the bytes go — no fix lands without a number.
+  (`js/content.js`; short measurement note under `specs/001-arabic-citation-auditor/`)
+- [ ] T146 **Release resources on hidden/backgrounded tabs.** The keep-warm port
+  already disconnects on hidden; also disconnect the `MutationObserver` on
+  `visibilitychange→hidden` and re-arm on visible (reuses T142's re-arm path).
+  Page-DOM spans need no eager teardown, but observers/listeners do. (`js/content.js`)
+- [ ] T147 **Bound retained findings on long-lived SPAs.** Audit that subtree
+  rescans don't grow `STATE.highlightedSpans` / `STATE.findings` unbounded
+  (both are pushed into on every rescan) and that detached spans are
+  GC-eligible after `clearHighlights`; add a cap/guard if needed. (`js/content.js`)
+- [ ] T148 **Audit keep-warm port lifecycle.** Confirm `keepWorkerWarm` reconnect
+  logic and `handleRouteChange` don't leak ports or pin the worker across dozens
+  of tabs / repeated SPA route changes. (`js/content.js`)
+
+**Checkpoint (#5)**: measured per-tab memory stays bounded with N tabs; idle /
+hidden tabs hold no live observer; suite stays green.
+
 ## Notes
 
 - **Constitution Principle V** (porting discipline) governs every verifier task. Read the advanced copy at `C:\Users\mosta\PycharmProjects\QuranChromePlugin` to catalog *cases*; redesign the *shape* in the rebuild. Small clean ports of pure data (surah-variant map, normalization tables) are allowed.
