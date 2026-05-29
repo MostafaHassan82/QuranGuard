@@ -147,35 +147,6 @@ const QuranComposeEditable = (() => {
     return pos;
   }
 
-  // Wrap [start, end) in a <span class=classNames> WITHOUT changing the text — a
-  // minimal in-editor mark. US3 uses this for the not-recognized red flag (FR-008);
-  // US4's render-editable.js layers full verdict/Quran-font rendering on top.
-  // contenteditable only — plain inputs can't carry markup (FR-018b), so it's a
-  // no-op there. Returns true iff the span was applied.
-  function markRange(ctx, start, end, classNames) {
-    if (!ctx || ctx.surface !== 'contenteditable' || end <= start) return false;
-    const root = ctx.node;
-    const doc = root.ownerDocument || document;
-    try {
-      const a = textOffsetToPoint(root, start);
-      const b = textOffsetToPoint(root, end);
-      const range = doc.createRange();
-      range.setStart(a.node, a.offset);
-      range.setEnd(b.node, b.offset);
-      const span = doc.createElement('span');
-      span.className = classNames;
-      // surroundContents throws when the range crosses element boundaries; fall
-      // back to extract+wrap, which tolerates a multi-node span (split editors).
-      try {
-        range.surroundContents(span);
-      } catch (_) {
-        span.appendChild(range.extractContents());
-        range.insertNode(span);
-      }
-      return true;
-    } catch (_) { return false; }
-  }
-
   // Approximate caret viewport rect for positioning the dropdown.
   function caretRect(ctx) {
     if (ctx.surface === 'contenteditable') {
@@ -192,5 +163,5 @@ const QuranComposeEditable = (() => {
     return { left: b.left, right: b.right, top: b.bottom, bottom: b.bottom, width: b.width, height: 0 };
   }
 
-  return { surfaceOf, getContext, replaceRange, markRange, caretRect };
+  return { surfaceOf, getContext, replaceRange, caretRect };
 })();

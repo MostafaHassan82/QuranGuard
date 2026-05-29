@@ -134,6 +134,21 @@ const QuranComposeDropdown = (() => {
     return input;
   }
 
+  // A non-interactive message row (e.g. "no matching ayah"). Shown instead of
+  // candidates so the user gets feedback WITHOUT the field ever being touched.
+  function showNote(text, rect) {
+    items = [];
+    onPick = null;
+    const node = ensureEl();
+    node.innerHTML = '';
+    const note = document.createElement('div');
+    note.className = 'quran-ac-note';
+    note.textContent = text;
+    node.appendChild(note);
+    node.style.display = 'block';
+    position(node, rect);
+  }
+
   const GAP = 2;          // px between caret and menu
   const VIEWPORT_PAD = 4; // keep this far from the viewport edges
 
@@ -208,5 +223,5 @@ const QuranComposeDropdown = (() => {
 
   function count() { return items.length; }
 
-  return { show, showScope, showEndWord, hide, setSelected, isVisible, count, contains };
+  return { show, showScope, showEndWord, showNote, hide, setSelected, isVisible, count, contains };
 })();

@@ -1083,34 +1083,46 @@ const TIER_RANK = { exact: 0, wordLevel: 1, fuzzy: 2 };
 function matchPartial(text, limit = 8) {
   if (!indexes) return { candidates: [] };
   const t1 = tier1Normalize(String(text || '').replace(/\*/g, ' '));
-  const words = t1.split(' ').filter(Boolean);
-  if (words.length === 0) return { candidates: [] };
+  const allWords = t1.split(' ').filter(Boolean);
+  if (allWords.length === 0) return { candidates: [] };
 
-  const seen = new Set();
-  const out = [];
-  const push = (rec, tier) => {
-    if (!rec) return;
-    const key = rec.surahNum + ':' + rec.ayahNum;
-    if (seen.has(key)) return;          // first (better) tier wins per verse
-    seen.add(key);
-    const verseWords = Array.isArray(rec.tier1Words) ? rec.tier1Words.length : 0;
-    out.push({
-      ref: { surah: rec.surahNum, ayah: rec.ayahNum },
-      refLabel: `${rec.surahName}:${rec.ayahNum}`,
-      surahName: rec.surahName,
-      authenticText: rec.text,
-      tier,
-      coverage: verseWords ? +(Math.min(words.length, verseWords) / verseWords).toFixed(3) : 0,
-    });
-  };
+  // Run the full cascade for a given word list. Separated so we can retry with a
+  // shorter list (drop a trailing partial word) when the full list matches nothing.
+  function collect(words) {
+    const seen = new Set();
+    const out = [];
+    const push = (rec, tier) => {
+      if (!rec) return;
+      const key = rec.surahNum + ':' + rec.ayahNum;
+      if (seen.has(key)) return;          // first (better) tier wins per verse
+      seen.add(key);
+      const verseWords = Array.isArray(rec.tier1Words) ? rec.tier1Words.length : 0;
+      out.push({
+        ref: { surah: rec.surahNum, ayah: rec.ayahNum },
+        refLabel: `${rec.surahName}:${rec.ayahNum}`,
+        surahName: rec.surahName,
+        authenticText: rec.text,
+        tier,
+        coverage: verseWords ? +(Math.min(words.length, verseWords) / verseWords).toFixed(3) : 0,
+      });
+    };
+    const joined = words.join(' ');
+    // Tier 1 — exact wording (full verse OR contiguous fragment anywhere in a verse)
+    for (const rec of sortRecs(findExactGlobal(joined))) push(rec, 'exact');
+    for (const rec of sortRecs(findOrderedContiguousGlobal(words))) push(rec, 'exact');
+    // Tier 2 — drift-tolerant ("word-level") contiguous match
+    if (out.length < limit) for (const rec of sortRecs(findOrderedContiguousSoftGlobal(words))) push(rec, 'wordLevel');
+    // Tier 3 — loosely-similar ("fuzzy") match (FR-007 red tier)
+    if (out.length < limit) for (const rec of sortRecs(findFuzzyGlobal(words))) push(rec, 'fuzzy');
+    return out;
+  }
 
-  // Tier 1 — exact wording (full verse OR contiguous fragment anywhere in a verse)
-  for (const rec of sortRecs(findExactGlobal(t1))) push(rec, 'exact');
-  for (const rec of sortRecs(findOrderedContiguousGlobal(words))) push(rec, 'exact');
-  // Tier 2 — drift-tolerant ("word-level") contiguous match
-  if (out.length < limit) for (const rec of sortRecs(findOrderedContiguousSoftGlobal(words))) push(rec, 'wordLevel');
-  // Tier 3 — loosely-similar ("fuzzy") match (FR-007 red tier)
-  if (out.length < limit) for (const rec of sortRecs(findFuzzyGlobal(words))) push(rec, 'fuzzy');
+  let out = collect(allWords);
+  // Narrowing fallback (FR-006): the user is often mid-word — e.g. "الحمد لله ر"
+  // while typing "رب". A 1-letter trailing token matches no whole verse word, so
+  // the full list yields nothing; retry without it so the in-progress citation
+  // keeps showing its candidate instead of flickering to "no match".
+  if (!out.length && allWords.length > 1) out = collect(allWords.slice(0, -1));
 
   out.sort((a, b) =>
     TIER_RANK[a.tier] - TIER_RANK[b.tier] || a.ref.surah - b.ref.surah || a.ref.ayah - b.ref.ayah);

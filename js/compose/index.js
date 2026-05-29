@@ -137,12 +137,17 @@
 
     qc('match', `${candidates.length} candidate(s) for "${qcPreview(det.citationText)}"`);
     if (!candidates.length) {
-      // No exact/wordLevel/fuzzy match → recognized-but-not-Quran (FR-008): mark
-      // the citation red where the surface supports styling, and record the
-      // fall-through verdict (FR-011a). US4's render-editable.js owns the full
-      // verdict/Quran-font rendering; this is the minimal red flag.
-      markNotRecognized(freshDet);
-      closeInstance('classified');
+      // No exact/wordLevel/fuzzy match. NEVER touch the field — show a non-
+      // destructive "no matching ayah" note in the dropdown and record the fall-
+      // through verdict (FR-008/011a). US4's render-editable.js owns any in-editor
+      // verdict styling; it must likewise never delete the user's text.
+      STATE.candidates = [];
+      STATE.mode = 'candidates';
+      STATE.pending = null;
+      publishCandidates();
+      hook.lastClassification = { ref: null, verdict: 'red', viaFallthrough: true };
+      setActive('classified');
+      QuranComposeDropdown.showNote(tt('ac_no_matches'), QuranComposeEditable.caretRect(fresh));
       return;
     }
     STATE.candidates = candidates;
@@ -265,23 +270,6 @@
     return null;
   }
 
-  // Flag a recognized-but-unmatched citation as not-recognized red (FR-008).
-  // Records the fall-through verdict on the hook for every surface; applies a
-  // minimal red span in contenteditable (plain inputs carry no markup, FR-018b).
-  // Full verdict/Quran-font rendering is US4 (render-editable.js).
-  function markNotRecognized(det) {
-    hook.lastClassification = { ref: null, verdict: 'red', viaFallthrough: true };
-    const ctx = STATE.ctx;
-    if (!ctx || !det) return;
-    const end = det.citeStart + det.citationText.length;
-    inserting = true;
-    try {
-      QuranComposeEditable.markRange(ctx, det.citeStart, end, 'quran-ac-cite quran-red');
-    } finally {
-      inserting = false;
-    }
-  }
-
   // ── Event wiring ────────────────────────────────────────────────────────────
   function onInput(e) {
     if (inserting || composing) { qc('input', `ignored (inserting=${inserting} composing=${composing})`); return; }
@@ -312,6 +300,11 @@
     // host's own keydown handlers (e.g. WhatsApp "send on Enter") from ever
     // seeing the key. Enter therefore behaves exactly like a mouse click on the
     // selected row — accept/choose, and nothing reaches the page.
+    // Only consume keys when there's something to act on. When the dropdown only
+    // shows a "no matching ayah" note (no candidates, no scope menu), let Enter/
+    // Tab/Arrows pass through to the page — the user is still just typing.
+    const actionable = STATE.mode === 'scope' || STATE.candidates.length > 0;
+    if (!actionable) return;
     const consume = () => { e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation(); };
     if (e.key === 'ArrowDown') { consume(); moveSelection(1); }
     else if (e.key === 'ArrowUp') { consume(); moveSelection(-1); }
@@ -321,6 +314,19 @@
       else accept(STATE.selIndex);
     }
     // No Esc handling by design (FR-011).
+  }
+
+  // Warm up the service worker when the user focuses an editable, so the verse
+  // index is already built by the time they finish the lead-in + first words —
+  // otherwise the first match waits on an MV3 cold start (the "dropdown takes too
+  // long" symptom). Throttled so refocus churn doesn't spam the worker.
+  let lastWarm = 0;
+  function onFocusIn(e) {
+    if (!QuranComposeEditable.surfaceOf(e.target)) return;
+    const now = Date.now();
+    if (now - lastWarm < 15000) return;
+    lastWarm = now;
+    try { chrome.runtime.sendMessage({ type: 'ping' }); } catch (_) {}
   }
 
   function onCompositionStart() { composing = true; }
@@ -343,6 +349,7 @@
   function attach() {
     document.addEventListener('input', onInput, true);
     document.addEventListener('keydown', onKeyDown, true);
+    document.addEventListener('focusin', onFocusIn, true);
     document.addEventListener('compositionstart', onCompositionStart, true);
     document.addEventListener('compositionend', onCompositionEnd, true);
     document.addEventListener('focusout', onFocusOut, true);

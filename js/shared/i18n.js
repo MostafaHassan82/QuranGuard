@@ -193,6 +193,7 @@ const QuranI18n = (() => {
       ac_endword_prompt: 'اكتب كلمة النهاية',
       ac_endword_not_found: 'لم يُعثر على كلمة النهاية في الآية.',
       ac_not_recognized: 'لم يُتعرَّف على هذا الاقتباس',
+      ac_no_matches: 'لا توجد آية مطابقة',
     },
     en: {
       cat_green: 'Verified with reference',
@@ -362,6 +363,7 @@ const QuranI18n = (() => {
       ac_endword_prompt: 'Type the end word',
       ac_endword_not_found: 'End word not found in the ayah.',
       ac_not_recognized: 'Citation not recognized',
+      ac_no_matches: 'No matching ayah',
     },
   };
 

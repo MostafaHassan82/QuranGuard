@@ -464,13 +464,14 @@ async function inPageTests() {
     }
 
     // (c) No match: gibberish Arabic words after a lead-in → recognized citation,
-    // zero candidates → not-recognized red (FR-008), in a contenteditable so the
-    // minimal red mark is observable.
+    // zero candidates → records the fall-through verdict AND shows a non-destructive
+    // "no matching ayah" note. CRITICAL: the user's text is NEVER touched.
     {
       const ce = document.createElement('div');
       ce.contentEditable = 'true';
       host.appendChild(ce);
-      ce.textContent = 'قال تعالى: ثقثقثق غضغضغض';
+      const original = 'قال تعالى: ثقثقثق غضغضغض';
+      ce.textContent = original;
       ce.focus();
       const tn = ce.firstChild;
       const range = document.createRange();
@@ -488,11 +489,11 @@ async function inPageTests() {
         JSON.stringify(window.__quranCompose.lastClassification));
       T('US3 unmatched text offers no candidates', (window.__quranCompose.candidates || []).length === 0,
         JSON.stringify(window.__quranCompose.candidates));
-      T('US3 not-recognized applies a minimal red mark in contenteditable (FR-008)',
-        !!ce.querySelector('.quran-red'), ce.innerHTML);
-      T('US3 not-recognized hook state is classified',
-        window.__quranCompose.active && window.__quranCompose.active.state === 'classified',
-        window.__quranCompose.active && window.__quranCompose.active.state);
+      T('US3 unmatched text NEVER deletes/alters the user text', ce.textContent === original, ce.textContent);
+      T('US3 not-recognized shows a "no matching ayah" note (no field mutation)',
+        !!(window.__quranCompose && window.__quranCompose.active && window.__quranCompose.active.state === 'classified')
+          && document.querySelector('.quran-ac-note') && document.querySelector('.quran-ac-menu').style.display !== 'none',
+        document.querySelector('.quran-ac-menu') && document.querySelector('.quran-ac-menu').innerHTML);
     }
 
     // ── Bug fixes (reported in manual testing) ──────────────────────────────────
@@ -552,6 +553,22 @@ async function inPageTests() {
         const expected = jw.slice(0, 5).join(' ');
         T('typedPortion keeps all typed words across Uthmani drift (5 words, not 3)',
           r && r.body === expected, JSON.stringify({ body: r && r.body, expected }));
+      }
+    }
+
+    // (2c) Mid-word narrowing (FR-006): "الحمد لله ر" (still typing "رب") must keep
+    // matching الفاتحة:2 via the drop-trailing-partial-word fallback, not vanish.
+    {
+      const fatiha2 = await send({ type: 'getAyahText', surahNum: 1, ayahNum: 2 });
+      T('getAyahText(1,2) returns text', fatiha2 && fatiha2.text, JSON.stringify(fatiha2));
+      if (fatiha2 && fatiha2.text) {
+        const fw = fatiha2.text.split(/\s+/).filter(Boolean);
+        const partial = fw.slice(0, 2).join(' ') + ' ' + Array.from(fw[2])[0];  // 2 words + 1st letter of 3rd
+        const r = await send({ type: 'MATCH_PARTIAL', text: partial, limit: 8 });
+        const cs = (r && r.candidates) || [];
+        T('partial trailing word still matches الفاتحة:2 (drop-last-word fallback)',
+          cs.some(c => c.ref && c.ref.surah === 1 && c.ref.ayah === 2),
+          JSON.stringify({ partial, cs: cs.slice(0, 3) }));
       }
     }
 
