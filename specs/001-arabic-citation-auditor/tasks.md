@@ -676,8 +676,21 @@ no verifier or taxonomy change. Suite stayed 60/60 + checks green throughout.
 
 ## Phase 13: V1.2 — correction/autocorrect for lightBlue / yellow / red (DESIGN)
 
-- [ ] T201 **Extend correct/autocorrect beyond orange.** See the design write-up at
-  the end of this file (and `research.md` once ratified). Flagship V1.2 feature.
+- [X] T201 **Extend correct/autocorrect beyond orange.** Design ratified 2026-05-29
+  (see `v1.2-correction-design.md`); implemented P1–P3. **Done:**
+  - **P1 (info, no edits):** verifier `enrichCorrection` adds a yellow aligned word
+    diff (keep/missing/extra/sub) + a red fuzzy `nearMatch` suggestion; panel shows
+    the diff (النص/الصواب) and a red "هل تقصد …؟". Gate `tests/correction_check.js` (13/13).
+  - **P2 (lightBlue, suggestion-only — Q-A):** `model.suggestRefForLightBlue` resolves
+    the missing ref, context-disambiguating from an adjacent green/lightGreen/corrected
+    finding when several refs match; panel offers copyable suggestions. NO page DOM
+    injection. Gate `tests/correction_model_check.js` (6/6).
+  - **P3 (yellow/red text-replace — Q-B; autocorrect — Q-D):** `correctTextInPlace`
+    rewrites cited text with AUTHENTIC mushaf wording → lightGreen successor,
+    integrity-gated (authentic-only, refuses shaky); prefs `autoCorrectOrange` →
+    `autoCorrect{orange,lightBlue,yellow}` (back-compat migrated; red never auto);
+    yellow autocorrect-on-scan; panel "fix wording" / "accept suggestion". Gate
+    `tests/correction_prefs_check.js` (11/11). Full suite green; no regression.
 
 ## Notes
 
