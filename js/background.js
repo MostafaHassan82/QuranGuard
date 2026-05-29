@@ -523,6 +523,108 @@ function findFuzzyGlobal(t1Words) {
   return results;
 }
 
+// ── V1.2 correction enrichment (T201) ───────────────────────────────────────
+// Pure-information outputs layered on a VerificationResult: an aligned word diff
+// for yellow (so the panel can show النص/الصواب) and a fuzzy near-match for red
+// (the "هل تقصد …؟" suggestion). Both reuse existing matching primitives
+// (Principle V) and add no new highlight color.
+
+// Resolve a "surahName:ayah" (or "...:a-b") display ref back to its byRef record.
+function recByRefLabel(refLabel) {
+  if (!refLabel || typeof refLabel !== 'string') return null;
+  const i = refLabel.lastIndexOf(':');
+  if (i < 0) return null;
+  const name = refLabel.slice(0, i).trim();
+  const ayahNum = parseInt(refLabel.slice(i + 1), 10);
+  if (!Number.isFinite(ayahNum)) return null;
+  let surahNum = indexes.surahNameIndex.get(tier1Normalize(name));
+  if (surahNum == null) surahNum = indexes.surahNameIndex.get(toSkeleton(tier1Normalize(name)));
+  if (surahNum == null) return null;
+  return indexes.byRef[surahNum]?.[ayahNum] || null;
+}
+
+// Best-aligning contiguous window of `ayahT1` for `candT1`, by soft edit distance.
+function bestAlignWindow(candT1, ayahT1) {
+  const allowed = Math.max(2, Math.ceil(candT1.length / 4));
+  const minLen = Math.max(1, candT1.length - allowed);
+  const maxLen = Math.min(ayahT1.length, candT1.length + allowed);
+  let best = null;
+  for (let s = 0; s + minLen <= ayahT1.length; s++) {
+    for (let L = minLen; L <= maxLen && s + L <= ayahT1.length; L++) {
+      const d = wordEditDistance(candT1, ayahT1.slice(s, s + L), allowed);
+      if (d !== null && (best === null || d < best.d)) best = { s, L, d };
+      if (best && best.d === 0) return best;
+    }
+  }
+  return best;
+}
+
+// Needleman–Wunsch alignment (softEqualWord = 0-cost match) with traceback into
+// an op list. Display words (cited/authentic) ride 1:1 with their tier1 arrays.
+function alignedWordDiff(candT1, candDisp, winT1, winDisp) {
+  const m = candT1.length, n = winT1.length;
+  const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+  for (let i = 0; i <= m; i++) dp[i][0] = i;
+  for (let j = 0; j <= n; j++) dp[0][j] = j;
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      const cost = softEqualWord(candT1[i - 1], winT1[j - 1]) ? 0 : 1;
+      dp[i][j] = Math.min(dp[i - 1][j] + 1, dp[i][j - 1] + 1, dp[i - 1][j - 1] + cost);
+    }
+  }
+  const ops = [];
+  let i = m, j = n;
+  while (i > 0 || j > 0) {
+    if (i > 0 && j > 0) {
+      const cost = softEqualWord(candT1[i - 1], winT1[j - 1]) ? 0 : 1;
+      if (dp[i][j] === dp[i - 1][j - 1] + cost) {
+        ops.push(cost === 0
+          ? { op: 'keep', cited: candDisp[i - 1], authentic: winDisp[j - 1] }
+          : { op: 'sub', cited: candDisp[i - 1], authentic: winDisp[j - 1] });
+        i--; j--; continue;
+      }
+    }
+    if (i > 0 && dp[i][j] === dp[i - 1][j] + 1) {        // cited word with no authentic counterpart
+      ops.push({ op: 'extra', cited: candDisp[i - 1], authentic: null }); i--; continue;
+    }
+    ops.push({ op: 'missing', cited: null, authentic: winDisp[j - 1] }); j--;  // authentic word the user omitted
+  }
+  ops.reverse();
+  return ops;
+}
+
+// Attach `diff` (yellow) / `nearMatch` (red) to a result. No-op for other colors.
+function enrichCorrection(r, text) {
+  if (!r || !r.color) return r;
+  const clean = String(text || '').replace(/\*/g, ' ');
+  if (r.color === 'yellow' && r.matchedRef) {
+    const rec = recByRefLabel(r.matchedRef);
+    if (rec) {
+      const candT1 = tier1Normalize(clean).split(' ').filter(Boolean);
+      const candDisp = clean.split(/\s+/).filter(Boolean);
+      const win = candT1.length ? bestAlignWindow(candT1, rec.tier1Words) : null;
+      if (win) {
+        const ayahDisp = rec.uthmaniWords && rec.uthmaniWords.length === rec.tier1Words.length
+          ? rec.uthmaniWords : rec.text.split(/\s+/).filter(Boolean);
+        r.diff = alignedWordDiff(
+          candT1, candDisp,
+          rec.tier1Words.slice(win.s, win.s + win.L),
+          ayahDisp.slice(win.s, win.s + win.L));
+      }
+    }
+  } else if (r.color === 'red') {
+    const candT1 = tier1Normalize(clean).split(' ').filter(Boolean);
+    if (candT1.length >= 2) {
+      const recs = findFuzzyGlobal(candT1);
+      if (recs && recs.length) {
+        const rec = sortRecs(recs)[0];
+        r.nearMatch = { ref: rec.ref, refLabel: `${rec.surahName}:${rec.ayahNum}`, authenticText: rec.text };
+      }
+    }
+  }
+  return r;
+}
+
 // Returns all Quran locations where the candidate text occurs, exact and partial.
 // Used to populate allExactRefs / allPartialRefs in the result for tooltip display.
 function findAllGlobalMatches(t1, words) {
@@ -1251,13 +1353,13 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       switch (msg.type) {
         case 'verifyFragment': {
           const t0 = performance.now();
-          const r = verifyFragment(msg.text, msg.candidateConfidence);
+          const r = enrichCorrection(verifyFragment(msg.text, msg.candidateConfidence), msg.text);
           if (r) r._bgMs = +(performance.now() - t0).toFixed(2);
           return r;
         }
         case 'verifyFragmentByRef': {
           const t0 = performance.now();
-          const r = verifyFragmentByRef(msg.text, msg.ref, msg.candidateConfidence, !!msg.debug);
+          const r = enrichCorrection(verifyFragmentByRef(msg.text, msg.ref, msg.candidateConfidence, !!msg.debug), msg.text);
           if (r) r._bgMs = +(performance.now() - t0).toFixed(2);
           return r;
         }
@@ -1276,9 +1378,9 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           const prof = QuranLog.enabled('debug') ? [] : null;
           const results = items.map(it => {
             const ts = prof ? performance.now() : 0;
-            const r = it.type === 'verifyFragmentByRef'
+            const r = enrichCorrection(it.type === 'verifyFragmentByRef'
               ? verifyFragmentByRef(it.text, it.ref, it.candidateConfidence, !!it.debug)
-              : verifyFragment(it.text, it.candidateConfidence);
+              : verifyFragment(it.text, it.candidateConfidence), it.text);
             if (prof) prof.push({ ms: performance.now() - ts, type: it.type, matchType: r?.matchType || 'none', color: r?.color ?? 'null', text: it.text || '' });
             return r;
           });

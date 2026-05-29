@@ -50,6 +50,12 @@ const QuranClassify = (() => {
       matchType: o.matchType ?? 'none',
       allExactRefs: o.allExactRefs ?? [],
       allPartialRefs: o.allPartialRefs ?? [],
+      // V1.2 correction (T201). Aligned word-level diff for yellow (op list
+      // cited↔authentic); a fuzzy near-match suggestion for red. Both are added
+      // post-hoc by background.js enrichCorrection (they need index access), so
+      // they default null here and are pure information (no taxonomy change).
+      diff: o.diff ?? null,
+      nearMatch: o.nearMatch ?? null,
     };
   }
 
