@@ -21,6 +21,14 @@ let indexes = null;
 let initPromise = null;
 let dataState = 'pending'; // 'pending' | 'ready' | 'unavailable'
 let dataError = null;      // {reason, detail} when dataState === 'unavailable'
+// True when the failure that produced 'unavailable' is transient (a cold-start
+// fetch/network failure, common on a resource-starved browser with many tabs)
+// rather than deterministic (schema failure). Transient failures must NOT latch
+// the worker into a permanent dead state: the keep-warm ports from open tabs pin
+// the worker alive so it never gets evicted, and an extension reload doesn't
+// reliably restart it in Chromium/Brave — leaving the only recovery a full
+// browser restart. ensureInitialized() clears the latch and retries instead.
+let dataErrorTransient = false;
 
 // Lifecycle/diagnostic logging now goes through QuranLog levels (shared/log.js):
 //   info  = worker boot, "Index ready", findings count
@@ -84,6 +92,9 @@ async function loadAndIndex() {
     const err = { reason: e.reason || 'unreadable', detail: e.detail || String(e) };
     dataState = 'unavailable';
     dataError = err;
+    // Fetch/network failures are transient — retry on the next request rather
+    // than dead-latching the worker (see dataErrorTransient).
+    dataErrorTransient = true;
     broadcastToContent('DATA_UNAVAILABLE', err);
     chrome.runtime.sendMessage({ type: 'DATA_UNAVAILABLE', requestId: QuranMsg.randomId(), payload: err }).catch(() => {});
     throw err;
@@ -94,6 +105,9 @@ async function loadAndIndex() {
     const err = { reason: 'schemaFailure', detail: `Schema validation failed: ${schemaErr}` };
     dataState = 'unavailable';
     dataError = err;
+    // Schema failure is deterministic — the same bytes will fail again, so let
+    // it latch (retrying would just spin).
+    dataErrorTransient = false;
     broadcastToContent('DATA_UNAVAILABLE', err);
     chrome.runtime.sendMessage({ type: 'DATA_UNAVAILABLE', requestId: QuranMsg.randomId(), payload: err }).catch(() => {});
     throw err;
@@ -104,6 +118,7 @@ async function loadAndIndex() {
   const buildMs = performance.now() - tBuild;
   dataState = 'ready';
   dataError = null;
+  dataErrorTransient = false;
   const totalMs = performance.now() - tFetch;
   QuranLog.scope('index').info(
     `ready — cold start: fetch=${Math.round(fetchMs)}ms parse=${Math.round(parseMs)}ms ` +
@@ -114,7 +129,15 @@ async function loadAndIndex() {
 
 async function ensureInitialized() {
   if (dataState === 'ready') return;
-  if (dataState === 'unavailable') throw new Error(dataError?.detail || 'Data unavailable');
+  if (dataState === 'unavailable') {
+    // Deterministic failure (schema) — don't spin; surface the error.
+    if (!dataErrorTransient) throw new Error(dataError?.detail || 'Data unavailable');
+    // Transient failure (cold-start fetch) — clear the latch and fall through to
+    // re-attempt loadAndIndex(), so the worker recovers on the next request
+    // without needing the worker to be killed (i.e. a full browser restart).
+    dataState = 'pending';
+    dataError = null;
+  }
   if (!initPromise) {
     initPromise = loadAndIndex().catch(err => {
       initPromise = null;
