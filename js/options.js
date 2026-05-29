@@ -107,6 +107,20 @@ async function applyPrefsToUI(prefs) {
     anchorSel.disabled = (prefs?.panelPosition || 'auto') !== 'float';  // only relevant when floating
   }
 
+  // Ayah autocomplete (feature 003). Defaults: enabled/liveRender on,
+  // arabicName/after, minWords 2 — mirrors prefs.js DEFAULTS.autocomplete.
+  const ac = prefs?.autocomplete || {};
+  const acEnable = document.getElementById('ac-enable');
+  if (acEnable) acEnable.checked = ac.enabled !== false;
+  const acLiveRender = document.getElementById('ac-live-render');
+  if (acLiveRender) acLiveRender.checked = ac.liveRender !== false;
+  const acRefFormat = document.getElementById('ac-ref-format');
+  if (acRefFormat) acRefFormat.value = ac.refFormat === 'number' ? 'number' : 'arabicName';
+  const acRefPlacement = document.getElementById('ac-ref-placement');
+  if (acRefPlacement) acRefPlacement.value = ac.refPlacement === 'before' ? 'before' : 'after';
+  const acMinWords = document.getElementById('ac-min-words');
+  if (acMinWords) acMinWords.value = String(Math.min(5, Math.max(1, parseInt(ac.minWords, 10) || 2)));
+
   const collapsed = await loadSidebarCollapsed();
   const elState = document.getElementById(collapsed ? 'state-collapsed' : 'state-expanded');
   if (elState) elState.checked = true;
@@ -186,6 +200,25 @@ document.addEventListener('DOMContentLoaded', async () => {
     radio.addEventListener('change', () => {
       if (radio.checked) saveSidebarCollapsed(radio.value === 'collapsed');
     });
+  });
+
+  // Ayah autocomplete (feature 003 / FR-019). Each control patches the
+  // prefs.autocomplete sub-object; PREFS_CHANGED reaches the content script's
+  // compose orchestrator live (no reload).
+  document.getElementById('ac-enable').addEventListener('change', (e) => {
+    savePrefs({ autocomplete: { enabled: e.target.checked } });
+  });
+  document.getElementById('ac-live-render').addEventListener('change', (e) => {
+    savePrefs({ autocomplete: { liveRender: e.target.checked } });
+  });
+  document.getElementById('ac-ref-format').addEventListener('change', (e) => {
+    savePrefs({ autocomplete: { refFormat: e.target.value } });
+  });
+  document.getElementById('ac-ref-placement').addEventListener('change', (e) => {
+    savePrefs({ autocomplete: { refPlacement: e.target.value } });
+  });
+  document.getElementById('ac-min-words').addEventListener('change', (e) => {
+    savePrefs({ autocomplete: { minWords: parseInt(e.target.value, 10) } });
   });
 
   // Clear remembered corrections + dismissals (T072 / FR-024).

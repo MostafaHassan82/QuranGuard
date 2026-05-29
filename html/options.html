@@ -113,6 +113,44 @@
         </div>
       </section>
 
+      <!-- ── Ayah autocomplete (writer-side, feature 003) ─────────────── -->
+      <section class="opt-section">
+        <h2 class="opt-section-title" data-i18n="ac_section">الإكمال التلقائي للآيات</h2>
+        <div class="opt-card">
+          <label class="opt-row">
+            <input type="checkbox" id="ac-enable"><span data-i18n="ac_enable">تفعيل الإكمال التلقائي أثناء الكتابة</span>
+          </label>
+          <div class="opt-hint" data-i18n="ac_enable_hint">يقترح الآية الصحيحة ومرجعها عندما تكتب اقتباسًا قرآنيًا. لإيقافه استخدم هذا الخيار (لا يوجد مفتاح إلغاء مؤقت).</div>
+          <label class="opt-row">
+            <input type="checkbox" id="ac-live-render"><span data-i18n="ac_live_render">تمييز الآيات في حقول الكتابة بألوان التحقق وخط المصحف</span>
+          </label>
+          <label class="opt-field">
+            <span class="opt-field-label" data-i18n="ac_ref_format">صيغة المرجع المُدرَج:</span>
+            <select id="ac-ref-format">
+              <option value="arabicName" data-i18n="ac_ref_format_name">اسم السورة (البقرة:٢٥٥)</option>
+              <option value="number" data-i18n="ac_ref_format_number">رقم السورة (٢:٢٥٥)</option>
+            </select>
+          </label>
+          <label class="opt-field">
+            <span class="opt-field-label" data-i18n="ac_ref_placement">موضع المرجع:</span>
+            <select id="ac-ref-placement">
+              <option value="after" data-i18n="ac_ref_placement_after">بعد الآية</option>
+              <option value="before" data-i18n="ac_ref_placement_before">قبل الآية</option>
+            </select>
+          </label>
+          <label class="opt-field">
+            <span class="opt-field-label" data-i18n="ac_min_words">أقل عدد كلمات قبل بدء الاقتراح:</span>
+            <select id="ac-min-words">
+              <option value="1">1</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+              <option value="4">4</option>
+              <option value="5">5</option>
+            </select>
+          </label>
+        </div>
+      </section>
+
       <!-- ── Results panel ────────────────────────────────────────────── -->
       <section class="opt-section">
         <h2 class="opt-section-title" data-i18n="sec_panel">لوحة النتائج</h2>

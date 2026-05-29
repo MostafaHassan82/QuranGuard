@@ -34,7 +34,10 @@ const BACKGROUND_DEPS = [
   'js/verifier/orange.js', 'js/storage/prefs.js', 'js/storage/persisted.js', 'js/badge/badge.js',
 ];
 // Compose bundle is loaded only once the modules exist (forward-compatible).
+// js/render/fonts.js precedes the compose modules in the real manifest; include
+// it so render-editable.js can resolve the Quran font family (FR-018).
 const COMPOSE_BUNDLE = [
+  'js/render/fonts.js',
   'js/compose/editable.js', 'js/compose/detect.js', 'js/compose/match.js',
   'js/compose/dropdown.js', 'js/compose/insert.js', 'js/compose/render-editable.js',
   'js/compose/index.js',
@@ -622,6 +625,129 @@ async function inPageTests() {
           endIdx > 0 && ins && ins.scope === 'startToEndWord' && f.value.includes(expected),
           JSON.stringify({ value: f.value, expected, ins }));
       }
+    }
+
+    // ── US4: live verdict + Quran-font rendering, fall-through, settings ────────
+    // (T025-T029). Persistent markup in contenteditable (FR-018b), text-only skip
+    // in plain inputs, pre-existing-on-focus (FR-018a), caret-away fall-through
+    // (FR-011a), and the live-render settings toggle (FR-019).
+    const setCaretEnd = (ce) => {
+      const r = document.createRange();
+      const tn = ce.firstChild;
+      r.setStart(tn, tn.textContent.length); r.collapse(true);
+      const s = document.getSelection(); s.removeAllRanges(); s.addRange(r);
+    };
+    const setLiveRender = async (on) => {
+      await chrome.runtime.sendMessage({ type: 'PREFS_CHANGED', payload: { prefs: {
+        autocomplete: { enabled: true, liveRender: on, refFormat: 'arabicName', refPlacement: 'after', minWords: 2 } } } });
+      await sleep(10);
+    };
+
+    // (a) contenteditable accept → persistent verdict markup + Quran font (FR-018/018b).
+    {
+      const ce = document.createElement('div');
+      ce.contentEditable = 'true';
+      host.appendChild(ce);
+      ce.textContent = 'قال تعالى: ' + lead4;
+      ce.focus();
+      setCaretEnd(ce);
+      ce.dispatchEvent(new Event('input', { bubbles: true }));
+      await waitCandidates();
+      window.__quranCompose.acceptSelected();
+      await sleep(20);
+      window.__quranCompose.chooseScope('whole');
+      await sleep(40);
+      const ins = window.__quranCompose.lastInsertion;
+      T('US4 contenteditable insert persists verdict markup (persistedMarkup=true)',
+        ins && ins.persistedMarkup === true, JSON.stringify(ins));
+      const span = ce.querySelector('.quran-ac-cite');
+      T('US4 inserted ayah is wrapped in the verdict span (.quran-green for exact)',
+        !!span && span.classList.contains('quran-green'), span && span.className);
+      T('US4 verdict span carries the Quran-font class',
+        !!span && span.classList.contains('quran-ac-cite-quranfont'), span && span.className);
+      T('US4 contenteditable markup is non-destructive (ayah + ref + lead-in intact)',
+        ce.textContent.includes(ayah.text) && ce.textContent.includes('(البقرة:255)') && ce.textContent.includes('قال تعالى'),
+        ce.textContent);
+    }
+
+    // (b) plain input accept → styling skipped, matching/insertion preserved (FR-018b).
+    {
+      const f = await setupCitation(lead4);
+      window.__quranCompose.chooseScope('whole');
+      await sleep(20);
+      const ins = window.__quranCompose.lastInsertion;
+      T('US4 plain input insert skips markup (persistedMarkup=false)',
+        ins && ins.persistedMarkup === false, JSON.stringify(ins));
+      T('US4 plain input still inserts authentic ayah + ref (no styling, matching intact)',
+        f.value.includes(ayah.text) && f.value.includes('(البقرة:255)'), f.value);
+    }
+
+    // (c) pre-existing citation rendered on focus, NOT rewritten (FR-018a).
+    {
+      const ce = document.createElement('div');
+      ce.contentEditable = 'true';
+      const original = 'قال تعالى: ' + lead4;
+      ce.textContent = original;
+      host.appendChild(ce);
+      ce.focus();                       // pre-existing content — no typing
+      const rendered = await waitFor(() => !!ce.querySelector('.quran-ac-cite'));
+      T('US4 pre-existing citation renders on focus (FR-018a)', rendered, ce.innerHTML);
+      const span = ce.querySelector('.quran-ac-cite');
+      T('US4 pre-existing render uses the verdict color (green for exact)',
+        !!span && span.classList.contains('quran-green'), span && span.className);
+      T('US4 pre-existing render does NOT rewrite the text', ce.textContent === original, ce.textContent);
+      T('US4 pre-existing render records a fall-through classification',
+        window.__quranCompose.lastClassification && window.__quranCompose.lastClassification.viaFallthrough === true
+          && window.__quranCompose.lastClassification.verdict === 'green',
+        JSON.stringify(window.__quranCompose.lastClassification));
+    }
+
+    // (d) caret-away with candidates still showing → verdict fall-through (FR-011a).
+    {
+      const ce = document.createElement('div');
+      ce.contentEditable = 'true';
+      const original = 'قال تعالى: ' + lead4;
+      ce.textContent = original;
+      host.appendChild(ce);
+      ce.focus();
+      setCaretEnd(ce);
+      ce.dispatchEvent(new Event('input', { bubbles: true }));
+      await waitCandidates();
+      const sink = document.createElement('input');     // move the caret away (blur)
+      sink.type = 'text';
+      host.appendChild(sink);
+      sink.focus();
+      await sleep(40);
+      T('US4 caret-away marks the unresolved citation by verdict (fall-through, FR-011a)',
+        !!ce.querySelector('.quran-ac-cite.quran-green'), ce.innerHTML);
+      T('US4 fall-through classification recorded (viaFallthrough)',
+        window.__quranCompose.lastClassification && window.__quranCompose.lastClassification.viaFallthrough === true,
+        JSON.stringify(window.__quranCompose.lastClassification));
+      T('US4 fall-through never deletes the user text', ce.textContent === original, ce.textContent);
+    }
+
+    // (e) liveRender OFF → no markup, but matching + insertion still work (FR-019).
+    {
+      await setLiveRender(false);
+      const ce = document.createElement('div');
+      ce.contentEditable = 'true';
+      host.appendChild(ce);
+      ce.textContent = 'قال تعالى: ' + lead4;
+      ce.focus();
+      setCaretEnd(ce);
+      ce.dispatchEvent(new Event('input', { bubbles: true }));
+      await waitCandidates();
+      window.__quranCompose.acceptSelected();
+      await sleep(20);
+      window.__quranCompose.chooseScope('whole');
+      await sleep(40);
+      const ins = window.__quranCompose.lastInsertion;
+      T('US4 liveRender off → no persistent markup (FR-019)',
+        ins && ins.persistedMarkup === false && !ce.querySelector('.quran-ac-cite'),
+        JSON.stringify({ persisted: ins && ins.persistedMarkup, html: ce.innerHTML }));
+      T('US4 liveRender off still inserts authentic ayah + ref (matching/insertion preserved)',
+        ce.textContent.includes(ayah.text) && ce.textContent.includes('(البقرة:255)'), ce.textContent);
+      await setLiveRender(true);
     }
   }
 

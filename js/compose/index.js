@@ -17,11 +17,19 @@
 (() => {
   const DEBOUNCE_MS = 100;
   const LIMIT = 8;
+  // Pre-existing-on-focus render (FR-018a) is scheduled this long after focus and
+  // CANCELED the moment the author starts typing — a field they immediately type
+  // into is a newly-typed citation (dropdown territory), not pre-existing content.
+  const FOCUS_RENDER_MS = 60;
 
   let settings = { enabled: true, liveRender: true, refFormat: 'arabicName', refPlacement: 'after', minWords: 2 };
+  // The global Quran-font choice (prefs.font, NOT under prefs.autocomplete) used
+  // when rendering matched text in-editor (FR-018).
+  let fontKey = 'uthmaniHafs';
   let composing = false;
   let inserting = false;
   let debounceTimer = null;
+  let focusRenderTimer = null;     // pending pre-existing-on-focus render (FR-018a)
   let queryToken = 0;
 
   // Live state for the active citation/dropdown.
@@ -85,11 +93,14 @@
       const resp = await QuranMsg.sendRequest('PREFS_READ', {});
       const prefs = resp && resp.payload && resp.payload.result;
       if (prefs && prefs.autocomplete) settings = prefs.autocomplete;
+      if (prefs && prefs.font) fontKey = prefs.font;
     } catch (_) {}
   }
   chrome.runtime.onMessage.addListener((msg) => {
-    if (msg && msg.type === 'PREFS_CHANGED' && msg.payload && msg.payload.prefs && msg.payload.prefs.autocomplete) {
-      settings = msg.payload.prefs.autocomplete;
+    if (msg && msg.type === 'PREFS_CHANGED' && msg.payload && msg.payload.prefs) {
+      const prefs = msg.payload.prefs;
+      if (prefs.autocomplete) settings = prefs.autocomplete;
+      if (prefs.font) fontKey = prefs.font;
       if (!settings.enabled) closeInstance('classified');
     }
     // no response needed
@@ -146,6 +157,12 @@
       STATE.pending = null;
       publishCandidates();
       hook.lastClassification = { ref: null, verdict: 'red', viaFallthrough: true };
+      // FR-008/011a: a recognized-but-unmatched citation falls through to the
+      // verdict classifier — mark it red. Additive markup only (never deletes the
+      // user's text); a no-op in plain inputs and when liveRender is off.
+      if (settings.liveRender) {
+        QuranComposeRenderEditable.mark(fresh, freshDet.citeStart, fresh.caret, 'red', {});
+      }
       setActive('classified');
       QuranComposeDropdown.showNote(tt('ac_no_matches'), QuranComposeEditable.caretRect(fresh));
       return;
@@ -254,15 +271,26 @@
       inserting = false;
     }
     const cand = p.cand;
+    const verdict = QuranComposeRenderEditable.verdictForTier(cand.tier);
+    // FR-018/018b: in contenteditable, render the just-inserted authentic ayah by
+    // its verdict color + Quran font as PERSISTENT markup. Additive only — wraps
+    // the inserted run, never re-splices the user's surrounding text. Skipped in
+    // plain inputs (cannot hold markup) and when liveRender is off.
+    let persistedMarkup = false;
+    if (settings.liveRender && p.ctx.surface === 'contenteditable') {
+      persistedMarkup = QuranComposeRenderEditable.mark(
+        p.ctx, p.start, p.start + built.text.length, verdict,
+        { fontFamily: QuranComposeRenderEditable.fontFamily(fontKey) });
+    }
     hook.lastInsertion = {
       ref: cand.refLabel,
       scope,
       insertedText: built.text,
       reference: QuranComposeInsert.buildReference(cand, settings),
       surface: p.ctx.surface,
-      persistedMarkup: false,        // US4 sets true for contenteditable styled markup
+      persistedMarkup,
     };
-    hook.lastClassification = { ref: cand.refLabel, verdict: cand.tier === 'exact' ? 'green' : (cand.tier === 'wordLevel' ? 'yellow' : 'red'), viaFallthrough: false };
+    hook.lastClassification = { ref: cand.refLabel, verdict, viaFallthrough: false };
     const targetEl = p.ctx.el;
     closeInstance('inserted');
     // Let host frameworks observe the programmatic edit.
@@ -270,9 +298,57 @@
     return null;
   }
 
+  // ── Fall-through classification (FR-011a) ─────────────────────────────────
+  // A recognized citation the author did NOT resolve via the dropdown (caret
+  // moved away / typed past with candidates still showing) is handed to the
+  // verdict classifier so it is still highlighted by its verdict color. Uses the
+  // top candidate's tier (Principle V — reuse the matcher's decision). The
+  // no-candidate case is already handled inline in process() (marked red there).
+  function dismissFallthrough() {
+    if (!settings.liveRender) return;
+    if (STATE.mode !== 'candidates') return;        // scope/end-word menus aren't dismissals
+    const top = STATE.candidates[0];
+    if (!top || !STATE.det || !STATE.ctx) return;
+    const verdict = QuranComposeRenderEditable.verdictForTier(top.tier);
+    const ok = QuranComposeRenderEditable.mark(
+      STATE.ctx, STATE.det.citeStart, STATE.ctx.caret, verdict,
+      { fontFamily: QuranComposeRenderEditable.fontFamily(fontKey) });
+    if (ok) hook.lastClassification = { ref: top.refLabel, verdict, viaFallthrough: true };
+  }
+
+  // ── Pre-existing-on-focus rendering (FR-018a) ─────────────────────────────
+  // Render (but never rewrite) a citation already present in a contenteditable
+  // when it gains focus. Plain inputs can't hold markup → skipped. Idempotent so
+  // refocus doesn't double-wrap. The dropdown/insertion path is reserved for
+  // newly-typed citations, so this only ever ADDS verdict/Quran-font markup.
+  async function renderOnFocus(el) {
+    if (!settings.enabled || !settings.liveRender) return;
+    if (QuranComposeEditable.surfaceOf(el) !== 'contenteditable') return;
+    if (QuranComposeRenderEditable.isMarked(el)) return;
+    const det = QuranComposeDetect.detect(el.textContent || '');
+    if (!det || det.wordCount < settings.minWords) return;
+    const candidates = await QuranComposeMatch.query(det.citationText, LIMIT);
+    if (QuranComposeRenderEditable.isMarked(el)) return;             // raced with a live render
+    const ctx = { surface: 'contenteditable', el, node: el };
+    const end = det.citeStart + det.citationText.length;
+    if (candidates && candidates.length) {
+      const top = candidates[0];
+      const verdict = QuranComposeRenderEditable.verdictForTier(top.tier);
+      const ok = QuranComposeRenderEditable.mark(ctx, det.citeStart, end, verdict,
+        { fontFamily: QuranComposeRenderEditable.fontFamily(fontKey) });
+      if (ok) hook.lastClassification = { ref: top.refLabel, verdict, viaFallthrough: true };
+    } else {
+      const ok = QuranComposeRenderEditable.mark(ctx, det.citeStart, end, 'red', {});
+      if (ok) hook.lastClassification = { ref: null, verdict: 'red', viaFallthrough: true };
+    }
+  }
+
   // ── Event wiring ────────────────────────────────────────────────────────────
   function onInput(e) {
     if (inserting || composing) { qc('input', `ignored (inserting=${inserting} composing=${composing})`); return; }
+    // The author started typing → this is a newly-typed citation, not pre-existing
+    // content; cancel any pending focus render (FR-018a) so the dropdown owns it.
+    clearTimeout(focusRenderTimer);
     // Events from our OWN menu UI (e.g. typing/pasting into the end-word prompt,
     // which is itself an <input>) must not be treated as host-field typing — that
     // would tear down the very instance the prompt belongs to.
@@ -322,7 +398,13 @@
   // long" symptom). Throttled so refocus churn doesn't spam the worker.
   let lastWarm = 0;
   function onFocusIn(e) {
-    if (!QuranComposeEditable.surfaceOf(e.target)) return;
+    const el = e.target;
+    if (!QuranComposeEditable.surfaceOf(el)) return;
+    // Pre-existing-on-focus render (FR-018a), canceled by onInput if the author
+    // immediately starts typing into the field.
+    clearTimeout(focusRenderTimer);
+    focusRenderTimer = setTimeout(() => { renderOnFocus(el); }, FOCUS_RENDER_MS);
+    // Warm the service worker so the index is built before the first match.
     const now = Date.now();
     if (now - lastWarm < 15000) return;
     lastWarm = now;
@@ -342,6 +424,9 @@
     // While the scope/end-word menu is open the field has already yielded focus
     // by design; don't tear down the pending insertion.
     if (STATE.mode === 'scope' || STATE.mode === 'endword') return;
+    // Caret left the field with a recognized citation still unresolved → hand it
+    // to the verdict classifier (FR-011a) before closing the instance.
+    dismissFallthrough();
     // Caret left the field → close the instance (not the feature).
     closeInstance('idle');
   }
