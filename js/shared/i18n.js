@@ -200,6 +200,10 @@ const QuranI18n = (() => {
       corr_diff_missing: 'ناقص',
       corr_diff_extra: 'زائد',
       corr_did_you_mean: 'هل تقصد:',
+      corr_suggest_ref: 'المرجع المقترح:',
+      corr_ambiguous: 'يظهر هذا النص في عدة مواضع — اختر المرجع:',
+      corr_copy_ref: 'نسخ المرجع',
+      corr_copied: 'نُسِخ',
     },
     en: {
       cat_green: 'Verified with reference',
@@ -376,6 +380,10 @@ const QuranI18n = (() => {
       corr_diff_missing: 'missing',
       corr_diff_extra: 'extra',
       corr_did_you_mean: 'Did you mean:',
+      corr_suggest_ref: 'Suggested reference:',
+      corr_ambiguous: 'This text appears in several places — choose a reference:',
+      corr_copy_ref: 'Copy reference',
+      corr_copied: 'Copied',
     },
   };
 

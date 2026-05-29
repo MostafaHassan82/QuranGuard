@@ -123,6 +123,47 @@ const QuranPanelModel = (() => {
   function all() { return order.map(id => findings.get(id)).filter(Boolean); }
   function size() { return findings.size; }
 
+  // ── T201 P2 — lightBlue reference suggestion (suggestion-only, no page edit) ──
+  // lightBlue = authentic text, no reference on the page. We SUGGEST the missing
+  // reference in the panel (the user can copy it); we never inject it into the
+  // host page (ratified Q-A). Disambiguation when the text occurs at several refs
+  // (design §1): adopt an adjacent green/lightGreen/orange-corrected finding's
+  // surah when it's among the candidates (the author cited the ayah once then
+  // discussed its parts), else use the unique ref, else mark ambiguous (manual).
+  function surahOfRef(ref) {
+    if (!ref || typeof ref !== 'string') return null;
+    const i = ref.lastIndexOf(':');
+    return i < 0 ? ref.trim() : ref.slice(0, i).trim();
+  }
+  function suggestRefForLightBlue(id) {
+    const f = findings.get(id);
+    if (!f || f.color !== 'lightBlue') return null;
+    const candidates = (Array.isArray(f.matchedRefs) && f.matchedRefs.length)
+      ? f.matchedRefs.slice() : (f.matchedRef ? [f.matchedRef] : []);
+    if (candidates.length === 0) return null;
+    if (candidates.length === 1) return { ref: candidates[0], candidates, ambiguous: false, viaContext: false };
+
+    // Multiple candidate refs → try context from the immediate neighbors.
+    const candSurahs = new Set(candidates.map(surahOfRef));
+    const idx = order.indexOf(id);
+    const neighborRef = (j) => {
+      const nf = j >= 0 && j < order.length ? findings.get(order[j]) : null;
+      if (!nf) return null;
+      const resolved = nf.color === 'green' || nf.color === 'lightGreen' || nf.panelState?.persistedBadge?.kind === 'corrected';
+      if (!resolved) return null;
+      return nf.matchedRef || nf.claimedRef || null;
+    };
+    for (const j of [idx - 1, idx + 1]) {
+      const nref = neighborRef(j);
+      const ns = surahOfRef(nref);
+      if (ns && candSurahs.has(ns)) {
+        const picked = candidates.find(c => surahOfRef(c) === ns);
+        if (picked) return { ref: picked, candidates, ambiguous: false, viaContext: true };
+      }
+    }
+    return { ref: null, candidates, ambiguous: true, viaContext: false };
+  }
+
   // ── Section selectors ────────────────────────────────────────────────────
   // The panel renders four sections (see data-model.md > Finding):
   //   1. Active filter view  — Findings whose color passes `filter` and which
@@ -153,7 +194,11 @@ const QuranPanelModel = (() => {
   return {
     reset, upsert, ingestProgress, remove, tagPersisted,
     markDismissedThisSession, unmarkDismissed, markRecentlyCorrected, setInFlightAction,
-    get, all, size,
+    get, all, size, suggestRefForLightBlue,
     activeView, recentlyCorrected, dismissedThisSession, previouslyDismissed,
   };
 })();
+
+// CommonJS export so the Node correction-model test can require it (mirrors
+// js/storage/prefs.js + js/shared/i18n.js). Harmless in the browser.
+if (typeof module !== 'undefined' && module.exports) module.exports = QuranPanelModel;

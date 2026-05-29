@@ -506,6 +506,13 @@ const QuranPanelSidebar = (() => {
     if (finding.color === 'red' && finding.nearMatch && finding.nearMatch.authenticText) {
       row.append(makeNearMatchBlock(finding.nearMatch));
     }
+    // T201 P2 — lightBlue missing-reference suggestion (suggestion-only, no page
+    // edit — ratified Q-A). Context-disambiguated when the text occurs at several
+    // refs; otherwise the candidate refs are offered for the user to copy.
+    if (finding.color === 'lightBlue' && typeof QuranPanelModel !== 'undefined') {
+      const sug = QuranPanelModel.suggestRefForLightBlue(finding.id);
+      if (sug) row.append(makeLightBlueSuggestBlock(sug));
+    }
 
     // Action buttons (T052). Primary action is row click = jump (FR-011a).
     const actions = document.createElement('div');
@@ -584,6 +591,35 @@ const QuranPanelSidebar = (() => {
     ayah.dir = 'rtl';
     ayah.textContent = nm.authenticText || '';
     wrap.append(ayah);
+    return wrap;
+  }
+
+  // lightBlue suggested-reference block (T201 P2). Resolved → show the ref + a
+  // copy button; ambiguous → list the candidate refs, each copyable. Copying
+  // writes ONLY the reference text — the page DOM is never modified (Q-A).
+  function makeLightBlueSuggestBlock(sug) {
+    const wrap = document.createElement('div');
+    wrap.className = 'quran-ext-panel-suggest';
+    const heading = document.createElement('div');
+    heading.className = 'quran-ext-panel-suggest-heading';
+    heading.textContent = sug.ambiguous ? T('corr_ambiguous') : T('corr_suggest_ref');
+    wrap.append(heading);
+    const refs = sug.ambiguous ? sug.candidates : [sug.ref];
+    const list = document.createElement('div');
+    list.className = 'quran-ext-panel-suggest-list';
+    refs.forEach(ref => {
+      const item = document.createElement('span');
+      item.className = 'quran-ext-panel-suggest-item';
+      item.append(refToken(ref));
+      const btn = makeActionBtn(T('corr_copy_ref'), async () => {
+        try { await navigator.clipboard.writeText(`(${ref})`); btn.textContent = T('corr_copied'); }
+        catch (_) { /* clipboard unavailable — the ref is still shown/linkable */ }
+      });
+      btn.classList.add('quran-ext-panel-suggest-copy');
+      item.append(btn);
+      list.append(item);
+    });
+    wrap.append(list);
     return wrap;
   }
 
