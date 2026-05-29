@@ -185,6 +185,7 @@
       end: ctx.caret,
       typedText: det.citationText,
       openBracket: det.openBracket || null,
+      closeBracket: det.closeBracket || null,
       rect: QuranComposeEditable.caretRect(ctx),
     };
     openScopeMenu();
@@ -237,7 +238,7 @@
     const p = STATE.pending;
     if (!p) return null;
     const built = QuranComposeInsert.buildInsertText(p.cand, scope, settings, {
-      typedText: p.typedText, endWord, openBracket: p.openBracket,
+      typedText: p.typedText, endWord, openBracket: p.openBracket, closeBracket: p.closeBracket,
     });
     if (built.error) return built.error;
 

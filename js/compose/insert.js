@@ -93,18 +93,25 @@ const QuranComposeInsert = (() => {
     return { body: verse };
   }
 
-  // Matching closer for an opening citation bracket, so a citation the user
-  // opened with one is emitted balanced (e.g. "{…" → "{ayah}") instead of leaving
-  // a dangling opener (FR-014). The reference is placed OUTSIDE the brackets.
-  const CLOSERS = { '{': '}', '«': '»', '[': ']', '﴿': '﴾' };
+  // Fallback opener→closer map, used only if the caller didn't pass closeBracket
+  // (detect.js is the source of truth and normally supplies it). Symmetric quotes
+  // map to themselves; ornate ﴿ → ﴾.
+  const CLOSERS = {
+    '{': '}', '(': ')', '[': ']', '«': '»', '﴿': '﴾',
+    '"': '"', "'": "'", '“': '”', '‘': '’',
+  };
 
   // Returns { text } ready to insert, or { error } (e.g. 'endWordNotFound').
+  // When the citation was opened with a quote/bracket, the body is wrapped in the
+  // matching pair so the opener isn't left dangling (FR-014); the reference is
+  // placed OUTSIDE the brackets.
   function buildInsertText(candidate, scope, settings, opts) {
     const r = buildBody(candidate, scope, opts);
     if (r.error) return { error: r.error };
     const ref = buildReference(candidate, settings);
     const ob = opts && opts.openBracket;
-    const body = (ob && CLOSERS[ob]) ? `${ob}${r.body}${CLOSERS[ob]}` : r.body;
+    const cb = (opts && opts.closeBracket) || (ob ? CLOSERS[ob] : null);
+    const body = (ob && cb) ? `${ob}${r.body}${cb}` : r.body;
     const text = (settings && settings.refPlacement === 'before')
       ? `${ref} ${body}` : `${body} ${ref}`;
     return { text };

@@ -514,14 +514,15 @@ async function inPageTests() {
         JSON.stringify(window.__quranCompose.candidates));
     }
 
-    // (1b) A bracket the user opened must be emitted BALANCED (no dangling opener),
-    // with the reference OUTSIDE the brackets, and the lead-in preserved.
-    {
+    // (1b) ANY quote/bracket the user opened — { ( [ « " “ … — must be emitted
+    // BALANCED (no dangling opener), with the reference OUTSIDE, and the lead-in
+    // preserved. Symmetric quotes (") close with themselves.
+    for (const [open, close] of [['{', '}'], ['(', ')'], ['"', '"'], ['“', '”']]) {
       const f = document.createElement('input');
       f.type = 'text';
       host.appendChild(f);
       f.focus();
-      f.value = 'قوله تعالى: {' + lead4;
+      f.value = 'قوله تعالى: ' + open + lead4;
       f.setSelectionRange(f.value.length, f.value.length);
       f.dispatchEvent(new Event('input', { bubbles: true }));
       await waitFor(() => (window.__quranCompose.candidates || []).length > 0);
@@ -529,10 +530,10 @@ async function inPageTests() {
       await sleep(20);
       window.__quranCompose.chooseScope('whole');
       await sleep(20);
-      T('opening { is emitted balanced as {ayah} (no dangling opener)',
-        f.value.includes('{' + ayah.text + '}'), f.value);
-      T('balanced brace keeps the lead-in and puts the ref outside',
-        f.value.includes('قوله تعالى') && f.value.includes('} (البقرة:255)'), f.value);
+      T('opening ' + open + ' emits balanced ' + open + 'ayah' + close + ' (no dangling opener)',
+        f.value.includes(open + ayah.text + close), f.value);
+      T('balanced ' + open + ' keeps the lead-in and puts the ref outside',
+        f.value.includes('قوله تعالى') && f.value.includes(close + ' (البقرة:255)'), f.value);
     }
 
     // (2) Enter on the field while the menu is open accepts like a mouse click AND
