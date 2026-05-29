@@ -32,6 +32,46 @@ const QuranComposeInsert = (() => {
     return n ? n.split(' ').filter(Boolean) : [];
   }
 
+  // Drift-tolerant word equality — a faithful copy of the verifier's
+  // softEqualWord (js/background.js). Tolerates up to two alef/waw/ya/hamza
+  // insertions/deletions (or one such substitution at equal length), so the
+  // Uthmani spelling (e.g. تُتْلَىٰ → "تليا") still equals the user's plainer
+  // typing (تتلى → "تلي"). Alignment MUST use the same tolerance the matcher
+  // used to offer the candidate (Principle V), or a soft-tier match aligns short.
+  function softEqualWord(a, b) {
+    if (a === b) return true;
+    const diff = Math.abs(a.length - b.length);
+    if (diff > 2) return false;
+    const isDrift = c => c === 'ا' || c === 'و' || c === 'ي' || c === 'ء';
+    if (diff === 0) {
+      let mismatchPos = -1;
+      for (let i = 0; i < a.length; i++) {
+        if (a[i] === b[i]) continue;
+        if (mismatchPos !== -1) return false;
+        if (!isDrift(a[i]) || !isDrift(b[i])) return false;
+        mismatchPos = i;
+      }
+      return mismatchPos !== -1;
+    }
+    const [shorter, longer] = a.length < b.length ? [a, b] : [b, a];
+    if (diff === 1) {
+      for (let i = 0; i < longer.length; i++) {
+        if (!isDrift(longer[i])) continue;
+        if (longer.slice(0, i) + longer.slice(i + 1) === shorter) return true;
+      }
+      return false;
+    }
+    for (let i = 0; i < longer.length; i++) {
+      if (!isDrift(longer[i])) continue;
+      const after1 = longer.slice(0, i) + longer.slice(i + 1);
+      for (let j = 0; j < after1.length; j++) {
+        if (!isDrift(after1[j])) continue;
+        if (after1.slice(0, j) + after1.slice(j + 1) === shorter) return true;
+      }
+    }
+    return false;
+  }
+
   function buildReference(candidate, settings) {
     const ayah = candidate.ref.ayah;
     const inner = (settings && settings.refFormat === 'number')
@@ -50,7 +90,7 @@ const QuranComposeInsert = (() => {
     let best = null;
     for (let s = 0; s < verseNorm.length; s++) {
       let v = s, t = 0;
-      while (t < typed.length && v < verseNorm.length && verseNorm[v] === typed[t]) { v++; t++; }
+      while (t < typed.length && v < verseNorm.length && softEqualWord(verseNorm[v], typed[t])) { v++; t++; }
       if (t > 0 && (!best || t > best.matched)) {
         best = { start: s, end: v - 1, matched: t };
         if (t === typed.length) break;           // full alignment, can't do better
@@ -62,7 +102,11 @@ const QuranComposeInsert = (() => {
   function findEndWord(endWord, verseNorm, fromStart) {
     const target = norm(endWord);
     if (!target) return -1;
+    // Prefer an EXACT normalized match: soft equality alone can bind a short end
+    // word to an earlier near-twin (e.g. لا ≈ الا), truncating the passage. Only
+    // fall back to drift tolerance when no exact word exists (Uthmani drift).
     for (let i = fromStart; i < verseNorm.length; i++) if (verseNorm[i] === target) return i;
+    for (let i = fromStart; i < verseNorm.length; i++) if (softEqualWord(verseNorm[i], target)) return i;
     return -1;
   }
 

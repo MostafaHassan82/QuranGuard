@@ -536,6 +536,25 @@ async function inPageTests() {
         f.value.includes('قوله تعالى') && f.value.includes(close + ' (البقرة:255)'), f.value);
     }
 
+    // (2b) typedPortion must keep ALL typed words even when the Uthmani spelling
+    // drifts from the user's plainer typing (e.g. تُتْلَىٰ vs تتلى — a trailing
+    // superscript-alef). Alignment uses the matcher's soft equality, so a soft-tier
+    // candidate no longer aligns short. Authentic text comes from the index
+    // (Principle I); only the user's imperfect typing is hand-written.
+    {
+      const j8 = await send({ type: 'getAyahText', surahNum: 45, ayahNum: 8 });
+      T('getAyahText(45,8) returns text', j8 && j8.text, JSON.stringify(j8));
+      if (j8 && j8.text) {
+        const jw = j8.text.split(/\s+/).filter(Boolean);
+        const typedPlain = 'يسمع آيات الله تتلى عليه';          // user's plain 5-word typing
+        const cand = { authenticText: j8.text, ref: { surah: 45, ayah: 8 }, surahName: 'الجاثية' };
+        const r = QuranComposeInsert.buildBody(cand, 'typedPortion', { typedText: typedPlain });
+        const expected = jw.slice(0, 5).join(' ');
+        T('typedPortion keeps all typed words across Uthmani drift (5 words, not 3)',
+          r && r.body === expected, JSON.stringify({ body: r && r.body, expected }));
+      }
+    }
+
     // (2) Enter on the field while the menu is open accepts like a mouse click AND
     // is NOT passed to the host page (no newline / "send on Enter" leak).
     {
