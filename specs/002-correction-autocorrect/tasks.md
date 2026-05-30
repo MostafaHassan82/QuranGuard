@@ -27,11 +27,41 @@ description: "Task list for feature 002-correction-autocorrect (V1.2)"
 
 **Purpose**: Branch hygiene and reconciliation with the partial implementation that landed on `003-ayah-autocomplete` (research.md §3). No new tooling — vanilla JS, no build step.
 
-- [ ] T001 Read `specs/001-arabic-citation-auditor/v1.2-correction-design.md` and confirm divergences from spec are catalogued (research.md §2): lightBlue must be tooltip-only (NOT `ref-insert`); yellow diff is always-on inline; lightBlue autocorrect defaults ON.
-- [ ] T002 Inventory the implementation that landed on `003-ayah-autocomplete` (commits `9ba93fe`…`1b014f1`) against this spec; record per-FR keeper/adjust/missing status in a comment block at the top of `specs/002-correction-autocorrect/tasks.md` under this task, or in a temporary `reconciliation.md` next to this file. Focus areas per research.md §3: (a) lightBlue presentation (any `ref-insert` path must be removed), (b) Revert-clears-persistence (FR-006), (c) lightBlue autocorrect default-ON (FR-018), (d) `autoCorrectOrange` → `autoCorrect{orange,lightBlue}` migration (FR-020).
-- [ ] T003 Decide and document the merge/port path in the same reconciliation note: cherry-pick landed commits onto `002-correction-autocorrect`, or formally rebase 002's plan onto 003's history. Block subsequent phases on this decision.
+- [X] T001 Read `specs/001-arabic-citation-auditor/v1.2-correction-design.md` and confirm divergences from spec are catalogued (research.md §2): lightBlue must be tooltip-only (NOT `ref-insert`); yellow diff is always-on inline; lightBlue autocorrect defaults ON. → Confirmed: research.md §2 already catalogues these divergences. Design doc retained for historical context only; spec is authoritative.
+- [X] T002 Inventory the implementation that landed on `003-ayah-autocomplete` (commits `9ba93fe`…`1b014f1`) against this spec. **Reconciliation map** (post-rebase onto 003 tip):
 
-**Checkpoint**: Reconciliation map exists; everyone knows which landed code is a keeper, which needs adjustment, and which is missing.
+  **Keepers (already correct against the spec):**
+  - Yellow aligned-diff *data* on the Finding (named `finding.diff` with op/cited/authentic) — js/verifier/classify.js, panel/sidebar-surface.js renders it. ✅ Semantics match `DiffSegment[]` from data-model.md.
+  - Red near-match *data* on the Finding (named `finding.nearMatch`) — same files. ✅ Semantics match `NearMatchSuggestion`.
+  - lightBlue suggestion-only behavior (NO `ref-insert` path — never landed). ✅ FR-007 satisfied.
+  - Adjacency-context disambiguation via `QuranPanelModel.suggestRefForLightBlue()` with ±1-neighbor scan. ✅ Matches FR-009 clarification (DOM order, bounded distance).
+  - `correctTextInPlace` action wired to a `text-replace` correction (js/panel/actions.js → content.js). ✅ FR-013, FR-016.
+  - `persisted.v1` entries already carry a `kind` discriminator (`correction`|`dismissal`|…), and `QuranPersisted.write/remove` key on `compositeKey + kind`. ✅ FR-006 substrate exists.
+  - Sidebar lightBlue/yellow/red row presentations including the "Did you mean …?" suggestion and the lightBlue copy-only candidate list. ✅ FR-008/FR-010/FR-017.
+  - Generalized `autoCorrect: { orange, lightBlue, yellow }` prefs object replacing the single `autoCorrectOrange` flag, with legacy seed-on-read. ✅ FR-020 substrate exists.
+  - "Recently corrected" panel section (FR-002 / FR-022) renders pinned at the top, independent of the active filter. ✅ T051a satisfied.
+
+  **Need adjustment (drift from this spec):**
+  - **Field naming** — spec calls them `alignedDiff` and `nearMatchSuggestion`; landed uses `diff` and `nearMatch`. Adopt the landed names as canonical aliases in T010/T011/T037 (cheaper than renaming every call site; the data-model contract is satisfied by aliasing in the model module — to be recorded in data-model.md as an addendum during T004).
+  - **lightBlue autocorrect default** — spec FR-018 mandates `autoCorrect.lightBlue: true` on a fresh install; landed `DEFAULTS.autoCorrect.lightBlue = false`. T006 must flip this default and add the migration leg that sets it true when neither legacy nor new key exists.
+  - **Yellow autocorrect key exists in landed prefs** — spec FR-018 says yellow is manual-only with NO `autoCorrect.yellow` key. T006 must remove the `yellow` key from `DEFAULTS.autoCorrect` and from `applyDefaults`; T050 must assert defense-in-depth.
+  - **Legacy key not deleted on migration** — landed keeps `autoCorrectOrange` as a back-compat mirror. T006 spec language says one-way migrate-and-delete on first read after upgrade. Delete the mirror; audit callers (grep `autoCorrectOrange`) and migrate them to `autoCorrect.orange` before deletion.
+  - **lightBlue resolution shape** — spec materializes `Finding.resolvedLightBlueRef` and `Finding.candidateLightBlueRefs` directly on the Finding; landed computes via `suggestRefForLightBlue()` at render time. Materialize on classify (T025/T026) so downstream paths (autocorrect dispatcher T048, defensive assertion T008a) can read them off the Finding.
+
+  **Missing (net-new in 002):**
+  - **Inline yellow diff overlay on the host page** (FR-012) — the landed code renders the diff in the sidebar panel only; the page itself still shows the raw cited text. T013/T015 must wrap the yellow highlight span with `<del class="diff-del">`/`<ins class="diff-ins">` markup (visual only; no DOM text edit until Fix-in-place).
+  - **`REVERT_CORRECTION` message + handler** (T022, T034) — landed code has no Revert. Must restore `originalCitedText` for `text-replace`, recolor for `reference-attribution`, clear the matching `persisted.v1` entry, return finding to its pre-correction verdict.
+  - **`ACCEPT_NEAR_MATCH` message** (T043) — currently the red Accept path calls `correctTextInPlace` directly; spec wants a routed envelope so background can re-verify before issuing `CORRECT_IN_PLACE { kind:'text-replace' }`.
+  - **Defensive payload-source assertion** (T008a) — no current check that `CORRECT_IN_PLACE` payloads trace back to a `VerificationResult` field. Add in background.js dispatch.
+  - **Locked-DOM clipboard fallback for `text-replace`** (T020) — orange (`ref-edit`) has it; yellow does not.
+  - **`correctionKind` on successor Findings + universal Revert affordance** (T019/T032/T051) — landed `correctTextInPlace` likely emits a successor but does not tag `correctionKind`; the panel does not surface a Revert button on every corrected row.
+  - **Fixture sets** — `tests/fixtures/yellow-drift/`, `tests/fixtures/lightblue-resolution/`, `tests/fixtures/red-near-match/`, plus a `expected.json` extension recording `alignedDiff`/`nearMatchSuggestion`/`resolvedLightBlueRef`/`candidateLightBlueRefs`.
+  - **i18n strings for Revert + manual-choice + "No automatic correction"** (T009, T053) — most correction strings landed, but Revert, "Choose a reference"/"Multiple matches", and red ranked-list labels need a coverage pass.
+  - **Near-match threshold tuning + named constant** (T055a).
+
+- [X] T003 Decide and document the merge/port path: **rebased 002 onto 003-ayah-autocomplete** (chore commit `135165e` on this branch; rebase of T201 commits done by user election). The four implementation commits (`9ba93fe`…`1b014f1`) are now ancestors of HEAD. Subsequent phases proceed against this rebased baseline; the adjustments enumerated in T002 are the gap-closure list. T029's `ref-insert` grep is N/A (no `ref-insert` path landed).
+
+**Checkpoint**: ✅ Reconciliation map exists (T002 above); rebase chosen and executed (T003); design-doc divergences confirmed (T001).
 
 ---
 
