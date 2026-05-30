@@ -106,7 +106,7 @@ A reader wants the safe corrections to happen automatically on pages they trust,
 - **Revert after page mutation**: if the page has re-rendered the corrected region since the fix, Revert restores the recorded original wording where the span still exists; where it no longer exists, the reader is told the original could not be restored automatically.
 - **lightBlue tooltip vs. recolor**: the resolved reference is presented in the tooltip only; the page body text is never modified for a lightBlue correction.
 - **Layout safety**: any visual diff marking or recolor must obey the existing span-local layout-absorption bound (no content jump beyond the established threshold).
-- **Re-encounter on revisit**: a previously corrected finding surfaces on a later visit with a "previously corrected" badge and (per the existing revisit behavior) may re-apply, and must not be silently suppressed.
+- **Re-encounter on revisit**: a previously corrected finding surfaces on a later visit with a "previously corrected" badge and is **automatically re-applied during the scan** (per the 2026-05-29 clarification ratified in FR-021), restoring the corrected state without reader action; it must not be silently suppressed and remains revertable. A finding whose correction was reverted (FR-006) is NOT re-applied.
 
 ## Requirements *(mandatory)*
 

@@ -43,10 +43,11 @@ description: "Task list for feature 002-correction-autocorrect (V1.2)"
 
 - [ ] T004 [P] Define `CorrectionKind = 'ref-edit' | 'text-replace' | 'reference-attribution'` and the new `Finding` optional fields (`alignedDiff`, `nearMatchSuggestion`, `resolvedLightBlueRef`, `candidateLightBlueRefs`, `correctionKind`) in `js/panel/model.js` per data-model.md.
 - [ ] T005 [P] Extend `persisted.v1.byUrl.<urlKey>[]` entry shape to include `kind: CorrectionKind | 'dismissal'` in `js/storage/persisted.js` per contracts/storage.md; read legacy entries without `kind` as `kind: 'ref-edit'`.
-- [ ] T006 Implement prefs migration `autoCorrectOrange: bool` → `autoCorrect: { orange: bool, lightBlue: true }` in `js/storage/prefs.js` per contracts/storage.md (one-way, idempotent on first read; lightBlue default ON on fresh install; legacy key deleted on same write). Covers FR-018, FR-020.
+- [ ] T006 Implement two prefs paths in `js/storage/prefs.js` per contracts/storage.md: (a) **migrate path** — when legacy `autoCorrectOrange` exists, write `autoCorrect: { orange: <legacy value>, lightBlue: true }` and delete the legacy key (one-way, idempotent, on first read after upgrade); (b) **fresh-install path** — when neither legacy nor new key exists, write `autoCorrect: { orange: false, lightBlue: true }` on first read. T047 verifies both paths against fixtures. Covers FR-018, FR-020.
 - [ ] T007 [P] Add new message types to the envelope per contracts/messaging.md in `js/background.js` message dispatch: extend `CORRECT_IN_PLACE` payload with `kind: CorrectionKind` (default `ref-edit` for backward compat), add `REVERT_CORRECTION { compositeKey }`, add `ACCEPT_NEAR_MATCH { compositeKey, candidateRef }` (server-side converts to `CORRECT_IN_PLACE` with `kind:"text-replace"`). All handlers MUST `return true`.
 - [ ] T008 [P] Generalize `correctInPlace` in `js/panel/actions.js` to dispatch on `kind`: route `ref-edit` to existing orange path; create stubs for `text-replace` and `reference-attribution` to be implemented in US1 / US2 phases.
-- [ ] T009 [P] Add localized strings for diff labels ("Missing", "Extra", "Substituted"), "Did you mean …?", "No automatic correction", "Fix in place", "Revert", and per-color action labels in `js/shared/i18n.js` for every supported language (FR-022, SC-008).
+- [ ] T008a [P] Add a defensive payload-source assertion in the `CORRECT_IN_PLACE` handler in `js/background.js`: every correction payload MUST be sourced from a known `VerificationResult` field (`matchedRef`, `matchedRefs[]`, `authenticText`, `authenticExcerpt`, `nearMatchSuggestion.candidateText`, or `nearMatchSuggestion.candidateRef`). Reject payloads carrying arbitrary text not traceable to one of these fields with `ok:false, reason:'unverified-payload'`. Hardens NON-NEGOTIABLE Principle I + FR-004 against future regressions where a caller might attempt to write reader-guessed content.
+- [ ] T009 [P] Add localized strings for diff labels ("Missing", "Extra", "Substituted"), "Did you mean …?", "No automatic correction", "Fix in place", "Revert", per-color action labels, AND the manual-choice list strings introduced by FR-010 (lightBlue "Choose a reference", "Multiple matches") and FR-015 tie/near-tie (red "Choose a candidate", ranked-list labels) in `js/shared/i18n.js` for every supported language. T053 verifies coverage (FR-022, SC-008).
 
 **Checkpoint**: Data shapes, storage migration, message envelope, action dispatcher, and i18n strings are in place. User story phases can now proceed in parallel.
 
@@ -79,7 +80,7 @@ description: "Task list for feature 002-correction-autocorrect (V1.2)"
 ### Action — yellow Fix-in-place + Revert
 
 - [ ] T019 [US1] Implement the `kind: 'text-replace'` branch in `js/panel/actions.js`: send `CORRECT_IN_PLACE { kind:'text-replace', compositeKey, authenticExcerpt, originalCitedText }`. On success, replace the on-page span via `swap.js` `markupKind:'diff'`, emit a lightGreen corrected successor with `priorFindingId` + `correctionKind:'text-replace'` (FR-002, FR-003, FR-013).
-- [ ] T020 [US1] Implement non-editable / locked DOM fallback in the `text-replace` path: copy the corrected citation to clipboard with a user-visible explanation (FR-005, mirroring feature 001 FR-012).
+- [ ] T020 [US1] Implement non-editable / locked DOM fallback in the `text-replace` path: copy the corrected citation to clipboard with a user-visible explanation (FR-005, mirroring feature 001 FR-012). For cross-origin / sandboxed iframes (where the content script cannot reach the span at all), the clipboard write MUST be invoked from the popup/sidebar context — not the content script — and the explanation MUST name the iframe boundary as the reason (spec Edge Case "Locked / non-editable DOM").
 - [ ] T021 [US1] Persist the correction in `js/storage/persisted.js` with `kind:'text-replace'` and payload `{ authenticExcerpt, originalCitedText, compositeKey }`. Inherits the 30-day TTL from feature 001 FR-024.
 - [ ] T022 [US1] Implement Revert for `text-replace`: handle `REVERT_CORRECTION` in `js/background.js` → restore the recorded `originalCitedText` into the span (where it still exists), delete the matching `persisted.v1` entry by `compositeKey + kind`, return the finding to its yellow verdict (FR-006). Where the span no longer exists, surface the "could not restore automatically" explanation per spec edge case.
 - [ ] T023 [P] [US1] Bind Revert and Fix-in-place to keyboard shortcuts in `js/panel/keyboard.js` for the yellow row.
@@ -108,7 +109,7 @@ description: "Task list for feature 002-correction-autocorrect (V1.2)"
 ### Render — lightBlue tooltip
 
 - [ ] T028 [US2] In the highlight-render pipeline, surface `resolvedLightBlueRef` (or "ambiguous — choose in panel") in the lightBlue span's tooltip. **MUST NOT** insert reference text into the page body (FR-007, research.md §2 override of design-predecessor `ref-insert`).
-- [ ] T029 [US2] Grep/remove any `ref-insert` code path that may have landed on `003-ayah-autocomplete` (per T002 reconciliation); confirm no DOM mutation occurs for lightBlue presentation.
+- [ ] T029 [US2] Grep/remove any `ref-insert` code path that may have landed on `003-ayah-autocomplete` (depends on T002 reconciliation map identifying the call sites); confirm no DOM mutation occurs for lightBlue presentation. If T002 found no `ref-insert` landed, mark T029 N/A.
 
 ### Panel — lightBlue row
 
@@ -117,14 +118,14 @@ description: "Task list for feature 002-correction-autocorrect (V1.2)"
 
 ### Action — lightBlue accept + Revert
 
-- [ ] T032 [US2] Implement the `kind: 'reference-attribution'` branch in `js/panel/actions.js`: send `CORRECT_IN_PLACE { kind:'reference-attribution', compositeKey, resolvedRef }`. On success, recolor the span to green + lightGreen provenance, update the tooltip to carry the resolved ref, emit a corrected successor with `priorFindingId` + `correctionKind:'reference-attribution'`. **NO DOM text edit** (FR-007, FR-008).
+- [ ] T032 [US2] Implement the `kind: 'reference-attribution'` branch in `js/panel/actions.js`: send `CORRECT_IN_PLACE { kind:'reference-attribution', compositeKey, resolvedRef }`. On success, recolor the span to green + lightGreen provenance, update the tooltip to carry the resolved ref, emit a corrected successor with `priorFindingId` + `correctionKind:'reference-attribution'`. **NO DOM text edit** (FR-007, FR-008). FR-005's locked-DOM clipboard fallback is N/A for this kind — there is no DOM edit to fall back from; failure modes (e.g., span gone) reuse `ok:false, reason:'span-missing'` from the messaging contract.
 - [ ] T033 [US2] Persist the lightBlue correction in `js/storage/persisted.js` with `kind:'reference-attribution'` and payload `{ resolvedRef, compositeKey }`.
 - [ ] T034 [US2] Implement Revert for `reference-attribution` in `js/background.js`: delete the matching `persisted.v1` entry, recolor back to lightBlue, drop the tooltip ref (FR-006). No DOM text to restore.
 - [ ] T035 [US2] Implement manual-choice acceptance for ambiguous lightBlue: when the user picks one of `candidateLightBlueRefs`, route through the same `reference-attribution` path with that ref as `resolvedRef`.
 
 ### Revisit — lightBlue
 
-- [ ] T036 [US2] Extend the scan-time re-apply path (T024) to handle `kind:'reference-attribution'`: re-apply tooltip + recolor, surface "previously corrected" badge (FR-021).
+- [ ] T036 [US2] Extend the scan-time re-apply path (T024) to handle `kind:'reference-attribution'`: re-apply tooltip + recolor, surface "previously corrected" badge (FR-021). Also exercise the FR-021 negative case for lightBlue per T024a's "mirror" clause — fixture under `tests/fixtures/lightblue-resolution/single/`: apply correction → revert → reload → confirm finding re-classifies as lightBlue (NOT re-corrected).
 
 **Checkpoint**: US2 is end-to-end testable in isolation. SC-003 (100% single-resolution; never auto-resolve multi without context) is exercised by `tests/fixtures/lightblue-resolution/`.
 
@@ -196,6 +197,7 @@ description: "Task list for feature 002-correction-autocorrect (V1.2)"
 - [ ] T053 [P] Localization audit: verify every correction-related string from T009 renders in each supported language with no missing-translation fallback (SC-008). Run the existing i18n coverage check from feature 001.
 - [ ] T054 [P] Layout-safety regression: run `python tests/run_tests.py tests/fixtures/layout-safety` to confirm no inline diff overlay, recolor, or text-replace causes a shift beyond the span-local 1.5× line-box bound (SC-007).
 - [ ] T055 [P] Performance check: run a 5,000-word fixture with red findings present and confirm the in-scan near-match probe keeps the end-to-end scan within feature 001 SC-012 (~5 s).
+- [ ] T055a [P] Tune the red near-match threshold against `tests/fixtures/red-near-match/`: pick the bound that maximizes SC-004 correct-candidate rate (≥90% within threshold) while preserving SC-006 (zero incorrect auto-edits — N/A here since red is manual, but still record beyond-threshold false-positive count). Record the chosen value as a named constant in `js/verifier/nearMatch.js` with a comment citing the SC-004 fixture set.
 - [ ] T056 Update `CLAUDE.md` SPECKIT block if needed (already pointed at 002 per current diff). No-op if it already matches.
 - [ ] T057 Run the full quickstart walkthrough end-to-end (US1 → US2 → US3 → US4) on a real Chrome profile to validate the integrated experience.
 - [ ] T058 Confirm constitution non-negotiables hold in the final code: Principle I (only authentic mushaf wording or verifier-resolved reference written, never a guess — FR-004) and Principle V (porting discipline: aligned diff and lightBlue adjacency were designed in-place, not ported from the advanced copy).

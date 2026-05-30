@@ -63,7 +63,7 @@ CorrectionKind = 'ref-edit' | 'text-replace' | 'reference-attribution'
 
 ### Adjacency-context disambiguation (lightBlue, FR-009)
 
-For a lightBlue finding with `matchedRefs.length > 1`, the adjacency check examines the previous and next findings in document order. If exactly one of those neighbors is currently classified as green / lightGreen-corrected / orange-corrected AND its surah ∈ this finding's `matchedRefs`, that surah's reference is adopted as `resolvedLightBlueRef`. Otherwise the finding is treated as ambiguous (`resolvedLightBlueRef` left absent; `candidateLightBlueRefs` populated).
+For a lightBlue finding with `matchedRefs.length > 1`, the adjacency check examines the **immediately previous and immediately next Finding in document (DOM) order** — i.e., a bounded distance of **±1 attributed Finding**, regardless of block boundaries, paragraph breaks, or DOM-node distance. (FR-009 clarification session 2026-05-29: "Nearest in DOM order — adopt the surah of the closest attributed finding in document order, within a bounded distance, regardless of block boundaries.") If exactly one of those two neighbors is currently classified as green / lightGreen-corrected / orange-corrected AND its surah ∈ this finding's `matchedRefs`, that surah's reference is adopted as `resolvedLightBlueRef`. If both neighbors qualify and disagree on the surah, the finding is treated as ambiguous. If neither neighbor qualifies, the finding is treated as ambiguous. Ambiguous → `resolvedLightBlueRef` left absent; `candidateLightBlueRefs` populated.
 
 ### AutoCorrectPrefs (replaces `prefs.v1.autoCorrectOrange`)
 
