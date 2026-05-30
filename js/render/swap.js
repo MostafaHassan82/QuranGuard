@@ -32,6 +32,45 @@ const QuranSwap = (() => {
     return finding.authenticExcerpt || finding.authenticText || '';
   }
 
+  // T013 (FR-012/FR-013) — when a finding carries an aligned word diff, paint the
+  // diff INLINE inside the highlight span instead of the plain authentic excerpt:
+  // removed words struck through (`<del class="diff-del">`), inserted/corrected
+  // words highlighted (`<ins class="diff-ins">`), unchanged words plain. This is
+  // the yellow inline diff overlay (and the provenance display for a yellow
+  // text-replace successor). Returns an HTML string, or null when the finding has
+  // no usable diff (callers fall back to plain swapTextFor). Every word is escaped
+  // — only our own <del>/<ins> wrappers are markup, never the page/ayah text.
+  function escapeHtml(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+  function buildDiffHtml(diff) {
+    if (!Array.isArray(diff) || diff.length === 0) return null;
+    const parts = [];
+    for (const seg of diff) {
+      if (!seg || !seg.op) continue;
+      switch (seg.op) {
+        case 'keep':
+          parts.push(escapeHtml(seg.authentic != null ? seg.authentic : seg.cited));
+          break;
+        case 'sub':
+          // Show what was written (struck) beside the authentic word (kept).
+          parts.push(`<del class="diff-del">${escapeHtml(seg.cited)}</del> <ins class="diff-ins">${escapeHtml(seg.authentic)}</ins>`);
+          break;
+        case 'missing': // authentic word the citation dropped — insert it
+          parts.push(`<ins class="diff-ins">${escapeHtml(seg.authentic)}</ins>`);
+          break;
+        case 'extra':   // word the citation added that isn't in the ayah — strike it
+          parts.push(`<del class="diff-del">${escapeHtml(seg.cited)}</del>`);
+          break;
+        default:
+          break;
+      }
+    }
+    return parts.length ? parts.join(' ') : null;
+  }
+
   // A match too shaky to safely replace the page text with. Replacing text on a
   // wrong match silently corrupts a possibly-correct citation, so we refuse:
   //  - `*`-separated excerpts that resolved to a SINGLE verse (the separator
@@ -150,7 +189,13 @@ const QuranSwap = (() => {
     span.setAttribute(ATTR_ORIG_LH,   span.style.lineHeight || '');
     if (origHeight) span.setAttribute(ATTR_ORIG_H, String(origHeight));
 
-    span.textContent = swapTextFor(finding);
+    // Paint the inline diff overlay when the finding carries an aligned diff
+    // (yellow / yellow-correction successor); otherwise the plain authentic
+    // excerpt. Reversal restores ATTR_ORIG_TEXT verbatim, which cleans up any
+    // <del>/<ins> markup since the original span content was plain cited text.
+    const diffHtml = buildDiffHtml(finding.diff);
+    if (diffHtml != null) span.innerHTML = diffHtml;
+    else span.textContent = swapTextFor(finding);
     span.classList.add(CSS_CLASS);
     span.style.fontFamily = QuranFonts.familyFor(prefs.font);
     applyBoundedSizing(span, prefs.font, origHeight);
@@ -185,5 +230,5 @@ const QuranSwap = (() => {
     }
   }
 
-  return { applySwap, revertSwap, reconcile, isEligible };
+  return { applySwap, revertSwap, reconcile, isEligible, isShakyMatch, buildDiffHtml };
 })();

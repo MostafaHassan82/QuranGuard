@@ -221,6 +221,7 @@ const QuranI18n = (() => {
       corr_multiple_matches: 'عدة مطابقات',
       corr_choose_candidate: 'اختر مرشّحًا',
       corr_candidate_option: 'الخيار {n}',
+      corr_unsafe_rewrite: 'لا يمكن التصحيح تلقائيًا (تطابق غير مؤكَّد)',
     },
     en: {
       cat_green: 'Verified with reference',
@@ -418,6 +419,7 @@ const QuranI18n = (() => {
       corr_multiple_matches: 'Multiple matches',
       corr_choose_candidate: 'Choose a candidate',
       corr_candidate_option: 'Option {n}',
+      corr_unsafe_rewrite: 'Can’t fix automatically (uncertain match)',
     },
   };
 

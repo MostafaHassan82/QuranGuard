@@ -862,6 +862,13 @@ function applyHighlight(candidate, result, { hidden = false } = {}) {
       // never alter the page.
       diff: result.diff || null,
       nearMatch: result.nearMatch || null,
+      // T011 (FR-014) — a yellow whose match is too shaky to safely rewrite the
+      // page text (boundary-spanning `*` excerpt or ambiguous multi-ref). The
+      // diff is still shown (panel + inline where eligible), but the panel
+      // withholds "Fix in place" (T018) and surfaces the explanation instead.
+      unsafeToRewrite: color === 'yellow'
+        && typeof QuranSwap !== 'undefined' && typeof QuranSwap.isShakyMatch === 'function'
+        && QuranSwap.isShakyMatch({ text: candidate.text, matchedRef: result.matchedRef, matchedRefs: result.matchedRefs }),
       deviation: result.deviation,
       strategy: candidate.strategy,
       // T065 — exact on-page text of the cited reference (e.g. "(البقرة:3)").

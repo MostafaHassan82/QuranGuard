@@ -176,6 +176,38 @@ function inPageTests() {
       QuranSwap.revertSwap(finding);
     }
 
+    // --- T013/T014: yellow inline diff overlay renders <del>/<ins> markup and
+    // reverts cleanly back to the original cited text. ---
+    {
+      const id = 'diff0';
+      span.className = 'cite quran-yellow';
+      span.removeAttribute('style');
+      span.classList.remove('quran-swap');
+      span.setAttribute('data-finding-id', id);
+      span.textContent = 'الحمد لله رب الكون';        // original cited text (one drifted word)
+      const origText = span.textContent;
+      const finding = {
+        id, color: 'yellow', text: 'الحمد لله رب الكون',
+        authenticExcerpt: 'الحمد لله رب العالمين', authenticText: 'الحمد لله رب العالمين',
+        matchedRef: 'الفاتحة:2', matchedRefs: ['الفاتحة:2'],
+        diff: [
+          { op: 'keep', cited: 'الحمد', authentic: 'الحمد' },
+          { op: 'keep', cited: 'لله', authentic: 'لله' },
+          { op: 'keep', cited: 'رب', authentic: 'رب' },
+          { op: 'sub', cited: 'الكون', authentic: 'العالمين' },
+        ],
+      };
+      const applied = QuranSwap.applySwap(finding, { master: { authenticTextReplacement: true }, perColor: { yellow: true }, font: 'uthmaniHafs' });
+      T('diff-overlay applySwap', applied);
+      T('diff-overlay paints a struck cited word', span.querySelector('del.diff-del')?.textContent === 'الكون',
+        span.innerHTML);
+      T('diff-overlay paints the authentic word as an insertion', span.querySelector('ins.diff-ins')?.textContent === 'العالمين',
+        span.innerHTML);
+      QuranSwap.revertSwap(finding);
+      T('diff-overlay revert restores original cited text + clears markup',
+        span.textContent === origText && !span.querySelector('del,ins'), span.innerHTML);
+    }
+
     return results;
   })();
 }

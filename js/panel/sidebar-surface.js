@@ -536,7 +536,17 @@ const QuranPanelSidebar = (() => {
     // T201 P3 — gated text-replace to authentic wording (manual). yellow drift →
     // "fix wording"; a red finding WITH a near-match → "accept suggestion".
     if (finding.color === 'yellow') {
-      actions.append(makeActionBtn(T('act_fix_wording'), () => runAction('correctTextInPlace', finding)));
+      // T018 (FR-014) — withhold "Fix in place" when the match is too shaky to
+      // safely rewrite the page text (boundary-spanning / ambiguous); the diff is
+      // still shown above, but we surface the explanation in the button's place.
+      if (finding.unsafeToRewrite) {
+        const note = document.createElement('span');
+        note.className = 'quran-ext-action-note';
+        note.textContent = T('corr_unsafe_rewrite');
+        actions.append(note);
+      } else {
+        actions.append(makeActionBtn(T('act_fix_wording'), () => runAction('correctTextInPlace', finding)));
+      }
     } else if (finding.color === 'red' && finding.nearMatch && finding.nearMatch.authenticText) {
       actions.append(makeActionBtn(T('act_accept_near'), () => runAction('correctTextInPlace', finding)));
     } else if (finding.color === 'lightGreen' && finding.priorFinding) {

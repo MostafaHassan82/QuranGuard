@@ -203,6 +203,25 @@
      the original (T058c). */
 }
 
+/* T014 (FR-012/FR-013) — inline yellow diff overlay, painted by swap.js
+   buildDiffHtml INSIDE the highlight span (no outside-span CSS — FR-008).
+   .diff-del = the word as written on the page, struck through; .diff-ins = the
+   authentic mushaf word, highlighted. These ride the same swap span so the
+   1.5× line-box clamp still bounds the rendered box. lightGreen provenance
+   styling (.quran-lightgreen) is unchanged. */
+.quran-swap .diff-del {
+  text-decoration: line-through;
+  text-decoration-color: rgba(210, 60, 40, 0.9);
+  text-decoration-thickness: 2px;
+  opacity: 0.7;
+}
+.quran-swap .diff-ins {
+  text-decoration: none;
+  background-color: rgba(150, 210, 80, 0.32);
+  border-radius: 2px;
+  padding: 0 0.08em;
+}
+
 /* Reference marker — the cited reference, always highlighted (any color). It
    carries the full-ayah hover tooltip and (when prefs.refLinks) links to
    quran.com. position:relative anchors the data-tooltip ::after bubble. */
