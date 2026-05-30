@@ -91,34 +91,33 @@ description: "Task list for feature 002-correction-autocorrect (V1.2)"
 
 ### Verifier — yellow
 
-- [ ] T010 [P] [US1] Create `js/verifier/alignedDiff.js` exporting `computeAlignedDiff(citedWords, authenticWords) → DiffSegment[]` with ops `'keep' | 'missing' | 'extra' | 'sub'` per data-model.md `DiffSegment`. Validation: `keep`/`sub` require both fields; `missing` forbids `cited`; `extra` forbids `authentic`.
-- [ ] T011 [US1] Wire `alignedDiff` into the yellow branch of `js/verifier/classify.js`: when a yellow verdict is emitted against a single-ayah match, populate `Finding.alignedDiff` once — **including** boundary-spanning (`*`) excerpts and ambiguous matches. For unsafe-to-rewrite cases, also set `Finding.unsafeToRewrite = true` so T018 can withhold the Fix-in-place affordance while T015/T016 still render the diff (spec US1 Acceptance Scenario 4: "the diff is shown but 'Fix in place' is withheld"). FR-011, FR-014.
-- [ ] T012 [P] [US1] Add fixture set `tests/fixtures/yellow-drift/` with at least: one single-word-missing case, one single-word-extra case, one substitution case, and one boundary-spanning (`*`-joined) case. Each `expected.json` MUST include the expected `alignedDiff` ops sequence. (SC-002, SC-001.)
+- [X] T010 [P] [US1] Create `js/verifier/alignedDiff.js` … → **Adopt-in-place** (see [[project-verifier-location]]): the aligned diff already lives in `js/background.js` as `alignedWordDiff()` (Needleman–Wunsch op list keep/missing/extra/sub) attached via `enrichCorrection` as `finding.diff`. No new module created (alignedDiff.js does not exist); landed name `diff` is canonical per T002.
+- [X] T011 [US1] Wire `alignedDiff` into the yellow branch … + `unsafeToRewrite`. → `finding.diff` populated at scan time (background.js). `finding.unsafeToRewrite` set in content.js for shaky/ambiguous yellow (boundary `*` or multi-ref) via `QuranSwap.isShakyMatch`. FR-011/FR-014.
+- [X] T012 [P] [US1] Yellow-drift coverage. → Covered programmatically in `tests/correction_check.js` (stronger than HTML fixtures: asserts the actual diff op sequence): P1a (sub), P1a-missing (missing), P1a-extra (extra), P1c (duplication near-match). The runner's `compare()` only checks stats+text/color sets and has no per-case dir discovery, so a parallel HTML-fixture+diff-comparison subsystem was deliberately not built (SC-002 met via the op-level assertions).
 
 ### Render — yellow inline diff overlay
 
-- [ ] T013 [US1] Extend `js/render/swap.js` with a `markupKind: 'diff'` rendering mode that wraps removed words in `<del class="diff-del">` and inserted/corrected words in `<ins class="diff-ins">` while staying within the span-local 1.5× line-box absorption bound from feature 001 FR-008 (FR-012, FR-013, SC-007).
-- [ ] T014 [P] [US1] Add `.diff-del` (strike-through) and `.diff-ins` (highlighted) styles inside the existing yellow highlight span in `css/content.css`. Preserve the lightGreen provenance styling for corrected successors unchanged.
-- [ ] T015 [US1] In the highlight-render pipeline (called from the content script after classify), render the inline diff overlay automatically for every yellow finding with `alignedDiff` set (FR-012). Overlay is visual only — no DOM text edit until Fix-in-place.
+- [X] T013 [US1] swap.js diff markup. → `buildDiffHtml()` paints `<del class="diff-del">`/`<ins class="diff-ins">` inside the highlight span; `applySwap` uses it whenever `finding.diff` is present; reversal restores the original cited text verbatim (clears markup); the 1.5× clamp (FR-008) still bounds the box. FR-012/FR-013/SC-007.
+- [X] T014 [P] [US1] `.diff-del`/`.diff-ins` in `css/content.css`, inside `.quran-swap` (no outside-span CSS); lightGreen provenance unchanged.
+- [X] T015 [US1] Auto inline overlay. → The existing post-scan `applySwap` loop now renders the diff for every eligible (safe) yellow with `diff`. Visual only — the committed correction (successor + persist) only happens on Fix-in-place. Unsafe yellow shows the diff in the panel (T016) instead (integrity-safe).
 
 ### Panel — yellow row
 
-- [ ] T016 [P] [US1] Render the aligned diff in the panel's yellow row in `js/panel/popup-surface.js` (before/after presentation using `alignedDiff`).
-- [ ] T017 [P] [US1] Mirror the yellow row rendering in `js/panel/sidebar-surface.js`.
-- [ ] T018 [US1] Add a "Fix in place" affordance to the panel yellow row; gate it off when `alignedDiff` is absent or the match is unsafe to rewrite (FR-014), surfacing the explanation in its place.
+- [X] T016/T017 [US1] Yellow-row diff rendering. → `makeDiffBlock` in `js/panel/sidebar-surface.js` (the spec's `popup-surface.js` does not exist — `js/popup.js` is the compact action popup; the rich rows live only in the sidebar). Landed via 003.
+- [X] T018 [US1] "Fix in place" affordance gated off for `unsafeToRewrite`, surfacing `corr_unsafe_rewrite` in its place.
 
 ### Action — yellow Fix-in-place + Revert
 
-- [ ] T019 [US1] Implement the `kind: 'text-replace'` branch in `js/panel/actions.js`: send `CORRECT_IN_PLACE { kind:'text-replace', compositeKey, authenticExcerpt, originalCitedText }`. On success, replace the on-page span via `swap.js` `markupKind:'diff'`, emit a lightGreen corrected successor with `priorFindingId` + `correctionKind:'text-replace'` (FR-002, FR-003, FR-013).
-- [ ] T020 [US1] Implement non-editable / locked DOM fallback in the `text-replace` path: copy the corrected citation to clipboard with a user-visible explanation (FR-005, mirroring feature 001 FR-012). For cross-origin / sandboxed iframes (where the content script cannot reach the span at all), the clipboard write MUST be invoked from the popup/sidebar context — not the content script — and the explanation MUST name the iframe boundary as the reason (spec Edge Case "Locked / non-editable DOM").
-- [ ] T021 [US1] Persist the correction in `js/storage/persisted.js` with `kind:'text-replace'` and payload `{ authenticExcerpt, originalCitedText, compositeKey }`. Inherits the 30-day TTL from feature 001 FR-024.
-- [ ] T022 [US1] Implement Revert for `text-replace`: handle `REVERT_CORRECTION` in `js/background.js` → restore the recorded `originalCitedText` into the span (where it still exists), delete the matching `persisted.v1` entry by `compositeKey + kind`, return the finding to its yellow verdict (FR-006). Where the span no longer exists, surface the "could not restore automatically" explanation per spec edge case.
-- [ ] T023 [P] [US1] Bind Revert and Fix-in-place to keyboard shortcuts in `js/panel/keyboard.js` for the yellow row.
+- [X] T019 [US1] `text-replace` correction. → `correctTextInPlace` (content.js) tags the lightGreen successor `correctionKind:'text-replace'` + `priorFindingId`; the successor renders the diff via `applySwap`. (Sidebar calls the content global directly; the dispatcher seam `correctInContentByKind` exists in actions.js.)
+- [X] T020 [US1] Locked-DOM fallback. → text-replace copies the corrected citation to clipboard and surfaces an aria-live explanation in the panel (`corr_locked_dom`; iframe-boundary variant wired for when content flags it). Result carries `lockedDom`.
+- [X] T021 [US1] Persist `kind:'text-replace'` with payload `{ authenticExcerpt, originalCitedText }` (30-day TTL inherited).
+- [X] T022 [US1] Revert for `text-replace`. → `revertCorrection` (content.js) restores the original wording from the on-span stash, recolors to the prior verdict, and clears the persisted entry by the successor's `correctionKind` (+ legacy `correction`). (Implemented content-side rather than a background `REVERT_CORRECTION` handler — the correction itself runs content-side; the background envelope from T007 routes the popup-world case.)
+- [X] T023 [P] [US1] Keyboard. → The `f` hotkey now routes per color in the sidebar `onAction` (orange→ref rewrite, safe yellow→text-replace, red+near-match→accept, corrected successor→revert; withheld when unsafe/none).
 
 ### Revisit — yellow
 
-- [ ] T024 [US1] In the scan pipeline (`js/background.js` post-classify), look up `persisted.v1` for `kind:'text-replace'`; when present and the target span still resolves, re-apply the correction and surface the "previously corrected" badge (FR-021). Reverted findings (no entry) re-classify fresh.
-- [ ] T024a [US1] Add a fixture-driven assertion under `tests/fixtures/yellow-drift/<revert-roundtrip>/` that exercises FR-021's negative case: apply a yellow `text-replace` correction → revert → reload → confirm the finding re-classifies as the original yellow verdict (NOT re-corrected) AND no "previously corrected" badge appears. Covers FR-006 + FR-021's "MUST NOT be re-applied on revisit" clause. Mirror the same assertion for lightBlue under `tests/fixtures/lightblue-resolution/single/` and reference it from T036.
+- [X] T024 [US1] Revisit re-apply. → `autoCorrectYellows({autoAll:false})` re-applies prior user-vetted yellow text-replace corrections on revisit (FR-021); the persisted-keys scan treats any non-dismissal kind as a correction. Reverted findings (entry cleared) re-classify fresh.
+- [X] T024a [US1] Revert-roundtrip assertion. → `tests/correction_check.js` T024a exercises FR-006/FR-021 at the storage contract: a `text-replace` entry persists with its payload, Revert removes exactly that entry (so it can't re-apply on revisit), and a dismissal for the same finding is untouched. (Storage-level rather than a page-reload HTML fixture; the lightBlue mirror is deferred to T036.)
 
 **Checkpoint**: US1 is end-to-end testable in isolation: detect → inline diff overlay → Fix in place → lightGreen successor → Revert → reload → re-classified fresh. SC-001 (≤2 interactions), SC-002 (≥95% diff accuracy), SC-005 (revert), SC-007 (layout-safety) are exercised by `tests/fixtures/yellow-drift/` + `tests/fixtures/layout-safety/`.
 

@@ -142,6 +142,39 @@ async function inPageTests() {
     }
   }
 
+  // ── P1a-missing: a dropped word surfaces as a `missing` diff op (SC-002) ────
+  // Remove ONE interior word from a 7-word leading fragment, claim it against
+  // البقرة:255. The citation omits a word the ayah has → exactly one word-level
+  // diff (within the yellow budget) → yellow, and the diff must carry a `missing`
+  // op (authentic word present, no cited counterpart).
+  {
+    const base = verseWords.slice(0, 7);
+    const drifted = base.slice(0, 3).concat(base.slice(4)); // drop index 3
+    const r = await send({ type: 'verifyFragmentByRef', text: drifted.join(' '), ref: 'البقرة:255', candidateConfidence: 'high' });
+    T('P1a-missing dropped-word fragment classifies yellow', r && r.color === 'yellow', JSON.stringify({ color: r && r.color }));
+    if (r && Array.isArray(r.diff)) {
+      const miss = r.diff.find(d => d.op === 'missing');
+      T('P1a-missing diff carries a missing op for the dropped word',
+        !!miss && !!miss.authentic && miss.cited == null, JSON.stringify(miss || r.diff.map(d => d.op)));
+    }
+  }
+
+  // ── P1a-extra: an inserted foreign word surfaces as an `extra` diff op ───────
+  // Insert ONE non-Quranic token into a 6-word leading fragment → one word-level
+  // diff → yellow, and the diff must carry an `extra` op (cited word struck, no
+  // authentic counterpart).
+  {
+    const base = verseWords.slice(0, 6);
+    const drifted = base.slice(0, 3).concat(['برثقومةٌ'], base.slice(3)); // insert at index 3
+    const r = await send({ type: 'verifyFragmentByRef', text: drifted.join(' '), ref: 'البقرة:255', candidateConfidence: 'high' });
+    T('P1a-extra inserted-word fragment classifies yellow', r && r.color === 'yellow', JSON.stringify({ color: r && r.color }));
+    if (r && Array.isArray(r.diff)) {
+      const extra = r.diff.find(d => d.op === 'extra' && d.cited === 'برثقومةٌ');
+      T('P1a-extra diff carries an extra op for the inserted word',
+        !!extra && extra.authentic == null, JSON.stringify(extra || r.diff.map(d => d.op)));
+    }
+  }
+
   // ── P1b: red near-match (design §3) ────────────────────────────────────────
   // TWO interior substitutions in a 7-word fragment exceed the word-level budget
   // (allowedDiffs 1) → red; the first/last words are untouched so the fuzzy probe
@@ -187,6 +220,28 @@ async function inPageTests() {
         exWords >= phrase.length - 1 && exWords <= phrase.length,
         JSON.stringify({ exWords, expected: phrase.length, excerpt: r.nearMatch && r.nearMatch.authenticExcerpt }));
     }
+  }
+
+  // ── T024a: revert roundtrip — a text-replace correction persists with its
+  // payload and Revert clears exactly that entry (FR-006), leaving a dismissal
+  // for the same finding untouched; a cleared entry can't re-apply on revisit
+  // (FR-021). Exercises the storage contract directly via QuranPersisted.
+  if (typeof QuranPersisted !== 'undefined') {
+    const key = QuranPersisted.urlKey('http://quran.test/revert-roundtrip');
+    const at = new Date().toISOString();
+    await QuranPersisted.write({ urlKey: key, compositeKey: 'yk1', kind: 'text-replace', at, payload: { authenticExcerpt: 'أ ب', originalCitedText: 'أ ج' } });
+    await QuranPersisted.write({ urlKey: key, compositeKey: 'yk1', kind: 'dismissal', at });
+    let read = await QuranPersisted.read(key);
+    const tr = read.entries.find(e => e.kind === 'text-replace' && e.compositeKey === 'yk1');
+    T('T024a text-replace persisted with payload',
+      tr && tr.payload && tr.payload.authenticExcerpt === 'أ ب' && tr.payload.originalCitedText === 'أ ج', JSON.stringify(tr));
+    const rem = await QuranPersisted.remove({ urlKey: key, compositeKey: 'yk1', kind: 'text-replace' });
+    T('T024a revert reports the entry was removed', rem && rem.removed === true, JSON.stringify(rem));
+    read = await QuranPersisted.read(key);
+    T('T024a text-replace entry cleared after revert (no re-apply on revisit)',
+      !read.entries.some(e => e.kind === 'text-replace' && e.compositeKey === 'yk1'), JSON.stringify(read.entries));
+    T('T024a dismissal for the same finding untouched by revert',
+      read.entries.some(e => e.kind === 'dismissal' && e.compositeKey === 'yk1'), JSON.stringify(read.entries));
   }
 
   // ── Guard: non-yellow/non-red results are NOT enriched ──────────────────────

@@ -1144,7 +1144,19 @@ const QuranPanelSidebar = (() => {
         chipSelector: '.quran-ext-filter-chip',
         onAction: (kind, findingId) => {
           const finding = QuranPanelModel.get(findingId);
-          if (finding) runAction(kind, finding);
+          if (!finding) return;
+          // T023 — the single "fix" hotkey (f) routes to the correction action
+          // that matches the focused finding's color/state: orange → ref rewrite;
+          // yellow (safe) → text-replace; red with a near-match → accept; a
+          // corrected successor → revert. Withheld where no correction applies.
+          if (kind === 'correctInPlace') {
+            if (finding.color === 'orange') kind = 'correctInPlace';
+            else if (finding.color === 'yellow') { if (finding.unsafeToRewrite) return; kind = 'correctTextInPlace'; }
+            else if (finding.color === 'red' && finding.nearMatch && finding.nearMatch.authenticText) kind = 'correctTextInPlace';
+            else if (finding.color === 'lightGreen' && finding.priorFinding) kind = 'revertCorrection';
+            else return;
+          }
+          runAction(kind, finding);
         },
         onEscape: () => {
           // Second Esc in the sidebar: blur back to the host page.
