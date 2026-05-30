@@ -470,7 +470,20 @@ const QuranPanelSidebar = (() => {
 
     const snippet = document.createElement('div');
     snippet.className = 'quran-ext-panel-snippet';
-    snippet.textContent = finding.text || '';
+    // For a corrected (lightGreen) successor we have the original wording on the
+    // finding (correctedFromText). Render it as a two-line "Now: <new> / Was:
+    // <old>" so the reader can see exactly what the correction changed.
+    if (finding.color === 'lightGreen' && finding.correctedFromText) {
+      const now = document.createElement('div');
+      now.className = 'quran-ext-panel-snippet-now';
+      now.textContent = `${T('corr_now')}: ${finding.text || ''}`;
+      const was = document.createElement('div');
+      was.className = 'quran-ext-panel-snippet-was';
+      was.textContent = `${T('corr_was')}: ${finding.correctedFromText}`;
+      snippet.append(now, was);
+    } else {
+      snippet.textContent = finding.text || '';
+    }
 
     const refs = document.createElement('div');
     refs.className = 'quran-ext-panel-refs';
@@ -500,7 +513,7 @@ const QuranPanelSidebar = (() => {
     // missing words marked as insertions, extra words struck through, subs paired.
     // Pure information (the design's §2a); never edits the page.
     if (finding.color === 'yellow' && Array.isArray(finding.diff) && finding.diff.length) {
-      row.append(makeDiffBlock(finding.diff));
+      row.append(makeDiffBlock(finding));
     }
     // T201 P1 — red near-match suggestion ("هل تقصد …؟"). Suggestion only.
     if (finding.color === 'red' && finding.nearMatch && finding.nearMatch.authenticText) {
@@ -526,6 +539,11 @@ const QuranPanelSidebar = (() => {
       actions.append(makeActionBtn(T('act_fix_wording'), () => runAction('correctTextInPlace', finding)));
     } else if (finding.color === 'red' && finding.nearMatch && finding.nearMatch.authenticText) {
       actions.append(makeActionBtn(T('act_accept_near'), () => runAction('correctTextInPlace', finding)));
+    } else if (finding.color === 'lightGreen' && finding.priorFinding) {
+      // Revert a correction back to its pre-correction state (page + panel +
+      // persisted entry). Mirrors the dismiss/restore label so the affordance
+      // reads the same way across sections.
+      actions.append(makeActionBtn(T('act_restore'), () => runAction('revertCorrection', finding)));
     }
     actions.append(
       makeActionBtn(T('act_copy'),   () => runAction('copy',   finding)),
@@ -559,12 +577,32 @@ const QuranPanelSidebar = (() => {
   // `sub` shows authentic (the cited form is in the snippet above), `missing`
   // (omitted by the author) is added, `extra` (in the citation, not the ayah) is
   // struck through. Authentic-side wording only — never the author's drift.
-  function makeDiffBlock(diff) {
+  function makeDiffBlock(finding) {
+    const diff = finding.diff || [];
     const wrap = document.createElement('div');
     wrap.className = 'quran-ext-panel-diff';
     const heading = document.createElement('div');
     heading.className = 'quran-ext-panel-diff-heading';
-    heading.textContent = T('corr_diff_heading');
+    // Name the matched ayah(s) in the heading so the reader knows which
+    // reference the diff is being computed against. Multi-ref matches list
+    // every candidate (comma-separated). Each ref is a hover/linkable token
+    // so the reader can verify on quran.com without scrolling away.
+    const refs = (Array.isArray(finding.matchedRefs) && finding.matchedRefs.length)
+      ? finding.matchedRefs.slice()
+      : (finding.matchedRef ? [finding.matchedRef] : []);
+    heading.append(document.createTextNode(T('corr_diff_heading')));
+    if (refs.length) {
+      heading.append(document.createTextNode(' '));
+      refs.forEach((ref, i) => {
+        if (i > 0) heading.append(document.createTextNode('، '));
+        heading.append(refToken(ref));
+      });
+      heading.append(document.createTextNode(':'));
+    } else {
+      // No matched ref available — keep a trailing colon so the heading reads
+      // as a complete phrase instead of dangling on the connector ("in"/"في").
+      heading.append(document.createTextNode(':'));
+    }
     wrap.append(heading);
     const line = document.createElement('div');
     line.className = 'quran-ext-panel-diff-line quran-swap';
@@ -586,6 +624,9 @@ const QuranPanelSidebar = (() => {
   }
 
   // Render a red near-match suggestion (T201 P1 §3): "هل تقصد: <ref> — <ayah>".
+  // Show the boundary-aligned excerpt (the exact span that "accept suggestion"
+  // will paste back into the page) when the verifier produced one; fall back to
+  // the full ayah text otherwise.
   function makeNearMatchBlock(nm) {
     const wrap = document.createElement('div');
     wrap.className = 'quran-ext-panel-nearmatch';
@@ -596,7 +637,7 @@ const QuranPanelSidebar = (() => {
     const ayah = document.createElement('div');
     ayah.className = 'quran-ext-panel-nearmatch-text quran-swap';
     ayah.dir = 'rtl';
-    ayah.textContent = nm.authenticText || '';
+    ayah.textContent = nm.authenticExcerpt || nm.authenticText || '';
     wrap.append(ayah);
     return wrap;
   }
@@ -653,6 +694,7 @@ const QuranPanelSidebar = (() => {
         // sidebar model is updated by content.js via QuranPanelSidebar.ingest.
         case 'correctInPlace': await QuranActions.correctInContent(finding.id); break;
         case 'correctTextInPlace': await QuranActions.correctTextInContent(finding.id); break;
+        case 'revertCorrection': await QuranActions.revertInContent(finding.id); break;
         // T069/T070 — dismiss; T071 — restore. Update this surface's model + persist.
         case 'dismiss':
           QuranPanelModel.markDismissedThisSession(finding.id);
@@ -1108,6 +1150,14 @@ const QuranPanelSidebar = (() => {
   function upsert(finding) { QuranPanelModel.upsert(finding); if (rootEl) render(); }
   // T066 — ingest a correct-in-place successor (discards prior, pins successor).
   function ingest(finding, priorFindingId) { QuranPanelModel.ingestProgress(finding, priorFindingId || null); if (rootEl) render(); }
+  // Revert a correction: drop the lightGreen successor row and put the original
+  // (pre-correction) finding back in its place. Called by content.js after the
+  // page span has already been rewritten back.
+  function revertCorrection(successorId, original) {
+    QuranPanelModel.remove(successorId);
+    if (original) QuranPanelModel.upsert(original);
+    if (rootEl) render();
+  }
   function reset() { QuranPanelModel.reset(); if (rootEl) render(); }
   // Drop stale persisted badges after the options page clears the store, then
   // re-render so the open sidebar reflects the cleared state immediately.
@@ -1190,5 +1240,5 @@ const QuranPanelSidebar = (() => {
     if (!rootEl) document.documentElement.classList.remove('quran-ext-sidebar-mounted');
   }
 
-  return { mount, unmount, upsert, ingest, reset, tagPersisted, clearPersistedBadges, isMounted, clearUserClosed, focusRow, applyLang, setPosition, setFloatAnchor, applyHighlightPrefs, showError, clearError };
+  return { mount, unmount, upsert, ingest, revertCorrection, reset, tagPersisted, clearPersistedBadges, isMounted, clearUserClosed, focusRow, applyLang, setPosition, setFloatAnchor, applyHighlightPrefs, showError, clearError };
 })();

@@ -336,25 +336,51 @@ function matchMultiSegmentCitation(candidateText) {
   const segments = candidateText.split('*').map(s => s.trim()).filter(s => s.length > 0);
   if (segments.length < 2) return null;
 
-  // For each segment, collect candidate verses (exact → strict-ordered → soft-ordered)
+  // For each segment, collect candidate verses (exact → strict-ordered → soft-ordered).
+  // Single-word segments — like "أحد * الله" where each side of the `*` is one
+  // word — need a dedicated path: the *Global helpers below all early-return on
+  // length < 2. Fall back to the word index so a one-word boundary segment still
+  // generates candidate verses.
   const segHits = [];
+  const segWords = [];
   for (const seg of segments) {
     const t1 = tier1Normalize(seg);
     const words = t1.split(' ').filter(Boolean);
     if (words.length === 0) return null;
-    let recs = findExactGlobal(t1);
-    if (recs.length === 0) recs = findOrderedContiguousGlobal(words);
-    if (recs.length === 0) recs = findOrderedContiguousSoftGlobal(words);
+    let recs;
+    if (words.length === 1) {
+      const keys = softWordKeysUnion(words[0], indexes.wordIndex);
+      recs = [];
+      for (const k of keys) {
+        const { surahNum, ayahNum } = parseKey(k);
+        const rec = indexes.byRef[surahNum]?.[ayahNum];
+        if (rec) recs.push(rec);
+      }
+    } else {
+      recs = findExactGlobal(t1);
+      if (recs.length === 0) recs = findOrderedContiguousGlobal(words);
+      if (recs.length === 0) recs = findOrderedContiguousSoftGlobal(words);
+    }
     if (recs.length === 0) return null; // any segment unmatched → bail
     segHits.push(recs);
+    segWords.push(words);
   }
 
-  // Find a surah where every segment can be placed in ascending ayah order.
+  // Enumerate every valid (surah, ayah-pick) and score it: the right pick is the
+  // one where the cited words land tightest on the joined verse-words across the
+  // `*` boundary. Previously this loop took the FIRST surah that qualified by
+  // numeric order — so "أحد * الله" picked البقرة (where أحد and الله coincidentally
+  // co-occur within ~30 ayahs) over الإخلاص:1-2 (the real adjacent-boundary match).
+  // Scoring with wordLevelCompareSingleAyahLoose against the joined span makes
+  // الإخلاص:1-2's diffs=0 beat البقرة's diffs>0.
+  const candidates = [];
   const surahCounts = new Map();
   for (const recs of segHits) {
     const surahs = new Set(recs.map(r => r.surahNum));
     for (const s of surahs) surahCounts.set(s, (surahCounts.get(s) || 0) + 1);
   }
+  const joinedCandWords = segWords.flat();
+  const looseDiffs = Math.max(2, Math.ceil(joinedCandWords.length / 4));
   for (const [surahNum, count] of surahCounts) {
     if (count !== segHits.length) continue;
     const ayahLists = segHits.map(recs =>
@@ -370,16 +396,93 @@ function matchMultiSegmentCitation(candidateText) {
       prev = next;
     }
     if (!ok) continue;
-    if (picked[picked.length - 1] - picked[0] > MULTI_SEGMENT_MAX_SPAN) continue;
+    const span = picked[picked.length - 1] - picked[0];
+    if (span > MULTI_SEGMENT_MAX_SPAN) continue;
     const firstRec = indexes.byRef[surahNum]?.[picked[0]];
     if (!firstRec) continue;
-    const surahName = firstRec.surahName;
-    const displayRef = picked.length === 1
-      ? `${surahName}:${picked[0]}`
-      : `${surahName}:${picked[0]}-${picked[picked.length - 1]}`;
-    return { firstRec, surahNum, ayahs: picked, displayRef };
+    // Score: edit distance of the cited words against the joined tier1Words of
+    // the picked ayahs. Lower is tighter. For adjacent ayahs spanning a verse
+    // boundary (e.g. الإخلاص:1-2), the diff is typically 0.
+    let joinedWords = [];
+    for (const a of picked) {
+      const rec = indexes.byRef[surahNum]?.[a];
+      if (rec) joinedWords = joinedWords.concat(rec.tier1Words);
+    }
+    const diffs = wordLevelCompareSingleAyahLoose(joinedCandWords, joinedWords, looseDiffs);
+    candidates.push({ surahNum, picked, span, firstRec, diffs: diffs == null ? Infinity : diffs });
   }
-  return null;
+  if (!candidates.length) return null;
+  // Pick the lowest-distance candidate. Ties prefer the shortest span (so a true
+  // adjacent-boundary pair beats a wide one), then numeric surah:ayah order.
+  candidates.sort((a, b) =>
+    a.diffs - b.diffs ||
+    a.span - b.span ||
+    a.surahNum - b.surahNum ||
+    a.picked[0] - b.picked[0]
+  );
+  const best = candidates[0];
+  const surahName = best.firstRec.surahName;
+  const displayRef = best.picked.length === 1
+    ? `${surahName}:${best.picked[0]}`
+    : `${surahName}:${best.picked[0]}-${best.picked[best.picked.length - 1]}`;
+
+  // Boundary-aligned authentic excerpt: for each cited segment, find the window
+  // inside its picked ayah's tier1 words and lift the parallel display words.
+  // Stitch with ' * ' so the swap engine can paint the exact boundary slice
+  // (e.g. "أَحَدٌ * ٱللَّهُ") instead of falling back to the full first verse.
+  const pickedRecs = best.picked.map(a => indexes.byRef[best.surahNum]?.[a]).filter(Boolean);
+  const dispWordsOf = (rec) => (rec.uthmaniWords && rec.uthmaniWords.length === rec.tier1Words.length)
+    ? rec.uthmaniWords
+    : rec.text.split(/\s+/).filter(Boolean);
+  let authenticExcerpt = null;
+  let displayDiffers = false;
+  const diffSegments = [];
+  if (pickedRecs.length === segWords.length) {
+    const segAuthDisp = [];
+    const segCitedDisp = segments.map(s => s.split(/\s+/).filter(Boolean));
+    let ok = true;
+    for (let k = 0; k < segWords.length; k++) {
+      const rec = pickedRecs[k];
+      const win = bestAlignWindow(segWords[k], rec.tier1Words);
+      if (!win) { ok = false; break; }
+      const dispWords = dispWordsOf(rec);
+      const slice = dispWords.slice(win.s, win.s + win.L);
+      if (!slice.length || slice.some(w => !w)) { ok = false; break; }
+      segAuthDisp.push(slice);
+      // Build aligned diff (op list) for this segment, so the panel can render
+      // a single combined diff with `*` markers at the boundaries.
+      const segT1Win = rec.tier1Words.slice(win.s, win.s + win.L);
+      const segDiff = alignedWordDiff(segWords[k], segCitedDisp[k], segT1Win, slice);
+      if (k > 0) diffSegments.push({ op: 'keep', cited: '*', authentic: '*' });
+      for (const d of segDiff) diffSegments.push(d);
+      // Drift detection — only flag yellow when there's a real word-level
+      // change (op != 'keep') OR the cited word carries explicit tashkeel that
+      // disagrees with the canonical wording. Bare-letter prose ("الحاقة")
+      // against fully-marked mushaf wording ("ٱلْحَآقَّةُ") is normal Arabic
+      // writing and stays lightBlue, matching classifyDeviation's tashkeelOnly
+      // (which is a green-eligible deviation per QuranClassify.GREEN_DEVIATIONS).
+      const TASHKEEL_RE = /[ً-ٰٟ]/;
+      for (const d of segDiff) {
+        if (d.op !== 'keep') { displayDiffers = true; continue; }
+        const cited = d.cited || '';
+        const authentic = d.authentic || '';
+        if (cited === authentic) continue;
+        if (TASHKEEL_RE.test(cited)) { displayDiffers = true; }
+      }
+    }
+    if (ok) authenticExcerpt = segAuthDisp.map(s => s.join(' ')).join(' * ');
+  }
+  const authenticText = pickedRecs.map(r => r.text).join(' * ');
+  return {
+    firstRec: best.firstRec,
+    surahNum: best.surahNum,
+    ayahs: best.picked,
+    displayRef,
+    authenticText,
+    authenticExcerpt,
+    displayDiffers,
+    diff: diffSegments.length ? diffSegments : null,
+  };
 }
 
 function candidatesFromWords(normWords, wordIdx) {
@@ -523,6 +626,72 @@ function findFuzzyGlobal(t1Words) {
   return results;
 }
 
+// Cross-ayah fuzzy probe for short citations that straddle a verse boundary
+// (e.g. "أحد الله" = end of الإخلاص:1 + start of الإخلاص:2). Same primitive as
+// findFuzzyGlobal — wordLevelCompareSingleAyahLoose against a joined word list —
+// applied to every (K, K+1) pair where the citation's first word soft-matches
+// somewhere in K AND its last word soft-matches somewhere in K+1. Returns
+// scored candidates the red enrichment can rank alongside single-ayah hits.
+function findCrossAyahFuzzy(t1Words) {
+  if (t1Words.length < 2 || t1Words.length > 12) return [];
+  const firstKeys = softWordIndexLookup(t1Words[0], indexes.wordIndex);
+  const lastKeys = softWordIndexLookup(t1Words[t1Words.length - 1], indexes.wordIndex);
+  if (!firstKeys.size || !lastKeys.size) return [];
+  const lastBySurah = new Map(); // surahNum → Set<ayahNum>
+  for (const k of lastKeys) {
+    const { surahNum, ayahNum } = parseKey(k);
+    let s = lastBySurah.get(surahNum);
+    if (!s) { s = new Set(); lastBySurah.set(surahNum, s); }
+    s.add(ayahNum);
+  }
+  const looseDiffs = Math.max(2, Math.ceil(t1Words.length / 4));
+  const results = [];
+  for (const k of firstKeys) {
+    const { surahNum, ayahNum } = parseKey(k);
+    const nextSet = lastBySurah.get(surahNum);
+    if (!nextSet || !nextSet.has(ayahNum + 1)) continue;
+    const recA = indexes.byRef[surahNum]?.[ayahNum];
+    const recB = indexes.byRef[surahNum]?.[ayahNum + 1];
+    if (!recA || !recB) continue;
+    const joined = recA.tier1Words.concat(recB.tier1Words);
+    const diffs = wordLevelCompareSingleAyahLoose(t1Words, joined, looseDiffs);
+    if (diffs !== null) {
+      // Build a boundary-aware excerpt for the matched window so accepting the
+      // suggestion replaces only the cited slice (with the verse separator `*`
+      // reinserted if the window straddles the ayah boundary at position
+      // recA.tier1Words.length).
+      const dispWordsOf = (rec) => (rec.uthmaniWords && rec.uthmaniWords.length === rec.tier1Words.length)
+        ? rec.uthmaniWords
+        : rec.text.split(/\s+/).filter(Boolean);
+      const joinedDisp = dispWordsOf(recA).concat(dispWordsOf(recB));
+      const boundary = recA.tier1Words.length;
+      const win = bestAlignWindow(t1Words, joined);
+      let excerpt = null;
+      if (win) {
+        const out = [];
+        for (let i = 0; i < win.L; i++) {
+          const globalIdx = win.s + i;
+          if (globalIdx === boundary && i > 0) out.push('*');
+          const w = joinedDisp[globalIdx];
+          if (w) out.push(w);
+        }
+        excerpt = out.join(' ');
+      }
+      results.push({
+        ref: `${recA.surahName}:${recA.ayahNum}-${recB.ayahNum}`,
+        refLabel: `${recA.surahName}:${recA.ayahNum}-${recB.ayahNum}`,
+        authenticText: `${recA.text} * ${recB.text}`,
+        authenticExcerpt: excerpt,
+        diffs,
+        crossAyah: true,
+        surahNum,
+        ayahNum: recA.ayahNum,
+      });
+    }
+  }
+  return results;
+}
+
 // ── V1.2 correction enrichment (T201) ───────────────────────────────────────
 // Pure-information outputs layered on a VerificationResult: an aligned word diff
 // for yellow (so the panel can show النص/الصواب) and a fuzzy near-match for red
@@ -615,10 +784,54 @@ function enrichCorrection(r, text) {
   } else if (r.color === 'red') {
     const candT1 = tier1Normalize(clean).split(' ').filter(Boolean);
     if (candT1.length >= 2) {
-      const recs = findFuzzyGlobal(candT1);
-      if (recs && recs.length) {
-        const rec = sortRecs(recs)[0];
-        r.nearMatch = { ref: rec.ref, refLabel: `${rec.surahName}:${rec.ayahNum}`, authenticText: rec.text };
+      // Score every candidate by edit distance and pick the lexically closest —
+      // not the lowest-numbered surah (the previous sortRecs(recs)[0] tie-break
+      // was wrong; for "أحد الله" it landed on البقرة:102 even though الإخلاص:1-2
+      // straddles the same words with zero diffs once we permit a cross-ayah
+      // span). Cross-ayah candidates come from findCrossAyahFuzzy.
+      const looseDiffs = Math.max(2, Math.ceil(candT1.length / 4));
+      const dispWordsOf = (rec) => (rec.uthmaniWords && rec.uthmaniWords.length === rec.tier1Words.length)
+        ? rec.uthmaniWords
+        : rec.text.split(/\s+/).filter(Boolean);
+      const single = findFuzzyGlobal(candT1).map(rec => {
+        // Slice the authentic *window* that aligned with the cited words, so
+        // "accept suggestion" replaces only the cited span (and any words the
+        // user dropped inside it) — not the entire surrounding ayah.
+        const win = bestAlignWindow(candT1, rec.tier1Words);
+        const ayahDisp = dispWordsOf(rec);
+        const excerpt = win
+          ? ayahDisp.slice(win.s, win.s + win.L).filter(Boolean).join(' ')
+          : null;
+        return {
+          ref: rec.ref,
+          refLabel: `${rec.surahName}:${rec.ayahNum}`,
+          authenticText: rec.text,
+          authenticExcerpt: excerpt || null,
+          diffs: wordLevelCompareSingleAyahLoose(candT1, rec.tier1Words, looseDiffs),
+          crossAyah: false,
+          surahNum: rec.surahNum,
+          ayahNum: rec.ayahNum,
+        };
+      }).filter(c => c.diffs !== null);
+      const cross = findCrossAyahFuzzy(candT1);
+      const all = single.concat(cross);
+      if (all.length) {
+        // Sort: lowest diffs wins; on a tie, prefer single-ayah (simpler claim);
+        // then surah:ayah order for stability.
+        all.sort((a, b) =>
+          a.diffs - b.diffs ||
+          (a.crossAyah ? 1 : 0) - (b.crossAyah ? 1 : 0) ||
+          a.surahNum - b.surahNum ||
+          a.ayahNum - b.ayahNum
+        );
+        const best = all[0];
+        r.nearMatch = {
+          ref: best.ref,
+          refLabel: best.refLabel,
+          authenticText: best.authenticText,
+          authenticExcerpt: best.authenticExcerpt || null,
+          ...(best.crossAyah ? { crossAyah: true } : {}),
+        };
       }
     }
   }
@@ -884,7 +1097,22 @@ function verifyFragment(candidateText, candidateConfidence = 'medium') {
   // verse that happens to contain the joined words in a row.
   const multi = matchMultiSegmentCitation(candidateText);
   if (multi) {
-    return makeResult({ color: 'lightBlue', matchedRef: multi.displayRef, authenticText: multi.firstRec.text, deviation: 'spellingDrift', candidateConfidence, matchType: 'orderedContiguous' });
+    // Color: tier1 words match the joined boundary span, but the cited display
+    // form may still differ from the canonical mushaf wording (tashkeel, alef
+    // forms, …). When it does, surface as yellow with the precomputed diff so
+    // the panel offers "Fix in place"; when displays match exactly, lightBlue.
+    const color = multi.displayDiffers ? 'yellow' : 'lightBlue';
+    const deviation = multi.displayDiffers ? 'wordLevel' : 'spellingDrift';
+    return makeResult({
+      color,
+      matchedRef: multi.displayRef,
+      authenticText: multi.authenticText || multi.firstRec.text,
+      authenticExcerpt: multi.authenticExcerpt,
+      deviation,
+      diff: multi.diff,
+      candidateConfidence,
+      matchType: 'orderedContiguous',
+    });
   }
 
   // Strict first (matchedRef is the cleaner spelling); fall back to soft (handles

@@ -1925,6 +1925,9 @@ async function correctInPlace(findingId, options = {}) {
     refText: corrected || f.refText,
     priorFindingId: findingId,
     persistedBadge: null,
+    // Snapshot of the pre-correction finding so revertCorrection can rebuild
+    // the original row (color, refs, …) without re-running the verifier.
+    priorFinding: { ...f, priorFinding: undefined },
   };
   const idx = STATE.findings.findIndex(x => x.id === findingId);
   if (idx !== -1) STATE.findings.splice(idx, 1, successor); else STATE.findings.push(successor);
@@ -1991,7 +1994,10 @@ async function correctTextInPlace(findingId, options = {}) {
     authentic = f.authenticExcerpt || f.authenticText || null;
     verifyRef = f.matchedRef || f.matchedReference || null;
   } else if (f.color === 'red' && f.nearMatch) {
-    authentic = f.nearMatch.authenticText || null;
+    // Prefer the boundary-aligned excerpt so we replace only the cited window
+    // (with words the user dropped restored) and not the whole surrounding
+    // verse. Falls back to the full authentic text when no excerpt was emitted.
+    authentic = f.nearMatch.authenticExcerpt || f.nearMatch.authenticText || null;
     verifyRef = f.nearMatch.refLabel || f.nearMatch.ref || null;
   }
   if (!authentic || !verifyRef) {
@@ -2075,6 +2081,9 @@ async function correctTextInPlace(findingId, options = {}) {
     nearMatch: null,
     priorFindingId: findingId,
     persistedBadge: null,
+    // Snapshot of the pre-correction finding so revertCorrection can rebuild
+    // the original row (color, refs, diff, …) without re-running the verifier.
+    priorFinding: { ...f, priorFinding: undefined },
   };
   const idx = STATE.findings.findIndex(x => x.id === findingId);
   if (idx !== -1) STATE.findings.splice(idx, 1, successor); else STATE.findings.push(successor);
@@ -2102,6 +2111,61 @@ async function correctTextInPlace(findingId, options = {}) {
     try { await QuranMsg.sendRequest('PERSIST_WRITE', { urlKey: pageUrlKey(), compositeKey: findingId, kind: 'correction', at: new Date().toISOString() }); } catch (_) {}
   }
   return { ok: true, result: { successorFindingId: successorId, fellBackToClipboard } };
+}
+
+// Restore a corrected (lightGreen) finding to its pre-correction state: rewrite
+// the page span back to the original text/color/refs, swap the successor in
+// STATE.findings for the snapshot taken when the correction was applied, and
+// clear the matching persisted entry so revisits won't re-apply the correction.
+async function revertCorrection(findingId) {
+  const f = STATE.findings.find(x => x.id === findingId);
+  if (!f || !f.priorFinding) return { ok: false, error: { code: 'NOT_REVERTABLE', message: 'no prior snapshot' } };
+  const original = { ...f.priorFinding };
+
+  const ayahSpan = document.querySelector(`[data-finding-id="${cssEscapeId(findingId)}"]`);
+  STATE.swapInProgress = true;
+  try {
+    if (ayahSpan) {
+      // Prefer the on-span stash (verbatim original textContent) over the
+      // serialised finding.text in case the swap engine or correctInPlace had
+      // mutated the span beyond what was reflected in the finding.
+      const origText = ayahSpan.dataset.quranCorrectedFrom != null
+        ? ayahSpan.dataset.quranCorrectedFrom
+        : (original.text || '');
+      ayahSpan.textContent = origText;
+      delete ayahSpan.dataset.quranCorrectedFrom;
+      for (const c of ALL_HIGHLIGHT_CLASSES) ayahSpan.classList.remove(c);
+      if (CSS_BY_COLOR[original.color]) ayahSpan.classList.add(CSS_BY_COLOR[original.color]);
+      ayahSpan.dataset.findingId = original.id;
+      ayahSpan.dataset.color = original.color;
+      ayahSpan.dataset.claimedRef = original.claimedRef || '';
+      ayahSpan.dataset.matchedRef = original.matchedRef || '';
+      const tip = buildTooltip(original.color, {
+        color: original.color,
+        claimedRef: original.claimedRef,
+        matchedRef: original.matchedRef,
+        deviation: original.deviation,
+      });
+      ayahSpan.dataset.tooltip = tip;
+      if (CATEGORY_LABEL_AR[original.color]) {
+        ayahSpan.setAttribute('aria-label', tt('cat_' + original.color) + (tip ? '. ' + tip : ''));
+      }
+    }
+  } finally {
+    setTimeout(() => { STATE.swapInProgress = false; }, 50);
+  }
+
+  const idx = STATE.findings.findIndex(x => x.id === findingId);
+  if (idx !== -1) STATE.findings.splice(idx, 1, original); else STATE.findings.push(original);
+
+  // Clear the persisted correction so the revert sticks across reloads.
+  try { await QuranMsg.sendRequest('PERSIST_REMOVE', { urlKey: pageUrlKey(), compositeKey: findingId, kind: 'correction' }); } catch (_) {}
+
+  if (typeof QuranPanelSidebar !== 'undefined' && QuranPanelSidebar.isMounted()) {
+    try { QuranPanelSidebar.revertCorrection(findingId, original); } catch (_) {}
+  }
+  window.__quranMatches = STATE.findings.slice();
+  return { ok: true, result: { originalFindingId: original.id } };
 }
 
 if (chrome?.runtime?.onMessage) {

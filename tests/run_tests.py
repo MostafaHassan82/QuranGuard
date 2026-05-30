@@ -71,6 +71,10 @@ def run_fixture(context, html_source: str, source_label: str = '',
         html_source = fixture_path.read_text(encoding='utf-8', errors='replace')
 
     page = context.new_page()
+    page_errors = []
+    console_errors = []
+    page.on('pageerror', lambda exc: page_errors.append(str(exc)))
+    page.on('console', lambda msg: console_errors.append(f"[{msg.type}] {msg.text}") if msg.type in ('error', 'warning') else None)
     try:
         body_bytes = html_source.encode('utf-8')
         # Abort all HTTP(S) requests by default — prevents external blocking scripts
@@ -90,42 +94,54 @@ def run_fixture(context, html_source: str, source_label: str = '',
         # content.js bridge guard (readyState check) + retry loop handles timing.
         page.goto(FIXTURE_URL, wait_until='commit', timeout=15000)
 
-        # Trigger scan via DOM event bridge.
-        # content.js (isolated world) listens for '__quranBridgeScan' and
-        # dispatches '__quranBridgeDone' with stats+matches when done.
-        # Retry until the content script is ready (small startup delay).
+        # Trigger scan via the one-shot promise bridge (window.__quranRunScan).
+        # The DOM-event bridge (__quranBridgeScan) was hardened against synthetic
+        # events (e.isTrusted check), which Playwright's dispatchEvent always
+        # fails — so this harness has to use the promise bridge that content.js
+        # exposes explicitly for the Node harness. Same return shape (stats,
+        # findings, matches), no listener race.
+        # Poll until __quranRunScan is defined (content scripts inject after
+        # navigation 'commit'), then await its result with an overall budget.
         raw = page.evaluate("""
             async () => {
-                return new Promise((resolve) => {
-                    const overallTimeout = setTimeout(
-                        () => resolve({ error: 'content script not ready after 35s' }), 35000);
-                    let done = false;
-
-                    function attempt() {
-                        if (done) return;
-                        const handler = (e) => {
-                            if (done) return;
-                            done = true;
-                            clearTimeout(overallTimeout);
-                            resolve({ ok: true, ...e.detail });
+                const t0 = Date.now();
+                while (typeof window.__quranRunScan !== 'function') {
+                    if (Date.now() - t0 > 35000) {
+                        const probe = {
+                            hasLog: typeof QuranLog,
+                            hasMsg: typeof QuranMsg,
+                            hasI18n: typeof QuranI18n,
+                            hasModel: typeof QuranPanelModel,
+                            hasActions: typeof QuranActions,
+                            hasKeyboard: typeof QuranPanelKeyboard,
+                            hasSidebar: typeof QuranPanelSidebar,
+                            hasFonts: typeof QuranFonts,
+                            hasSwap: typeof QuranSwap,
+                            hasNormalize: typeof QuranNormalize,
+                            hasCompose: typeof QuranCompose,
+                            readyState: document.readyState,
                         };
-                        document.addEventListener('__quranBridgeDone', handler, { once: true });
-                        document.dispatchEvent(new Event('__quranBridgeScan'));
-                        // If content script not ready, it won't respond; retry in 1s
-                        setTimeout(() => {
-                            if (!done) {
-                                document.removeEventListener('__quranBridgeDone', handler);
-                                attempt();
-                            }
-                        }, 1000);
+                        return { error: 'content script not ready after 35s', probe };
                     }
-                    attempt();
-                });
+                    await new Promise(r => setTimeout(r, 200));
+                }
+                try {
+                    const out = await window.__quranRunScan();
+                    return { ok: true, ...out };
+                } catch (e) {
+                    return { error: String(e && e.message || e) };
+                }
             }
         """)
 
         if raw.get('error'):
             print(f"  WARN scan error: {raw['error']}")
+            if raw.get('probe'):
+                print(f"  PROBE: {raw['probe']}")
+            for e in page_errors[:5]:
+                print(f"  PAGEERROR: {e}")
+            for e in console_errors[:10]:
+                print(f"  CONSOLE: {e}")
 
         stats = raw.get('stats') or {}
         matches = raw.get('matches') or []

@@ -191,6 +191,14 @@ const QuranActions = (() => {
     try { return await correctTextInPlace(findingId); } catch (_) { return { ok: false }; }
   }
 
+  // Revert a lightGreen correction back to its pre-correction finding.
+  // content.js defines revertCorrection(); the panel calls this from the
+  // Restore button rendered on every lightGreen row that carries a priorFinding.
+  async function revertInContent(findingId) {
+    if (!findingId || typeof revertCorrection !== 'function') return { ok: false };
+    try { return await revertCorrection(findingId); } catch (_) { return { ok: false }; }
+  }
+
   // FR-012 from the POPUP world: ask the active tab's content script to perform
   // the correction. Resolves with the response payload {ok, result}.
   async function correctFromPopup(tabId, findingId) {
@@ -239,7 +247,7 @@ const QuranActions = (() => {
   return {
     buildRecord, friendlyText, toJson, buildShareUrl, buildShareArtifact,
     copy, copyRecord, copyRecordJson, copyShareArtifact, copyReport,
-    jumpInContent, jumpFromPopup, correctInContent, correctTextInContent, correctFromPopup,
+    jumpInContent, jumpFromPopup, correctInContent, correctTextInContent, revertInContent, correctFromPopup,
     urlKey, dismiss, restore,
   };
 })();
