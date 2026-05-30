@@ -814,6 +814,7 @@ function enrichCorrection(r, text) {
           authenticText: best.authenticText,
           authenticExcerpt: best.authenticExcerpt || null,
           ...(best.crossAyah ? { crossAyah: true } : {}),
+          ...(best.rivalCandidates ? { rivalCandidates: best.rivalCandidates } : {}),
         };
       } else {
         // A copy-paste–doubled authentic phrase (e.g. "…من ذهب …من ذهب") is ~2× too
@@ -848,13 +849,26 @@ function enrichCorrection(r, text) {
 // The red "هل تقصد …؟" near-match probe: score every fuzzy candidate (single-ayah
 // + cross-ayah) by edit distance and return the closest, or null. Factored out so
 // enrichCorrection can re-run it on a duplication-collapsed candidate.
+// T055a — red near-match acceptance threshold, tuned against the SC-004 fixture
+// set (tests/correction_check.js P1b/P1c + red drift cases). A candidate is a
+// "near match" only when its word-level diff against the cited text is within
+// ceil(citedWords / NEAR_MATCH_DIFF_DIVISOR), floored at NEAR_MATCH_MIN_DIFFS so
+// very short citations still tolerate one or two drift words. Looser divisors
+// produced false "did you mean" suggestions on unrelated verses; tighter ones
+// missed genuine typo recoveries. NEAR_TIE_MARGIN defines a tie/near-tie (FR-015):
+// rivals within this many diffs of the top candidate force a manual choice rather
+// than an auto-offered single suggestion (auto-accept never fires on a rival).
+const NEAR_MATCH_DIFF_DIVISOR = 4;
+const NEAR_MATCH_MIN_DIFFS = 2;
+const NEAR_TIE_MARGIN = 1;
+
 function nearMatchProbe(candT1) {
   if (!Array.isArray(candT1) || candT1.length < 2) return null;
   // Pick the lexically closest candidate — not the lowest-numbered surah (the old
   // sortRecs(recs)[0] tie-break was wrong; for "أحد الله" it landed on البقرة:102
   // even though الإخلاص:1-2 straddles the same words with zero diffs once we permit
   // a cross-ayah span). Cross-ayah candidates come from findCrossAyahFuzzy.
-  const looseDiffs = Math.max(2, Math.ceil(candT1.length / 4));
+  const looseDiffs = Math.max(NEAR_MATCH_MIN_DIFFS, Math.ceil(candT1.length / NEAR_MATCH_DIFF_DIVISOR));
   const dispWordsOf = (rec) => (rec.uthmaniWords && rec.uthmaniWords.length === rec.tier1Words.length)
     ? rec.uthmaniWords
     : rec.text.split(/\s+/).filter(Boolean);
@@ -889,7 +903,25 @@ function nearMatchProbe(candT1) {
     a.surahNum - b.surahNum ||
     a.ayahNum - b.ayahNum
   );
-  return all[0];
+  const best = all[0];
+  // T038 (FR-015) — tie / near-tie: when other distinct candidates are within
+  // NEAR_TIE_MARGIN diffs of the top one, surface them as rivalCandidates so the
+  // panel renders a manual-choice list. The outer suggestion is the top-ranked
+  // rival; auto-accept MUST NOT fire on any of them. Excludes the top candidate
+  // itself and de-dupes by surah:ayah.
+  const sameRef = (c) => c.surahNum === best.surahNum && c.ayahNum === best.ayahNum;
+  const toSuggestion = (c) => ({ ref: c.ref, refLabel: c.refLabel, authenticText: c.authenticText, authenticExcerpt: c.authenticExcerpt || null });
+  const rivals = [];
+  const seen = new Set([`${best.surahNum}:${best.ayahNum}`]);
+  for (const c of all.slice(1)) {
+    if (sameRef(c) || (c.diffs - best.diffs) > NEAR_TIE_MARGIN) continue;
+    const key = `${c.surahNum}:${c.ayahNum}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    rivals.push(toSuggestion(c));
+  }
+  if (rivals.length) best.rivalCandidates = rivals;
+  return best;
 }
 
 // Returns all Quran locations where the candidate text occurs, exact and partial.

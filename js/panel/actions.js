@@ -186,9 +186,9 @@ const QuranActions = (() => {
 
   // T201 P3 — text-replace correction (yellow "fix wording" / red "accept
   // near-match") from the CONTENT world. content.js defines correctTextInPlace().
-  async function correctTextInContent(findingId) {
+  async function correctTextInContent(findingId, candidate) {
     if (!findingId || typeof correctTextInPlace !== 'function') return { ok: false };
-    try { return await correctTextInPlace(findingId); } catch (_) { return { ok: false }; }
+    try { return await correctTextInPlace(findingId, candidate ? { candidate } : {}); } catch (_) { return { ok: false }; }
   }
 
   // T032 (US2) — lightBlue reference-attribution from the CONTENT world. Recolors

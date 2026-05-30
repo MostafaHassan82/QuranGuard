@@ -515,9 +515,18 @@ const QuranPanelSidebar = (() => {
     if (finding.color === 'yellow' && Array.isArray(finding.diff) && finding.diff.length) {
       row.append(makeDiffBlock(finding));
     }
-    // T201 P1 — red near-match suggestion ("هل تقصد …؟"). Suggestion only.
+    // T201 P1 / T041 — red near-match suggestion ("هل تقصد …؟"). When rival
+    // candidates are present (tie/near-tie) the block renders a ranked manual-
+    // choice list instead of a single auto-offered suggestion (FR-015).
     if (finding.color === 'red' && finding.nearMatch && finding.nearMatch.authenticText) {
-      row.append(makeNearMatchBlock(finding.nearMatch));
+      row.append(makeNearMatchBlock(finding.nearMatch, finding));
+    } else if (finding.color === 'red') {
+      // T041 shape (c) / FR-017 — no candidate within threshold: this is a
+      // deliberate "nothing safe to suggest" state, not an error.
+      const noAuto = document.createElement('div');
+      noAuto.className = 'quran-ext-panel-noauto';
+      noAuto.textContent = T('corr_no_auto');
+      row.append(noAuto);
     }
     // T201 P2 — lightBlue missing-reference suggestion (suggestion-only, no page
     // edit — ratified Q-A). Context-disambiguated when the text occurs at several
@@ -547,7 +556,10 @@ const QuranPanelSidebar = (() => {
       } else {
         actions.append(makeActionBtn(T('act_fix_wording'), () => runAction('correctTextInPlace', finding)));
       }
-    } else if (finding.color === 'red' && finding.nearMatch && finding.nearMatch.authenticText) {
+    } else if (finding.color === 'red' && finding.nearMatch && finding.nearMatch.authenticText
+               && !(Array.isArray(finding.nearMatch.rivalCandidates) && finding.nearMatch.rivalCandidates.length)) {
+      // Single unambiguous near-match → one-click accept. On a tie the per-
+      // candidate accepts in the ranked list are the only way in (FR-015).
       actions.append(makeActionBtn(T('act_accept_near'), () => runAction('correctTextInPlace', finding)));
     } else if (finding.color === 'lightGreen' && finding.priorFinding) {
       // Revert a correction back to its pre-correction state (page + panel +
@@ -637,18 +649,50 @@ const QuranPanelSidebar = (() => {
   // Show the boundary-aligned excerpt (the exact span that "accept suggestion"
   // will paste back into the page) when the verifier produced one; fall back to
   // the full ayah text otherwise.
-  function makeNearMatchBlock(nm) {
+  function makeNearMatchBlock(nm, finding) {
     const wrap = document.createElement('div');
     wrap.className = 'quran-ext-panel-nearmatch';
+    const rivals = Array.isArray(nm.rivalCandidates) ? nm.rivalCandidates : null;
     const heading = document.createElement('span');
     heading.className = 'quran-ext-panel-nearmatch-heading';
-    heading.textContent = T('corr_did_you_mean') + ' ';
-    wrap.append(heading, refToken(nm.refLabel || nm.ref || ''));
-    const ayah = document.createElement('div');
-    ayah.className = 'quran-ext-panel-nearmatch-text quran-swap';
-    ayah.dir = 'rtl';
-    ayah.textContent = nm.authenticExcerpt || nm.authenticText || '';
-    wrap.append(ayah);
+    // Tie/near-tie → ranked manual choice (FR-015); otherwise a single suggestion.
+    heading.textContent = (rivals ? T('corr_choose_candidate') : T('corr_did_you_mean')) + ' ';
+    wrap.append(heading);
+
+    if (!rivals) {
+      wrap.append(refToken(nm.refLabel || nm.ref || ''));
+      const ayah = document.createElement('div');
+      ayah.className = 'quran-ext-panel-nearmatch-text quran-swap';
+      ayah.dir = 'rtl';
+      ayah.textContent = nm.authenticExcerpt || nm.authenticText || '';
+      wrap.append(ayah);
+      return wrap;
+    }
+
+    // Ranked list: the top suggestion plus each rival, every one individually
+    // acceptable (auto-accept never fires on a tie — FR-015). Numbered for clarity.
+    const list = document.createElement('div');
+    list.className = 'quran-ext-panel-nearmatch-list';
+    const candidates = [{ ref: nm.ref, refLabel: nm.refLabel, authenticText: nm.authenticText, authenticExcerpt: nm.authenticExcerpt }].concat(rivals);
+    candidates.forEach((cand, i) => {
+      const item = document.createElement('div');
+      item.className = 'quran-ext-panel-nearmatch-item';
+      const opt = document.createElement('span');
+      opt.className = 'quran-ext-panel-nearmatch-rank';
+      opt.textContent = T('corr_candidate_option', { n: i + 1 }) + ' ';
+      item.append(opt, refToken(cand.refLabel || cand.ref || ''));
+      const ayah = document.createElement('div');
+      ayah.className = 'quran-ext-panel-nearmatch-text quran-swap';
+      ayah.dir = 'rtl';
+      ayah.textContent = cand.authenticExcerpt || cand.authenticText || '';
+      item.append(ayah);
+      if (finding) {
+        item.append(makeActionBtn(T('act_accept_near'),
+          () => runAction('correctTextInPlace', finding, { candidate: cand })));
+      }
+      list.append(item);
+    });
+    wrap.append(list);
     return wrap;
   }
 
@@ -743,7 +787,7 @@ const QuranPanelSidebar = (() => {
         // T067 — correct-in-place runs directly in this content context; the
         // sidebar model is updated by content.js via QuranPanelSidebar.ingest.
         case 'correctInPlace': surfaceCorrectionResult(await QuranActions.correctInContent(finding.id)); break;
-        case 'correctTextInPlace': surfaceCorrectionResult(await QuranActions.correctTextInContent(finding.id)); break;
+        case 'correctTextInPlace': surfaceCorrectionResult(await QuranActions.correctTextInContent(finding.id, extra && extra.candidate)); break;
         case 'revertCorrection': await QuranActions.revertInContent(finding.id); break;
         // T069/T070 — dismiss; T071 — restore. Update this surface's model + persist.
         case 'dismiss':
@@ -1164,7 +1208,11 @@ const QuranPanelSidebar = (() => {
           if (kind === 'correctInPlace') {
             if (finding.color === 'orange') kind = 'correctInPlace';
             else if (finding.color === 'yellow') { if (finding.unsafeToRewrite) return; kind = 'correctTextInPlace'; }
-            else if (finding.color === 'red' && finding.nearMatch && finding.nearMatch.authenticText) kind = 'correctTextInPlace';
+            else if (finding.color === 'red' && finding.nearMatch && finding.nearMatch.authenticText) {
+              // A tie/near-tie must be chosen in the panel — never auto-accepted.
+              if (Array.isArray(finding.nearMatch.rivalCandidates) && finding.nearMatch.rivalCandidates.length) return;
+              kind = 'correctTextInPlace';
+            }
             else if (finding.color === 'lightBlue') {
               // Accept the resolved reference; ambiguous → must choose in the panel.
               const sug = QuranPanelModel.suggestRefForLightBlue(finding.id);

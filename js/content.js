@@ -1319,17 +1319,24 @@ async function autoCorrectOranges({ persistedKeys, autoAll }) {
   return n;
 }
 
-// Re-apply prior user-vetted yellow text-replace corrections on revisit (FR-021).
-// FR-018 makes yellow MANUAL by rule: callers MUST pass autoAll:false — there is
-// no prefs.autoCorrect.yellow and no path that auto-corrects an un-vetted yellow.
-// The autoAll parameter is retained only so the integrity gate in
-// correctTextInPlace (which refuses shaky matches) stays the single code path.
-// red is likewise NEVER auto-applied.
+// Re-apply prior user-VETTED text-replace corrections on revisit (FR-021) for
+// both yellow (Fix-in-place) and red (accepted near-match) — both run through
+// correctTextInPlace, and an accepted-red correction is persisted keyed on the
+// original red finding, which re-classifies red on reload.
+// FR-018 / FR-045 (SC-006) — yellow and red are MANUAL by rule: callers pass
+// autoAll:false. The assertion below makes the red-never-auto guarantee explicit
+// and defensive: a red finding is corrected ONLY when the user vetted it before;
+// it is NEVER auto-corrected, regardless of any preference.
 async function autoCorrectYellows({ persistedKeys, autoAll }) {
-  const yellows = STATE.findings.filter(f => f.color === 'yellow');
+  const candidates = STATE.findings.filter(f =>
+    f.color === 'yellow' || (f.color === 'red' && f.nearMatch));
   let n = 0;
-  for (const f of yellows) {
+  for (const f of candidates) {
     const vetted = persistedKeys && persistedKeys.has(f.id);
+    // T045 (FR-018, SC-006): red is never auto-corrected — only re-applied when
+    // the user already accepted it (vetted). Yellow is likewise vetted-only here
+    // (autoAll is always false for this path).
+    if (f.color === 'red' && !vetted) continue;
     if (!vetted && !autoAll) continue;
     try {
       const r = await correctTextInPlace(f.id, { persist: false, silent: true });
@@ -2123,12 +2130,14 @@ async function correctTextInPlace(findingId, options = {}) {
   if (f.color === 'yellow') {
     authentic = f.authenticExcerpt || f.authenticText || null;
     verifyRef = f.matchedRef || f.matchedReference || null;
-  } else if (f.color === 'red' && f.nearMatch) {
-    // Prefer the boundary-aligned excerpt so we replace only the cited window
-    // (with words the user dropped restored) and not the whole surrounding
-    // verse. Falls back to the full authentic text when no excerpt was emitted.
-    authentic = f.nearMatch.authenticExcerpt || f.nearMatch.authenticText || null;
-    verifyRef = f.nearMatch.refLabel || f.nearMatch.ref || null;
+  } else if (f.color === 'red' && (options.candidate || f.nearMatch)) {
+    // options.candidate = a specific rival chosen from the manual-choice list
+    // (T035/T043 tie case); otherwise the top near-match. Prefer the boundary-
+    // aligned excerpt so we replace only the cited window (with dropped words
+    // restored), not the whole surrounding verse.
+    const cand = options.candidate || f.nearMatch;
+    authentic = cand.authenticExcerpt || cand.authenticText || null;
+    verifyRef = cand.refLabel || cand.ref || null;
   }
   if (!authentic || !verifyRef) {
     return { ok: false, error: { code: 'NOT_CORRECTABLE', message: 'no authentic wording / reference' } };

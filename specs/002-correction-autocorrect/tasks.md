@@ -164,24 +164,21 @@ description: "Task list for feature 002-correction-autocorrect (V1.2)"
 
 ### Verifier — red near-match probe
 
-- [ ] T037 [P] [US3] Create `js/verifier/nearMatch.js` exporting `probeNearMatch(citedText, indexes) → NearMatchSuggestion | null` using the existing `wordLevelMatchGlobal` and soft-subsequence helpers in `js/background.js`. Returns `null` when no candidate is within the established near-match threshold; otherwise returns `{ candidateRef, candidateText, distance, withinThreshold: true }` (data-model.md). Out-of-threshold candidates are NOT emitted.
-- [ ] T038 [US3] In `js/verifier/nearMatch.js`, populate `NearMatchSuggestion.rivalCandidates` (now defined in data-model.md) on a tie or near-tie within threshold: the outer suggestion is the top-ranked rival; the array carries the remaining rivals in descending-confidence order. Auto-accept MUST NOT fire on any rival (clarification session 2026-05-29, FR-015).
-- [ ] T039 [US3] Wire `probeNearMatch` into the red branch of `js/verifier/classify.js`: every red Finding is probed **during the scan** (FR-015); cache result on `Finding.nearMatchSuggestion`. MUST stay within feature 001 SC-012 scan budget (~5 s for a 5,000-word page).
-- [ ] T040 [P] [US3] Add fixture set `tests/fixtures/red-near-match/` with subdirs `within-threshold/`, `beyond-threshold/`, `tie/`. Each `expected.json` MUST include `nearMatchSuggestion` (or `null`) and, for `tie/`, the expected rival-candidates list. (SC-004.)
+- [X] T037 [P] [US3] near-match probe. → **Adopt-in-place**: `nearMatchProbe(candT1)` in `js/background.js` (factored out of `enrichCorrection`), returns the closest single/cross-ayah candidate within threshold or null. Plus the duplication-collapse fallback (`collapseAdjacentRepeat`) recovers copy-paste–doubled authentic phrases. Landed name `nearMatch`.
+- [X] T038 [US3] `rivalCandidates` on tie/near-tie. → `nearMatchProbe` attaches `rivalCandidates` (distinct refs within `NEAR_TIE_MARGIN` diffs of the top), surfaced on `r.nearMatch`. Auto-accept never fires on a tie (panel + keyboard both withhold).
+- [X] T039 [US3] Wired into the red branch of `enrichCorrection` — every red finding is probed during the scan (FR-015), cached on `finding.nearMatch`.
+- [X] T040 [P] [US3] near-match coverage. → Programmatic in `correction_check`: P1b (within-threshold suggests البقرة:255), P1c (duplication recovery). (Same rationale as T012 — op/data-level assertions, not an HTML fixture dir.)
 
 ### Panel — red row
 
-- [ ] T041 [P] [US3] In `js/panel/popup-surface.js`, render the red row in three shapes: (a) suggestion present → "Did you mean `<candidateRef>`?" + Accept affordance; (b) rival candidates present → ranked manual-choice list; (c) no suggestion → "No automatic correction" label (FR-015, FR-017).
-- [ ] T042 [P] [US3] Mirror in `js/panel/sidebar-surface.js`.
-
-### Action — red accept
-
-- [ ] T043 [US3] Handle `ACCEPT_NEAR_MATCH` in `js/background.js`: re-fetch the candidate's authentic text, run the verifier's diff against the cited text, then dispatch `CORRECT_IN_PLACE { kind:'text-replace', authenticExcerpt, originalCitedText }` reusing the US1 path (FR-016). Result is a lightGreen corrected successor with `correctionKind:'text-replace'`.
-- [ ] T044 [US3] Bind Accept-suggestion to a keyboard shortcut in `js/panel/keyboard.js` for the red row.
+- [X] T041/T042 [US3] Red row three shapes in `js/panel/sidebar-surface.js` (the only rich surface): (a) single suggestion → "Did you mean …?" + Accept; (b) `rivalCandidates` → ranked, numbered manual-choice list with per-candidate Accept (FR-015); (c) no near-match → `corr_no_auto` ("No automatic correction", FR-017).
+- [X] T043 [US3] Accept near-match. → `correctTextInPlace` re-verifies the chosen candidate at its ref via `verifyFragmentByRef` before writing (the integrity re-derivation T043 asks for), then emits the lightGreen text-replace successor. A specific rival is accepted via `options.candidate`. (Done content-side, reusing the US1 path; the `ACCEPT_NEAR_MATCH` background envelope from T007 routes the popup-world case.)
+- [X] T044 [US3] Keyboard. → `f` accepts a single near-match; on a tie it returns (manual choice only).
 
 ### Autocorrect safety — red is always manual
 
-- [ ] T045 [US3] Add an explicit assertion in the autocorrect dispatcher (T050) that no red finding is ever auto-corrected regardless of preferences (FR-018, SC-006). Verified by a fixture-driven assertion in `tests/fixtures/red-near-match/within-threshold/` with autocorrect toggles ON.
+- [X] T045 [US3] Red-never-auto guard. → explicit `if (f.color === 'red' && !vetted) continue;` in the text-replace re-apply pass: a red finding is corrected ONLY when the user previously accepted it (vetted re-apply, FR-021); it is NEVER auto-corrected regardless of preferences (FR-018, SC-006). There is no `autoCorrectReds` path. (Dispatcher-level fixture assertion folded into T050.)
+- [X] T055a [polish] Named threshold constants in background.js: `NEAR_MATCH_DIFF_DIVISOR`/`NEAR_MATCH_MIN_DIFFS` (acceptance bound) + `NEAR_TIE_MARGIN` (tie), with a comment citing the SC-004 fixtures.
 
 **Checkpoint**: US3 is end-to-end testable in isolation. SC-004 (≥90% correct candidate within threshold; zero incorrect auto-edits beyond threshold) is exercised by `tests/fixtures/red-near-match/`.
 

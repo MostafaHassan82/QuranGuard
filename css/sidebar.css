@@ -585,6 +585,23 @@
   font-style: italic;
   color: var(--q-muted, #888);
 }
+/* T041/FR-017 — "No automatic correction" label on a red finding with no
+   near-match within threshold (a deliberate state, not an error). */
+.quran-ext-panel-noauto {
+  margin-top: 4px;
+  font-size: 12px;
+  font-style: italic;
+  color: var(--q-muted, #888);
+}
+/* T038/FR-015 — red tie/near-tie ranked manual-choice list. */
+.quran-ext-panel-nearmatch-list { margin-top: 4px; }
+.quran-ext-panel-nearmatch-item {
+  margin: 4px 0;
+  padding: 4px 0;
+  border-top: 1px dotted var(--q-border, #ddd);
+}
+.quran-ext-panel-nearmatch-rank { font-size: 11px; color: var(--q-muted, #888); }
+
 /* T020 (FR-005) — transient locked-DOM clipboard-fallback explanation, pinned at
    the bottom of the panel with an aria-live role for screen readers. */
 .quran-ext-panel-note {
