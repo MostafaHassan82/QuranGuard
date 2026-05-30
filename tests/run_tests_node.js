@@ -511,6 +511,8 @@ function normalizeResult(raw, label) {
       claimedRef: m.claimedRef || m.citedReference || '',
       ...(m.nearMatch ? { nearMatch: m.nearMatch } : {}),
       ...(m.diff ? { diff: m.diff } : {}),
+      ...(m.resolvedLightBlueRef ? { resolvedLightBlueRef: m.resolvedLightBlueRef } : {}),
+      ...(m.candidateLightBlueRefs ? { candidateLightBlueRefs: m.candidateLightBlueRefs } : {}),
     })),
   };
 }

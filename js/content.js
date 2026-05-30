@@ -1200,6 +1200,12 @@ async function scanPage({ liftCap = false, subtreeRoot = null } = {}) {
     QuranMsg.emit('SCAN_CAP_HIT', { scanId, cap: SCAN_CAP, perCategoryCount });
   }
 
+  // T025/T026 — materialize the lightBlue reference resolution onto each Finding
+  // now that the whole findings list exists in DOM order, so the autocorrect
+  // dispatcher (T048) and the integrity guard can read it off the Finding rather
+  // than recomputing at render time. Runs once per scan.
+  materializeLightBlueResolution(STATE.findings);
+
   const totalMs = Math.round(Date.now() - startTime);
   QuranLog.scope('timing').info(
     `total=${totalMs}ms passes=${T.passes} ` +
@@ -1331,6 +1337,75 @@ async function autoCorrectYellows({ persistedKeys, autoAll }) {
     } catch (_) {}
   }
   return n;
+}
+
+// T025/T026 (FR-008/FR-009/FR-010) — resolve the missing reference for every
+// lightBlue finding and stamp it on the finding:
+//   • single matchedRef                → resolvedLightBlueRef
+//   • multi matchedRefs + adjacency hit → resolvedLightBlueRef (the neighbor's surah)
+//   • multi, no adjacency              → candidateLightBlueRefs (manual choice, FR-010)
+// Adjacency (FR-009, clarification 2026-05-29): the immediately previous/next
+// finding in DOM order (±1, regardless of block boundaries); if exactly one is
+// green / lightGreen-corrected / orange-corrected AND its surah is among the
+// candidates, adopt that surah. This mirrors QuranPanelModel.suggestRefForLightBlue
+// but writes the result onto the Finding so downstream paths read it directly.
+function surahOfRefLabel(ref) {
+  if (!ref || typeof ref !== 'string') return null;
+  const i = ref.lastIndexOf(':');
+  return i < 0 ? ref.trim() : ref.slice(0, i).trim();
+}
+function materializeLightBlueResolution(findings) {
+  if (!Array.isArray(findings)) return;
+  const isResolvedNeighbor = (nf) =>
+    nf && (nf.color === 'green' || nf.color === 'lightGreen'
+      || nf.panelState?.persistedBadge?.kind === 'corrected' || nf.correctionKind);
+  for (let idx = 0; idx < findings.length; idx++) {
+    const f = findings[idx];
+    if (!f || f.color !== 'lightBlue') continue;
+    const candidates = (Array.isArray(f.matchedRefs) && f.matchedRefs.length)
+      ? f.matchedRefs.slice() : (f.matchedRef ? [f.matchedRef] : []);
+    f.resolvedLightBlueRef = null;
+    f.candidateLightBlueRefs = null;
+    if (candidates.length === 0) continue;
+    if (candidates.length === 1) { f.resolvedLightBlueRef = candidates[0]; continue; }
+
+    const candSurahs = new Set(candidates.map(surahOfRefLabel));
+    let resolved = null;
+    for (const j of [idx - 1, idx + 1]) {
+      const nf = (j >= 0 && j < findings.length) ? findings[j] : null;
+      if (!isResolvedNeighbor(nf)) continue;
+      const ns = surahOfRefLabel(nf.matchedRef || nf.claimedRef);
+      if (ns && candSurahs.has(ns)) {
+        const picked = candidates.find(c => surahOfRefLabel(c) === ns);
+        if (picked) { resolved = picked; break; }
+      }
+    }
+    if (resolved) f.resolvedLightBlueRef = resolved;
+    else f.candidateLightBlueRefs = candidates;   // FR-010: ambiguous → manual choice
+  }
+  // T028 — reflect the resolution into the lightBlue span tooltip (suggestion
+  // only; FR-007 — NEVER inserted into the page body). Guarded for non-DOM tests.
+  if (typeof document !== 'undefined') updateLightBlueTooltips(findings);
+}
+
+// T028 (FR-007) — append the resolved/ambiguous reference to each lightBlue
+// span's hover tooltip + aria-label. Pure display: no page-body mutation.
+function updateLightBlueTooltips(findings) {
+  for (const f of findings) {
+    if (!f || f.color !== 'lightBlue') continue;
+    const span = document.querySelector(`[data-finding-id="${cssEscapeId(f.id)}"]`);
+    if (!span) continue;
+    let line;
+    if (f.resolvedLightBlueRef) line = tt('corr_suggest_ref') + ' ' + f.resolvedLightBlueRef;
+    else if (Array.isArray(f.candidateLightBlueRefs) && f.candidateLightBlueRefs.length) line = tt('corr_ambiguous');
+    else continue;
+    const base = span.dataset.tooltip || (f.matchedRef || '');
+    if (base.includes(line)) continue;            // idempotent across re-scans
+    span.dataset.tooltip = `${line}\n${base}`;
+    if (span.getAttribute('aria-label')) {
+      span.setAttribute('aria-label', tt('cat_lightBlue') + '. ' + line);
+    }
+  }
 }
 
 async function maybeMountSidebar(finalState) {
