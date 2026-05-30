@@ -728,6 +728,28 @@ function bestAlignWindow(candT1, ayahT1) {
   return best;
 }
 
+// Detect copy-paste duplication: the candidate word array is wholly periodic
+// (k≥2 soft-equal copies of a block back-to-back, e.g. "ABCDEF ABCDEF"). Returns
+// the single collapsed copy, or null when there is no whole-array adjacent
+// repetition. Deliberately conservative — only an exact (soft-equal) period of
+// the WHOLE array collapses, so we never fabricate or guess text; the dropped
+// words are an authentic duplicate of the words we keep. Lets the near-match
+// probe recognise a doubled authentic phrase that is otherwise ~2× too long for
+// every alignment window (bestAlignWindow caps at candLen ± candLen/4).
+function collapseAdjacentRepeat(words) {
+  const n = Array.isArray(words) ? words.length : 0;
+  if (n < 4) return null;                 // need at least a 2-word phrase doubled
+  for (let p = 1; p <= n / 2; p++) {
+    if (n % p !== 0) continue;            // period must divide the length evenly
+    let periodic = true;
+    for (let i = p; i < n && periodic; i++) {
+      if (!softEqualWord(words[i], words[i - p])) periodic = false;
+    }
+    if (periodic) return words.slice(0, p);
+  }
+  return null;
+}
+
 // Needleman–Wunsch alignment (softEqualWord = 0-cost match) with traceback into
 // an op list. Display words (cited/authentic) ride 1:1 with their tier1 arrays.
 function alignedWordDiff(candT1, candDisp, winT1, winDisp) {
@@ -784,47 +806,8 @@ function enrichCorrection(r, text) {
   } else if (r.color === 'red') {
     const candT1 = tier1Normalize(clean).split(' ').filter(Boolean);
     if (candT1.length >= 2) {
-      // Score every candidate by edit distance and pick the lexically closest —
-      // not the lowest-numbered surah (the previous sortRecs(recs)[0] tie-break
-      // was wrong; for "أحد الله" it landed on البقرة:102 even though الإخلاص:1-2
-      // straddles the same words with zero diffs once we permit a cross-ayah
-      // span). Cross-ayah candidates come from findCrossAyahFuzzy.
-      const looseDiffs = Math.max(2, Math.ceil(candT1.length / 4));
-      const dispWordsOf = (rec) => (rec.uthmaniWords && rec.uthmaniWords.length === rec.tier1Words.length)
-        ? rec.uthmaniWords
-        : rec.text.split(/\s+/).filter(Boolean);
-      const single = findFuzzyGlobal(candT1).map(rec => {
-        // Slice the authentic *window* that aligned with the cited words, so
-        // "accept suggestion" replaces only the cited span (and any words the
-        // user dropped inside it) — not the entire surrounding ayah.
-        const win = bestAlignWindow(candT1, rec.tier1Words);
-        const ayahDisp = dispWordsOf(rec);
-        const excerpt = win
-          ? ayahDisp.slice(win.s, win.s + win.L).filter(Boolean).join(' ')
-          : null;
-        return {
-          ref: rec.ref,
-          refLabel: `${rec.surahName}:${rec.ayahNum}`,
-          authenticText: rec.text,
-          authenticExcerpt: excerpt || null,
-          diffs: wordLevelCompareSingleAyahLoose(candT1, rec.tier1Words, looseDiffs),
-          crossAyah: false,
-          surahNum: rec.surahNum,
-          ayahNum: rec.ayahNum,
-        };
-      }).filter(c => c.diffs !== null);
-      const cross = findCrossAyahFuzzy(candT1);
-      const all = single.concat(cross);
-      if (all.length) {
-        // Sort: lowest diffs wins; on a tie, prefer single-ayah (simpler claim);
-        // then surah:ayah order for stability.
-        all.sort((a, b) =>
-          a.diffs - b.diffs ||
-          (a.crossAyah ? 1 : 0) - (b.crossAyah ? 1 : 0) ||
-          a.surahNum - b.surahNum ||
-          a.ayahNum - b.ayahNum
-        );
-        const best = all[0];
+      const best = nearMatchProbe(candT1);
+      if (best) {
         r.nearMatch = {
           ref: best.ref,
           refLabel: best.refLabel,
@@ -832,10 +815,81 @@ function enrichCorrection(r, text) {
           authenticExcerpt: best.authenticExcerpt || null,
           ...(best.crossAyah ? { crossAyah: true } : {}),
         };
+      } else {
+        // A copy-paste–doubled authentic phrase (e.g. "…من ذهب …من ذهب") is ~2× too
+        // long for every alignment window, so the fuzzy probe finds nothing.
+        // Collapse the whole-array repetition and re-verify the single copy through
+        // the full gauntlet: a doubled authentic excerpt resolves cleanly (its kept
+        // words ARE the dropped words, so the suggestion guesses nothing —
+        // Principle I). Surface it as the "did you mean …?" excerpt, tagged
+        // `duplicated` so the panel can explain the repetition.
+        const collapsed = collapseAdjacentRepeat(candT1);
+        if (collapsed) {
+          const candDisp = clean.split(/\s+/).filter(Boolean);
+          const frac = collapsed.length / candT1.length;
+          const collapsedText = candDisp.slice(0, Math.max(1, Math.round(candDisp.length * frac))).join(' ');
+          const cr = verifyFragment(collapsedText, 'high');
+          if (cr && cr.matchedRef && (cr.color === 'green' || cr.color === 'lightBlue' || cr.color === 'yellow')) {
+            r.nearMatch = {
+              ref: cr.matchedRef,
+              refLabel: cr.matchedRef,
+              authenticText: cr.authenticText || collapsedText,
+              authenticExcerpt: cr.authenticExcerpt || collapsedText,
+              duplicated: true,
+            };
+          }
+        }
       }
     }
   }
   return r;
+}
+
+// The red "هل تقصد …؟" near-match probe: score every fuzzy candidate (single-ayah
+// + cross-ayah) by edit distance and return the closest, or null. Factored out so
+// enrichCorrection can re-run it on a duplication-collapsed candidate.
+function nearMatchProbe(candT1) {
+  if (!Array.isArray(candT1) || candT1.length < 2) return null;
+  // Pick the lexically closest candidate — not the lowest-numbered surah (the old
+  // sortRecs(recs)[0] tie-break was wrong; for "أحد الله" it landed on البقرة:102
+  // even though الإخلاص:1-2 straddles the same words with zero diffs once we permit
+  // a cross-ayah span). Cross-ayah candidates come from findCrossAyahFuzzy.
+  const looseDiffs = Math.max(2, Math.ceil(candT1.length / 4));
+  const dispWordsOf = (rec) => (rec.uthmaniWords && rec.uthmaniWords.length === rec.tier1Words.length)
+    ? rec.uthmaniWords
+    : rec.text.split(/\s+/).filter(Boolean);
+  const single = findFuzzyGlobal(candT1).map(rec => {
+    // Slice the authentic *window* that aligned with the cited words, so "accept
+    // suggestion" replaces only the cited span (and any words the user dropped
+    // inside it) — not the entire surrounding ayah.
+    const win = bestAlignWindow(candT1, rec.tier1Words);
+    const ayahDisp = dispWordsOf(rec);
+    const excerpt = win
+      ? ayahDisp.slice(win.s, win.s + win.L).filter(Boolean).join(' ')
+      : null;
+    return {
+      ref: rec.ref,
+      refLabel: `${rec.surahName}:${rec.ayahNum}`,
+      authenticText: rec.text,
+      authenticExcerpt: excerpt || null,
+      diffs: wordLevelCompareSingleAyahLoose(candT1, rec.tier1Words, looseDiffs),
+      crossAyah: false,
+      surahNum: rec.surahNum,
+      ayahNum: rec.ayahNum,
+    };
+  }).filter(c => c.diffs !== null);
+  const cross = findCrossAyahFuzzy(candT1);
+  const all = single.concat(cross);
+  if (!all.length) return null;
+  // Sort: lowest diffs wins; on a tie, prefer single-ayah (simpler claim); then
+  // surah:ayah order for stability.
+  all.sort((a, b) =>
+    a.diffs - b.diffs ||
+    (a.crossAyah ? 1 : 0) - (b.crossAyah ? 1 : 0) ||
+    a.surahNum - b.surahNum ||
+    a.ayahNum - b.ayahNum
+  );
+  return all[0];
 }
 
 // Returns all Quran locations where the candidate text occurs, exact and partial.
@@ -1481,7 +1535,7 @@ function correctionPayloadIsVerified(payload) {
     }
     for (const text of [payload.authenticExcerpt, payload.candidateText]) {
       if (typeof text === 'string' && text.trim()) {
-        const r = verifyFragment(text, 1);
+        const r = verifyFragment(text, 'high');
         const authentic = r && (r.color === 'green' || r.color === 'lightBlue');
         if (!authentic) return false;
       }

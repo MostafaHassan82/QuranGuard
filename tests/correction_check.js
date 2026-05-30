@@ -163,6 +163,32 @@ async function inPageTests() {
     }
   }
 
+  // ── P1c: red near-match recovers a copy-paste–doubled authentic phrase ──────
+  // A whole-array duplication (the authentic phrase cited twice back-to-back) is
+  // ~2× too long for every alignment window, so the fuzzy probe finds nothing.
+  // collapseAdjacentRepeat + re-verify must still surface the single authentic
+  // excerpt as the "did you mean …?" suggestion, tagged `duplicated`. Ground
+  // truth: a 6-word contiguous excerpt of البقرة:255 (آية الكرسي), doubled.
+  {
+    const phrase = verseWords.slice(2, 8);                 // authentic 6-word excerpt
+    const doubled = phrase.concat(phrase).join(' ');       // cited twice back-to-back
+    const r = await send({ type: 'verifyFragmentByRef', text: doubled, ref: 'البقرة:255', candidateConfidence: 'high' });
+    T('P1c doubled authentic phrase classifies red', r && r.color === 'red', JSON.stringify({ color: r && r.color }));
+    if (r && r.color === 'red') {
+      T('P1c nearMatch recovered despite duplication',
+        r.nearMatch && r.nearMatch.refLabel === 'البقرة:255', JSON.stringify(r.nearMatch));
+      T('P1c nearMatch is flagged duplicated',
+        r.nearMatch && r.nearMatch.duplicated === true, JSON.stringify(r.nearMatch && r.nearMatch.duplicated));
+      // De-duplicated: the excerpt is ~one copy of the phrase (±1 for dropped
+      // waqf/pause glyph tokens), strictly shorter than the doubled citation.
+      const exWords = r.nearMatch && typeof r.nearMatch.authenticExcerpt === 'string'
+        ? r.nearMatch.authenticExcerpt.split(/\s+/).filter(Boolean).length : 0;
+      T('P1c suggested excerpt is the single (de-duplicated) authentic phrase',
+        exWords >= phrase.length - 1 && exWords <= phrase.length,
+        JSON.stringify({ exWords, expected: phrase.length, excerpt: r.nearMatch && r.nearMatch.authenticExcerpt }));
+    }
+  }
+
   // ── Guard: non-yellow/non-red results are NOT enriched ──────────────────────
   {
     const r = await send({ type: 'verifyFragmentByRef', text: verseWords.slice(0, 5).join(' '), ref: 'البقرة:255', candidateConfidence: 'high' });

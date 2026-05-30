@@ -509,6 +509,8 @@ function normalizeResult(raw, label) {
       text: m.text || m.rawText || '', color: m.color || m.category || '',
       matchedRef: m.matchedRef || m.matchedReference || '',
       claimedRef: m.claimedRef || m.citedReference || '',
+      ...(m.nearMatch ? { nearMatch: m.nearMatch } : {}),
+      ...(m.diff ? { diff: m.diff } : {}),
     })),
   };
 }
