@@ -125,7 +125,7 @@ description: "Task list for feature 002-correction-autocorrect (V1.2)"
 
 ### Revisit — lightBlue
 
-- [ ] T036 [US2] Extend the scan-time re-apply path (T024) to handle `kind:'reference-attribution'`: re-apply tooltip + recolor, surface "previously corrected" badge (FR-021). Also exercise the FR-021 negative case for lightBlue per T024a's "mirror" clause — fixture under `tests/fixtures/lightblue-resolution/single/`: apply correction → revert → reload → confirm finding re-classifies as lightBlue (NOT re-corrected).
+- [ ] T036 [US2] Extend the scan-time re-apply path (T024) to handle `kind:'reference-attribution'`: re-apply tooltip + recolor, surface "previously corrected" badge (FR-021). Verify that T024a's lightBlue mirror-assertion fixture (under `tests/fixtures/lightblue-resolution/single/`) still passes against the wired US2 reference-attribution path — i.e., T024a authors the fixture, T036 confirms US2 wiring keeps it green. Covers FR-006 + FR-021 negative case for lightBlue.
 
 **Checkpoint**: US2 is end-to-end testable in isolation. SC-003 (100% single-resolution; never auto-resolve multi without context) is exercised by `tests/fixtures/lightblue-resolution/`.
 

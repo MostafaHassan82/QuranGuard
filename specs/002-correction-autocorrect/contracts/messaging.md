@@ -38,9 +38,11 @@ The existing orange correct-in-place action grows a `kind` discriminator so the 
 {
   ok: boolean,
   successorFindingId?: string,                // back-references the original via priorFindingId in the data model
-  reason?: 'unsafe-rewrite' | 'locked-dom' | 'span-missing' | 'ambiguous'
+  reason?: 'unsafe-rewrite' | 'locked-dom' | 'span-missing' | 'ambiguous' | 'unverified-payload'
 }
 ```
+
+`unverified-payload` is the defensive-guard rejection (tasks.md T008a): the payload's correction text/reference is not traceable to a known `VerificationResult` field (`matchedRef`, `matchedRefs[]`, `authenticText`, `authenticExcerpt`, `nearMatchSuggestion.candidateText`, `nearMatchSuggestion.candidateRef`). Hardens NON-NEGOTIABLE Principle I + FR-004.
 
 When the target span cannot be edited (`locked-dom`, FR-005), the system falls back to copying the corrected citation to the clipboard with a user-visible explanation; the response carries `ok: true, reason: 'locked-dom'` so the panel UI can present the fallback message.
 
