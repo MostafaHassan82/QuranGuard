@@ -1,18 +1,19 @@
 <!-- SPECKIT START -->
-Active feature: **003-ayah-autocomplete** (V1.2 writer-side). Foundation: 001
-(reader-side V1, shipped) and 002 (correction/autocorrect, spec'd).
+Active feature: **002-correction-autocorrect** (V1.2). Foundation: 001
+(reader-side V1, shipped) and 003 (writer-side ayah autocomplete, shipped on
+003-ayah-autocomplete branch — its commits are ancestors of this branch).
 
 Read the implementation plan and supporting artifacts before making
 non-trivial changes:
 
-- Plan:        specs/003-ayah-autocomplete/plan.md
-- Spec:        specs/003-ayah-autocomplete/spec.md (20 FRs, 8 SCs, 6 clarifications)
-- Data model:  specs/003-ayah-autocomplete/data-model.md
-- Contracts:   specs/003-ayah-autocomplete/contracts/
-- Research:    specs/003-ayah-autocomplete/research.md
-- Quickstart:  specs/003-ayah-autocomplete/quickstart.md
-- Foundation:  specs/001-arabic-citation-auditor/ (reader-side V1) and
-               specs/002-correction-autocorrect/ (correction extension)
+- Plan:        specs/002-correction-autocorrect/plan.md
+- Spec:        specs/002-correction-autocorrect/spec.md (22 FRs, 8 SCs, 4 clarifications)
+- Data model:  specs/002-correction-autocorrect/data-model.md
+- Contracts:   specs/002-correction-autocorrect/contracts/
+- Research:    specs/002-correction-autocorrect/research.md
+- Quickstart:  specs/002-correction-autocorrect/quickstart.md
+- Foundation:  specs/001-arabic-citation-auditor/ (reader-side V1, shipped) and
+               specs/003-ayah-autocomplete/ (writer-side autocomplete, shipped).
 - Constitution: .specify/memory/constitution.md (v2.0.0 — 6 principles, two NON-NEGOTIABLE)
 
 Constitution non-negotiables (full text in the constitution file):

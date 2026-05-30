@@ -23,5 +23,8 @@
       "PowerShell($lines = Get-Content \"c:\\\\Users\\\\mosta\\\\PycharmProjects\\\\QuranAuditPlugin\\\\js\\\\content.js\" -Encoding UTF8; $lines | Select-String \"BOUNDARY\" | ForEach-Object { \"$\\($_.LineNumber\\): $\\($_.Line.Trim\\(\\)\\)\" })",
       "PowerShell($html = Get-Content \"c:\\\\Users\\\\mosta\\\\PycharmProjects\\\\QuranAuditPlugin\\\\tests\\\\fixtures\\\\174389.html\" -Encoding UTF8 -Raw; $matches = [regex]::Matches\\($html, 'الآية.{0,80}\\(\\\\\\([؀-ۿ]+:\\\\d+\\\\\\)\\)'\\); foreach \\($m in $matches\\) { $m.Value.Substring\\(0, [Math]::Min\\(120, $m.Value.Length\\)\\) + \"`n---\" })"
     ]
+  },
+  "enabledPlugins": {
+    "frontend-design@claude-plugins-official": true
   }
 }

@@ -25,7 +25,17 @@
       "Bash(python tests/run_tests.py tests/fixtures/orange_synthetic.html --write-observed)",
       "Bash(python tests/run_tests.py tests/fixtures/orange_synthetic.html)",
       "Bash(python -c \"import json; json.load\\(open\\('manifest.json'\\)\\)\")",
-      "Bash(python -c \"import playwright; print\\('py playwright present'\\)\")"
+      "Bash(python -c \"import playwright; print\\('py playwright present'\\)\")",
+      "PowerShell(.specify/scripts/powershell/check-prerequisites.ps1 -Json -PathsOnly)",
+      "Bash(git --no-pager diff -- CLAUDE.md)",
+      "Bash(git --no-pager log -3 --format='%h %ad %s' --date=short -- CLAUDE.md)",
+      "Bash(git config *)",
+      "Bash(echo \"=== EXIT: $? ===\")",
+      "Bash(git --no-pager diff HEAD -- CLAUDE.md)",
+      "Read(//tmp/**)",
+      "PowerShell(.specify/scripts/powershell/check-prerequisites.ps1 -Json -RequireTasks -IncludeTasks)",
+      "PowerShell(.specify/extensions/git/scripts/powershell/auto-commit.ps1 after_analyze)",
+      "Bash(git commit *)"
     ]
   }
 }
