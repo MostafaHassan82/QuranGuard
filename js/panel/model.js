@@ -3,6 +3,39 @@
 // per-Finding PanelState. Read by both panel surfaces (popup, sidebar).
 // Lifetime: a single page session. Cleared when the next fresh-full scan starts.
 // Section semantics follow data-model.md > Finding and FR-010 / FR-024 / FR-025.
+//
+// ── T004 — V1.2 correction data shapes (data-model.md) ──────────────────────
+// Vanilla JS has no static types; these JSDoc typedefs are the single source of
+// truth for the correction-related Finding fields introduced by feature 002.
+//
+// CorrectionKind discriminates how a correction was applied (and keys the
+// persisted entry + the panel's Revert routing):
+//   @typedef {'ref-edit'|'text-replace'|'reference-attribution'} CorrectionKind
+//     - 'ref-edit'              : orange — rewrite the on-page reference (feature 001 FR-012). Edits DOM.
+//     - 'text-replace'          : yellow Fix-in-place (FR-013) + accepted red near-match (FR-016). Edits DOM.
+//     - 'reference-attribution' : lightBlue (FR-007/FR-008). Recolor + tooltip ref only. NO DOM text edit.
+//
+// DiffSegment — one word-level position in a yellow aligned diff (FR-011):
+//   @typedef {{op:'keep'|'missing'|'extra'|'sub', cited?:string, authentic?:string}} DiffSegment
+//     keep/sub require both cited+authentic; missing forbids cited; extra forbids authentic.
+//
+// NearMatchSuggestion — fuzzy probe result for a red finding (FR-015):
+//   @typedef {{candidateRef:string, candidateText:string, distance:number,
+//              withinThreshold:boolean, rivalCandidates?:NearMatchSuggestion[]}} NearMatchSuggestion
+//
+// New optional Finding fields (all absent unless the verdict/lifecycle applies):
+//   finding.alignedDiff            : DiffSegment[]?            yellow, FR-011
+//   finding.nearMatchSuggestion    : NearMatchSuggestion|null  red, FR-015
+//   finding.resolvedLightBlueRef   : string?                   lightBlue, FR-008/FR-009
+//   finding.candidateLightBlueRefs : string[]?                 lightBlue ambiguous, FR-010
+//   finding.correctionKind         : CorrectionKind?           corrected successors only, FR-002
+//   finding.priorFindingId         : string? (feature 001)     corrected successors only, FR-002
+//
+// Landed-name aliases (research.md §2 reconciliation, T002): the partial impl on
+// 003-ayah-autocomplete named these `finding.diff` and `finding.nearMatch`.
+// Those landed names are CANONICAL on the wire; the data-model.md names
+// `alignedDiff`/`nearMatchSuggestion` are accepted as aliases. Readers below and
+// in the surfaces tolerate either, so no call-site rename is forced.
 const QuranPanelModel = (() => {
   const findings = new Map(); // id → Finding (merged with .panelState)
   // Insertion-order list of Finding ids — preserves the order in which the

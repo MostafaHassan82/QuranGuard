@@ -9,13 +9,14 @@ const QuranPrefs = (() => {
     perColor: { green: true, lightBlue: true, yellow: true, orange: true, red: false },
     font: 'uthmaniHafs',
     scanTrigger: 'manual',
-    // Legacy single-color autocorrect flag (kept as a back-compat mirror of
-    // autoCorrect.orange — see applyDefaults). Superseded by `autoCorrect`.
-    autoCorrectOrange: false,
-    // T201 P3 — generalized autocorrect. orange (rewrite wrong ref), lightBlue
-    // (auto-surface the suggested ref — panel only, no page edit), yellow (gated
-    // text-replace to authentic wording). red is NEVER auto (ratified Q-D).
-    autoCorrect: { orange: false, lightBlue: false, yellow: false },
+    // T006 / FR-018 / FR-020 — generalized autocorrect. Only two keys exist:
+    //   orange    — rewrite the wrong on-page reference (edits DOM).
+    //   lightBlue — surface the verifier-resolved reference (panel/tooltip only,
+    //               NEVER edits page text), so it is safe to default ON.
+    // There is intentionally NO autoCorrect.yellow / .red: yellow and red are
+    // manual by rule (FR-018). The legacy single-flag `autoCorrectOrange` is
+    // migrated-and-deleted on first read (see applyDefaults) — no mirror is kept.
+    autoCorrect: { orange: false, lightBlue: true },
     refLinks: true,
     // Whether the cited reference is visually highlighted on the page (gold
     // marker). Independent of refLinks (clickability) and of the hover tooltip,
@@ -62,18 +63,25 @@ const QuranPrefs = (() => {
     if (!VALID_FONTS.has(p.font)) p.font = DEFAULTS.font;
     if (!VALID_SCAN_TRIGGERS.has(p.scanTrigger)) p.scanTrigger = DEFAULTS.scanTrigger;
 
-    // Generalized autocorrect (T201 P3) with migration from the legacy
-    // autoCorrectOrange boolean: seed autoCorrect.orange from it when the new
-    // object hasn't set orange yet. red is intentionally absent (never auto).
+    // T006 — generalized autocorrect with one-way migration (FR-018/FR-020).
+    // Idempotent; applied on every read so callers always see the migrated shape.
+    //   (a) migrate    — legacy `autoCorrectOrange` present: seed orange from it
+    //                    (only when the new object hasn't set orange), default
+    //                    lightBlue ON, then DELETE the legacy key (no mirror).
+    //   (b) fresh / fill — orange defaults OFF, lightBlue defaults ON.
+    // yellow/red keys are stripped: they must never exist (manual by rule).
     const legacyOrange = (typeof p.autoCorrectOrange === 'boolean') ? p.autoCorrectOrange : undefined;
     if (!p.autoCorrect || typeof p.autoCorrect !== 'object') p.autoCorrect = {};
-    for (const k of ['orange', 'lightBlue', 'yellow']) {
-      if (typeof p.autoCorrect[k] !== 'boolean') {
-        p.autoCorrect[k] = (k === 'orange' && legacyOrange !== undefined) ? legacyOrange : DEFAULTS.autoCorrect[k];
-      }
+    if (typeof p.autoCorrect.orange !== 'boolean') {
+      p.autoCorrect.orange = (legacyOrange !== undefined) ? legacyOrange : DEFAULTS.autoCorrect.orange;
     }
-    // Keep the legacy mirror in lock-step so existing readers keep working.
-    p.autoCorrectOrange = p.autoCorrect.orange;
+    if (typeof p.autoCorrect.lightBlue !== 'boolean') {
+      p.autoCorrect.lightBlue = DEFAULTS.autoCorrect.lightBlue; // FR-018: ON
+    }
+    // Defense-in-depth: drop any key that must not exist + the legacy flag.
+    delete p.autoCorrect.yellow;
+    delete p.autoCorrect.red;
+    delete p.autoCorrectOrange;
     if (typeof p.refLinks !== 'boolean') p.refLinks = DEFAULTS.refLinks;
     if (typeof p.refHighlight !== 'boolean') p.refHighlight = DEFAULTS.refHighlight;
     if (!VALID_LANGS.has(p.lang)) p.lang = DEFAULTS.lang;

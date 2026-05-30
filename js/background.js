@@ -1461,6 +1461,35 @@ function matchPartial(text, limit = 8) {
   return { candidates: limited };
 }
 
+// ── Correction integrity guard (T008a) ─────────────────────────────────────────
+// The three correction kinds the V1.2 envelope carries (contracts/messaging.md).
+const VALID_CORRECTION_KINDS = new Set(['ref-edit', 'text-replace', 'reference-attribution']);
+
+// NON-NEGOTIABLE Principle I / FR-004 defense-in-depth: a CORRECT_IN_PLACE payload
+// may carry correction *content* only when that content is independently
+// re-derivable from the verifier index. Reference fields must resolve to a real
+// ayah; text fields must verify as authentic mushaf wording (green = exact match
+// with reference, or lightBlue = exact match without a cited reference — both
+// mean the words ARE the mushaf's). Anything else is a reader guess → refuse.
+// Payloads with no correction content (the common findingId-only relay, where the
+// content script derives the text from the already-verified Finding) pass through.
+function correctionPayloadIsVerified(payload) {
+  if (!payload || typeof payload !== 'object') return true;
+  try {
+    for (const ref of [payload.resolvedRef, payload.candidateRef]) {
+      if (typeof ref === 'string' && ref.trim() && !QuranReferences.resolve(ref, indexes)) return false;
+    }
+    for (const text of [payload.authenticExcerpt, payload.candidateText]) {
+      if (typeof text === 'string' && text.trim()) {
+        const r = verifyFragment(text, 1);
+        const authentic = r && (r.color === 'green' || r.color === 'lightBlue');
+        if (!authentic) return false;
+      }
+    }
+  } catch (_) { return false; }
+  return true;
+}
+
 // ── Message router ────────────────────────────────────────────────────────────
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
@@ -1560,9 +1589,41 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     return true;
   }
 
-  // Stub handlers for remaining new message types
-  if (['CORRECT_IN_PLACE', 'DISMISS_FINDING', 'RESTORE_DISMISSED'].includes(type)) {
-    // These are panel→content messages; background routes them (stub for now).
+  // CORRECT_IN_PLACE (T007 envelope + T008a payload-source guard).
+  // Panel→content correction message, now carrying a `kind` discriminator
+  // (default 'ref-edit' for backward compat — see contracts/messaging.md). Before
+  // relaying to the content script, enforce NON-NEGOTIABLE Principle I / FR-004:
+  // any correction *content* in the payload (resolvedRef / authenticExcerpt /
+  // candidateRef / candidateText) MUST be independently re-derivable from the
+  // verifier index. Payloads carrying arbitrary, unverifiable text are refused —
+  // a correction may only ever write authentic mushaf wording or a verifier-
+  // resolved reference, never reader-guessed content.
+  if (type === 'CORRECT_IN_PLACE') {
+    const kind = VALID_CORRECTION_KINDS.has(payload.kind) ? payload.kind : 'ref-edit';
+    const tabId = sender.tab?.id ?? payload.tabId;
+    ensureInitialized()
+      .then(() => {
+        if (!correctionPayloadIsVerified(payload)) {
+          // ok:false so the panel surfaces the refusal; reason per the contract.
+          QuranLog.warn(`[CORRECT_IN_PLACE] refused unverified payload (kind=${kind})`);
+          sendResponse(QuranMsg.okResponse(requestId, { ok: false, reason: 'unverified-payload' }));
+          return null;
+        }
+        if (!tabId) { sendResponse(QuranMsg.okResponse(requestId, { ok: true })); return null; }
+        return chrome.tabs.sendMessage(tabId, { ...msg, payload: { ...payload, kind } })
+          .then(r => sendResponse(r));
+      })
+      .catch(e => sendResponse(QuranMsg.errResponse(requestId, 'INTERNAL', e.message)));
+    return true;
+  }
+
+  // ACCEPT_NEAR_MATCH (T007 envelope; full re-verify behavior lands in T043).
+  // Routes the red "Did you mean …?" acceptance to the content script, which
+  // re-derives the authentic excerpt from the verified candidate and applies a
+  // text-replace. The background→verifier re-derivation guard is added in T043.
+  // REVERT_CORRECTION (T007 envelope; restore behavior in T022/T034).
+  // DISMISS_FINDING / RESTORE_DISMISSED inherited from feature 001.
+  if (['ACCEPT_NEAR_MATCH', 'REVERT_CORRECTION', 'DISMISS_FINDING', 'RESTORE_DISMISSED'].includes(type)) {
     const tabId = sender.tab?.id ?? payload.tabId;
     if (tabId) {
       chrome.tabs.sendMessage(tabId, msg)

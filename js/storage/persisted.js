@@ -33,7 +33,14 @@ const QuranPersisted = (() => {
     }
 
     const before = stored.entries.length;
-    const live = stored.entries.filter(e => !isExpired(e));
+    // T005 (contracts/storage.md > Backward compatibility): entries written by
+    // feature 001 before the V1.2 correction work carry no `kind`. They predate
+    // every kind except orange's reference rewrite, so they are read as
+    // 'ref-edit'. Lazy migration only — the explicit field is rewritten on the
+    // next mutation of that entry (see write/remove); no eager batch rewrite.
+    const live = stored.entries
+      .filter(e => !isExpired(e))
+      .map(e => (e.kind ? e : { ...e, kind: 'ref-edit' }));
     const prunedCount = before - live.length;
 
     if (prunedCount > 0) {
@@ -50,7 +57,13 @@ const QuranPersisted = (() => {
   }
 
   // Write (upsert) a single persisted entry. Idempotent per (urlKey, compositeKey, kind).
-  async function write({ urlKey: key, compositeKey, kind, at }) {
+  // `kind` is a CorrectionKind ('ref-edit'|'text-replace'|'reference-attribution')
+  // or 'dismissal' (contracts/storage.md). Absent kind defaults to 'ref-edit' for
+  // symmetry with the read-path legacy normalization. `payload` is the kind-shaped
+  // record Revert reads back (e.g. text-replace carries {authenticExcerpt,
+  // originalCitedText}); omitted when the kind needs no restore payload.
+  async function write({ urlKey: key, compositeKey, kind, at, payload }) {
+    if (!kind) kind = 'ref-edit';
     const storageKey = byUrlStorageKey(key);
     const result = await chrome.storage.local.get([storageKey, INDEX_KEY]);
     const stored = result[storageKey];
@@ -59,7 +72,9 @@ const QuranPersisted = (() => {
 
     // Prune expired and prune duplicates (same compositeKey+kind)
     entries = entries.filter(e => !isExpired(e) && !(e.compositeKey === compositeKey && e.kind === kind));
-    entries.push({ compositeKey, kind, at });
+    const entry = { compositeKey, kind, at };
+    if (payload !== undefined) entry.payload = payload;
+    entries.push(entry);
 
     const index = Array.isArray(result[INDEX_KEY]) ? result[INDEX_KEY] : [];
     if (!index.includes(key)) index.push(key);
@@ -70,17 +85,21 @@ const QuranPersisted = (() => {
     });
   }
 
-  // Remove a single entry (urlKey, compositeKey, kind). Used by FR-025 restore.
-  // Drops the byUrl key + index entry when the last record is removed.
+  // Remove a single entry (urlKey, compositeKey, kind). Used by FR-006 Revert and
+  // FR-025 dismissal-restore. Drops the byUrl key + index entry when the last
+  // record is removed. Returns whether a matching entry was actually deleted
+  // (T052: callers surface "could not find persisted entry" cleanly).
   async function remove({ urlKey: key, compositeKey, kind }) {
+    if (!kind) kind = 'ref-edit';
     const storageKey = byUrlStorageKey(key);
     const result = await chrome.storage.local.get([storageKey, INDEX_KEY]);
     const stored = result[storageKey];
-    if (!stored || !Array.isArray(stored.entries)) return;
+    if (!stored || !Array.isArray(stored.entries)) return { removed: false };
 
-    const entries = stored.entries.filter(e =>
-      !isExpired(e) && !(e.compositeKey === compositeKey && e.kind === kind)
-    );
+    // Legacy entries with no `kind` are 'ref-edit' (read-path normalization).
+    const matches = (e) => e.compositeKey === compositeKey && (e.kind || 'ref-edit') === kind;
+    const removed = stored.entries.some(e => !isExpired(e) && matches(e));
+    const entries = stored.entries.filter(e => !isExpired(e) && !matches(e));
     const index = Array.isArray(result[INDEX_KEY]) ? result[INDEX_KEY] : [];
     if (entries.length === 0) {
       await chrome.storage.local.remove(storageKey);
@@ -88,6 +107,7 @@ const QuranPersisted = (() => {
     } else {
       await chrome.storage.local.set({ [storageKey]: { v: 1, entries } });
     }
+    return { removed };
   }
 
   // Remove all persisted.v1.byUrl.* keys and reset the index.

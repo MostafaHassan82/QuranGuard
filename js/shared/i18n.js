@@ -212,6 +212,15 @@ const QuranI18n = (() => {
       corr_copied: 'نُسِخ',
       corr_now: 'الآن',
       corr_was: 'كان',
+      // T009 — V1.2 correction/revert + manual-choice labels.
+      act_fix_in_place: 'تصحيح في المكان',
+      act_revert: 'تراجع عن التصحيح',
+      corr_diff_sub: 'مُستبدَل',
+      corr_no_auto: 'لا يوجد تصحيح تلقائي',
+      corr_choose_ref: 'اختر مرجعًا',
+      corr_multiple_matches: 'عدة مطابقات',
+      corr_choose_candidate: 'اختر مرشّحًا',
+      corr_candidate_option: 'الخيار {n}',
     },
     en: {
       cat_green: 'Verified with reference',
@@ -400,6 +409,15 @@ const QuranI18n = (() => {
       corr_now: 'Now',
       corr_was: 'Was',
       corr_copied: 'Copied',
+      // T009 — V1.2 correction/revert + manual-choice labels.
+      act_fix_in_place: 'Fix in place',
+      act_revert: 'Revert',
+      corr_diff_sub: 'substituted',
+      corr_no_auto: 'No automatic correction',
+      corr_choose_ref: 'Choose a reference',
+      corr_multiple_matches: 'Multiple matches',
+      corr_choose_candidate: 'Choose a candidate',
+      corr_candidate_option: 'Option {n}',
     },
   };
 

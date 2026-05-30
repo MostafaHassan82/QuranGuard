@@ -191,6 +191,31 @@ const QuranActions = (() => {
     try { return await correctTextInPlace(findingId); } catch (_) { return { ok: false }; }
   }
 
+  // T032 (US2) — lightBlue reference-attribution from the CONTENT world. Recolors
+  // to a lightGreen successor + surfaces the resolved ref in the tooltip; NEVER
+  // edits page text. content.js defines correctReferenceAttribution() in US2.
+  async function correctRefAttributionInContent(findingId) {
+    if (!findingId || typeof correctReferenceAttribution !== 'function') {
+      return { ok: false, reason: 'not-implemented' };
+    }
+    try { return await correctReferenceAttribution(findingId); } catch (_) { return { ok: false }; }
+  }
+
+  // T008 — single correction dispatcher keyed on CorrectionKind. The panel rows
+  // call this so the routing lives in one place (contracts/messaging.md). Each
+  // kind maps to the content-world correction function for that kind:
+  //   'ref-edit'              → orange reference rewrite (feature 001).
+  //   'text-replace'          → yellow Fix-in-place / accepted red near-match.
+  //   'reference-attribution' → lightBlue recolor + tooltip ref (no DOM text edit).
+  async function correctInContentByKind(findingId, kind = 'ref-edit') {
+    switch (kind) {
+      case 'text-replace':          return correctTextInContent(findingId);
+      case 'reference-attribution': return correctRefAttributionInContent(findingId);
+      case 'ref-edit':
+      default:                      return correctInContent(findingId);
+    }
+  }
+
   // Revert a lightGreen correction back to its pre-correction finding.
   // content.js defines revertCorrection(); the panel calls this from the
   // Restore button rendered on every lightGreen row that carries a priorFinding.
@@ -247,7 +272,8 @@ const QuranActions = (() => {
   return {
     buildRecord, friendlyText, toJson, buildShareUrl, buildShareArtifact,
     copy, copyRecord, copyRecordJson, copyShareArtifact, copyReport,
-    jumpInContent, jumpFromPopup, correctInContent, correctTextInContent, revertInContent, correctFromPopup,
+    jumpInContent, jumpFromPopup, correctInContent, correctTextInContent,
+    correctRefAttributionInContent, correctInContentByKind, revertInContent, correctFromPopup,
     urlKey, dismiss, restore,
   };
 })();

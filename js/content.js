@@ -1286,7 +1286,7 @@ function isOrangeAutoCorrectable(f) {
 // Correct orange findings in place (silently, without re-persisting).
 //   - persistedKeys: ids the user already corrected before (FR-024a) — always
 //     re-applied, since the user already vetted them (the safety gate is skipped).
-//   - autoAll: when true (prefs.autoCorrectOrange), also correct every OTHER
+//   - autoAll: when true (prefs.autoCorrect.orange), also correct every OTHER
 //     orange finding that passes isOrangeAutoCorrectable.
 // Returns the count actually applied to the DOM.
 async function autoCorrectOranges({ persistedKeys, autoAll }) {
@@ -1306,11 +1306,12 @@ async function autoCorrectOranges({ persistedKeys, autoAll }) {
   return n;
 }
 
-// T201 P3 — auto-apply the gated text-replace to yellow findings (ratified Q-D:
-// yellow may autocorrect). Mirrors autoCorrectOranges: always re-apply prior
-// vetted corrections; when prefs.autoCorrect.yellow, correct every other yellow
-// that passes the integrity gate in correctTextInPlace (shaky matches are
-// refused there). red is NEVER auto-applied.
+// Re-apply prior user-vetted yellow text-replace corrections on revisit (FR-021).
+// FR-018 makes yellow MANUAL by rule: callers MUST pass autoAll:false — there is
+// no prefs.autoCorrect.yellow and no path that auto-corrects an un-vetted yellow.
+// The autoAll parameter is retained only so the integrity gate in
+// correctTextInPlace (which refuses shaky matches) stays the single code path.
+// red is likewise NEVER auto-applied.
 async function autoCorrectYellows({ persistedKeys, autoAll }) {
   const yellows = STATE.findings.filter(f => f.color === 'yellow');
   let n = 0;
@@ -1343,17 +1344,23 @@ async function maybeMountSidebar(finalState) {
   // We don't re-persist (auto-correct re-runs each load anyway, and re-applies
   // keep their original correction date) and stay silent (one consolidated
   // badge refresh below). See FR-024a.
+  // A persisted correction is any kind except 'dismissal' (ref-edit /
+  // text-replace / reference-attribution, or legacy 'correction' / missing-kind
+  // which the storage read-path normalizes to 'ref-edit'). All are re-applied on
+  // revisit (FR-021); dismissals are not corrections.
   const correctedKeys = new Set();
   if (Array.isArray(entries)) {
     for (const e of entries) {
-      const kind = e.kind || e.action || '';
-      if (kind === 'correction' || kind === 'correct') correctedKeys.add(e.compositeKey);
+      const kind = e.kind || e.action || 'ref-edit';
+      if (kind !== 'dismissal' && kind !== 'dismiss') correctedKeys.add(e.compositeKey);
     }
   }
-  const autoAll = STATE.prefs?.autoCorrect?.orange === true || STATE.prefs?.autoCorrectOrange === true;
+  const autoAll = STATE.prefs?.autoCorrect?.orange === true;
   let reapplied = await autoCorrectOranges({ persistedKeys: correctedKeys, autoAll });
-  // T201 P3 — yellow gated text-replace (autocorrect or prior vetted re-apply).
-  reapplied += await autoCorrectYellows({ persistedKeys: correctedKeys, autoAll: STATE.prefs?.autoCorrect?.yellow === true });
+  // FR-018: yellow is MANUAL by rule — never auto-corrected regardless of prefs.
+  // Only prior user-vetted yellow corrections are re-applied on revisit (FR-021);
+  // hence autoAll is hard-false here, never a preference.
+  reapplied += await autoCorrectYellows({ persistedKeys: correctedKeys, autoAll: false });
 
   // If anything changed, re-settle the badge/popup to the post-correction state.
   if (reapplied) {
@@ -2326,10 +2333,9 @@ if (chrome?.runtime?.onMessage) {
       // Live "auto-correct all orange" toggle: if it's now on and the current
       // scan still has uncorrected orange findings, correct them in place now
       // and re-sync the sidebar/badge (rather than waiting for the next scan).
-      const acOrange = prefs.autoCorrect?.orange === true || prefs.autoCorrectOrange === true;
-      const acYellow = prefs.autoCorrect?.yellow === true;
-      if ((acOrange && STATE.findings.some(f => f.color === 'orange')) ||
-          (acYellow && STATE.findings.some(f => f.color === 'yellow'))) {
+      // Only orange and lightBlue are autocorrectable (FR-018); yellow/red never.
+      const acOrange = prefs.autoCorrect?.orange === true;
+      if (acOrange && STATE.findings.some(f => f.color === 'orange')) {
         maybeMountSidebar(computeFinalState()).catch(() => {});
       }
       return;
