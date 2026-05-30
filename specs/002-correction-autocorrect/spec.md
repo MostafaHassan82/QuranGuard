@@ -23,6 +23,12 @@ The five-verdict taxonomy and the lightGreen provenance color are **unchanged** 
 - Q: Is the yellow aligned diff shown inline automatically, or only on demand? → A: Always inline — the strike/highlight diff renders directly in the page for every yellow finding as soon as it is detected (visual overlay only; no page-text edit until "Fix in place").
 - Q: Default state of the new lightBlue autocorrect toggle on fresh install? → A: On by default (lightBlue never edits page text — it only surfaces a reference in the tooltip and recolors — so safe auto-resolution is the out-of-box behavior). Orange autocorrect keeps its existing default (off / migrated).
 
+### Session 2026-05-29
+
+- Q: When multiple ayat fall within the near-match threshold of one red finding, what is offered? → A: Best-only, then manual list — surface the single closest candidate as the "Did you mean …?" suggestion; on a tie/near-tie present the rivals as a manual choice list and auto-accept nothing.
+- Q: How wide is the "adjacent attributed finding" used to auto-resolve an ambiguous lightBlue reference (FR-009)? → A: Nearest in DOM order — adopt the surah of the closest attributed finding in document order, within a bounded distance, regardless of block boundaries.
+- Q: With autocorrect ON, what happens to a previously corrected finding on revisit (FR-021)? → A: Re-apply + badge — automatically re-apply the safe correction during the scan AND show the "previously corrected" badge, so the page lands in its corrected state without reader action (still revertable).
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Reader fixes a near-miss quote (yellow → corrected) (Priority: P1)
@@ -119,7 +125,7 @@ A reader wants the safe corrections to happen automatically on pages they trust,
 
 - **FR-007**: For a lightBlue finding, the system MUST surface the verifier-resolved reference in the highlight's **tooltip** and the panel row, and MUST NOT insert any reference text into the page body.
 - **FR-008**: When a lightBlue finding's text resolves to exactly one reference, accepting the correction MUST flip it to a corrected successor (verified verdict, lightGreen provenance) carrying that reference.
-- **FR-009**: When a lightBlue finding's text resolves to multiple references, the system MUST attempt context disambiguation (adopt the reference of an adjacent attributed finding sharing one of the candidate surahs); only a context-resolved or single-candidate reference may be applied automatically.
+- **FR-009**: When a lightBlue finding's text resolves to multiple references, the system MUST attempt context disambiguation (adopt the reference of an adjacent attributed finding sharing one of the candidate surahs); only a context-resolved or single-candidate reference may be applied automatically. "Adjacent" means the **closest attributed finding in document (DOM) order within a bounded distance**, regardless of block boundaries; when no attributed finding within that distance shares a candidate surah, the finding remains ambiguous (FR-010).
 - **FR-010**: When a lightBlue finding remains ambiguous after disambiguation, the system MUST present the candidate references for manual selection and MUST NOT auto-select one.
 
 **yellow (word-level drift)**
@@ -131,7 +137,7 @@ A reader wants the safe corrections to happen automatically on pages they trust,
 
 **red (not found)**
 
-- **FR-015**: For a red finding, the system MUST run a fuzzy near-match probe **during the scan** (so suggestions are ready in the panel without a per-finding wait); when a candidate within threshold exists, it MUST present a "Did you mean …?" suggestion naming the candidate ayah and reference. The probe MUST stay within the established scan-time budget for the page.
+- **FR-015**: For a red finding, the system MUST run a fuzzy near-match probe **during the scan** (so suggestions are ready in the panel without a per-finding wait); when a candidate within threshold exists, it MUST present a "Did you mean …?" suggestion naming the candidate ayah and reference. When **multiple** ayat fall within the threshold, the system MUST surface only the single closest candidate as the suggestion; on a tie or near-tie it MUST instead present the rival candidates as a manual choice list and MUST NOT auto-accept any of them. The probe MUST stay within the established scan-time budget for the page.
 - **FR-016**: When the reader accepts a red near-match suggestion, the correction MUST proceed via the same diff-and-fix path as yellow (authentic wording, changed parts marked, revertable) into a lightGreen corrected successor.
 - **FR-017**: When a red finding has no near-match within threshold, the system MUST label it "No automatic correction" (explicitly distinguished from an error state) and MUST NOT offer an in-place edit.
 
@@ -140,14 +146,14 @@ A reader wants the safe corrections to happen automatically on pages they trust,
 - **FR-018**: The system MUST generalize the autocorrect preference so it can independently enable automatic correction for orange and for lightBlue; yellow and red MUST always be manual and MUST NOT be auto-corrected by any preference. On a fresh install the **lightBlue autocorrect toggle defaults ON** (lightBlue never edits page text — it only surfaces a reference and recolors), while the **orange autocorrect toggle retains its existing default (off)**.
 - **FR-019**: Automatic correction MUST apply only to safe findings — unambiguous (single-candidate) or context-resolved matches; ambiguous matches are never auto-corrected.
 - **FR-020**: The existing orange autocorrect preference setting MUST migrate forward to the generalized preference without loss of the reader's prior choice.
-- **FR-021**: A corrected finding MUST be persisted per the existing revisit behavior so that on a later visit it surfaces with a "previously corrected" indicator and is not silently suppressed. A finding whose correction was reverted (FR-006) MUST NOT be re-applied on revisit.
+- **FR-021**: A corrected finding MUST be persisted per the existing revisit behavior so that on a later visit it surfaces with a "previously corrected" indicator and is not silently suppressed. On revisit, a persisted correction MUST be **automatically re-applied during the scan** (restoring the corrected state without reader action) **and** surfaced with the "previously corrected" badge; the re-applied correction remains revertable (FR-006). A finding whose correction was reverted (FR-006) MUST NOT be re-applied on revisit.
 - **FR-022**: All correction UI strings (diff labels, "Did you mean …?", "No automatic correction", Revert, and per-color action labels) MUST be localized in the same languages as the rest of the interface.
 
 ### Key Entities *(include if feature involves data)*
 
 - **Correction**: an applied repair of a finding. Attributes: kind (reference-edit / reference-resolve-tooltip / text-replace), the original (reader-supplied) content needed to revert, the resulting verified reference and/or authentic wording, and a back-reference to the original finding.
 - **Aligned diff**: the per-word comparison between the cited wording and the authentic ayah, where each word carries an operation (keep / missing / extra / substitute) and its cited and authentic forms.
-- **Near-match suggestion**: a candidate ayah + reference proposed for a red finding, with a distance/confidence measure used to gate whether it is offered.
+- **Near-match suggestion**: a candidate ayah + reference proposed for a red finding, with a distance/confidence measure used to gate whether it is offered. When several candidates are within threshold the closest is the offered suggestion; a tie/near-tie yields a ranked candidate list for manual selection rather than a single auto-acceptable suggestion.
 - **Autocorrect preference**: per-color (orange, lightBlue) booleans controlling automatic application of safe corrections; yellow and red are excluded by design.
 
 ## Success Criteria *(mandatory)*
