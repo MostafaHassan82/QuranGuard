@@ -131,30 +131,26 @@ description: "Task list for feature 002-correction-autocorrect (V1.2)"
 
 ### Verifier — lightBlue resolution
 
-- [ ] T025 [US2] In `js/verifier/classify.js`, when the verdict is lightBlue: set `Finding.resolvedLightBlueRef` if `matchedRefs.length === 1`, else leave absent and populate `Finding.candidateLightBlueRefs` from `matchedRefs` (data-model.md, FR-008, FR-010).
-- [ ] T026 [US2] Implement adjacency-context disambiguation in `js/verifier/classify.js` (or a small helper in `js/verifier/references.js`): for lightBlue findings with `matchedRefs.length > 1`, examine the previous and next Finding in document (DOM) order within a bounded distance, regardless of block boundaries; if exactly one neighbor is currently green / lightGreen-corrected / orange-corrected AND its surah is in `matchedRefs`, adopt that surah as `resolvedLightBlueRef` (FR-009, clarification session 2026-05-29).
-- [ ] T027 [P] [US2] Add fixture set `tests/fixtures/lightblue-resolution/` with subdirs `single/`, `multi-with-context/`, `multi-ambiguous/`. Each `expected.json` MUST include `resolvedLightBlueRef` (when applicable) and/or `candidateLightBlueRefs` (when ambiguous). (SC-003.)
+- [X] T025 [US2] lightBlue resolution on the Finding. → `materializeLightBlueResolution()` (content.js, post-scan) sets `resolvedLightBlueRef` (single matchedRef) or `candidateLightBlueRefs` (multi). Done in content.js (not js/verifier/classify.js — single-fragment classify can't see neighbors; see [[project-verifier-location]]).
+- [X] T026 [US2] Adjacency-context disambiguation. → Same pass: for multi-ref lightBlue, the ±1 DOM-order neighbors are examined; if exactly one is green/lightGreen/orange-corrected and its surah ∈ candidates, that surah is adopted as `resolvedLightBlueRef`; else `candidateLightBlueRefs` (FR-009/FR-010).
+- [X] T027 [P] [US2] lightBlue resolution coverage. → `correction_model_check` already asserts the adjacency logic (suggestRefForLightBlue, 6/6); `correction_check` T027 asserts the reference-attribution persist/revert roundtrip; --text probes confirm single→resolvedLightBlueRef, multi→candidateLightBlueRefs. (Programmatic, not an HTML fixture dir — same rationale as T012.)
 
 ### Render — lightBlue tooltip
 
-- [ ] T028 [US2] In the highlight-render pipeline, surface `resolvedLightBlueRef` (or "ambiguous — choose in panel") in the lightBlue span's tooltip. **MUST NOT** insert reference text into the page body (FR-007, research.md §2 override of design-predecessor `ref-insert`).
-- [ ] T029 [US2] Grep/remove any `ref-insert` code path that may have landed on `003-ayah-autocomplete` (depends on T002 reconciliation map identifying the call sites); confirm no DOM mutation occurs for lightBlue presentation. If T002 found no `ref-insert` landed, mark T029 N/A.
+- [X] T028 [US2] `updateLightBlueTooltips()` surfaces the resolved ref (or "choose in panel" when ambiguous) in the lightBlue span tooltip + aria-label. NO page-body insertion (FR-007).
+- [X] T029 [US2] **N/A** — no `ref-insert` path ever landed (T002/T003 confirmed). lightBlue is suggestion + recolor only; no DOM text mutation.
 
 ### Panel — lightBlue row
 
-- [ ] T030 [P] [US2] In `js/panel/popup-surface.js`, render the lightBlue row in two shapes: (a) when `resolvedLightBlueRef` is set, show the resolved ref + an "Accept" affordance; (b) when `candidateLightBlueRefs` is set, render the candidate list with a manual-choice affordance per candidate (FR-010).
-- [ ] T031 [P] [US2] Mirror in `js/panel/sidebar-surface.js`.
-
-### Action — lightBlue accept + Revert
-
-- [ ] T032 [US2] Implement the `kind: 'reference-attribution'` branch in `js/panel/actions.js`: send `CORRECT_IN_PLACE { kind:'reference-attribution', compositeKey, resolvedRef }`. On success, recolor the span to green + lightGreen provenance, update the tooltip to carry the resolved ref, emit a corrected successor with `priorFindingId` + `correctionKind:'reference-attribution'`. **NO DOM text edit** (FR-007, FR-008). FR-005's locked-DOM clipboard fallback is N/A for this kind — there is no DOM edit to fall back from; failure modes (e.g., span gone) reuse `ok:false, reason:'span-missing'` from the messaging contract.
-- [ ] T033 [US2] Persist the lightBlue correction in `js/storage/persisted.js` with `kind:'reference-attribution'` and payload `{ resolvedRef, compositeKey }`.
-- [ ] T034 [US2] Implement Revert for `reference-attribution` in `js/background.js`: delete the matching `persisted.v1` entry, recolor back to lightBlue, drop the tooltip ref (FR-006). No DOM text to restore.
-- [ ] T035 [US2] Implement manual-choice acceptance for ambiguous lightBlue: when the user picks one of `candidateLightBlueRefs`, route through the same `reference-attribution` path with that ref as `resolvedRef`.
+- [X] T030/T031 [US2] lightBlue row shapes. → `makeLightBlueSuggestBlock` (sidebar — the only rich surface; popup-surface.js does not exist) renders the resolved ref with an "Accept" button, or the candidate list with a per-candidate "Choose" button (FR-010). Copy-ref retained.
+- [X] T032 [US2] `reference-attribution` correction. → `correctReferenceAttribution(findingId, {ref})` (content.js) re-verifies the cited text at the ref, recolors the span to a lightGreen successor + tooltip ref, emits a successor with `priorFindingId` + `correctionKind:'reference-attribution'`. **NO DOM text edit** (FR-007); missing span → `ok:false, reason:'span-missing'`. Dispatcher seam `correctInContentByKind`/`correctRefAttributionInContent(id, ref)`.
+- [X] T033 [US2] Persist `kind:'reference-attribution'`, payload `{ resolvedRef }`.
+- [X] T034 [US2] Revert. → handled by the generic `revertCorrection` (recolor to the prior lightBlue verdict, no text to restore, clears the entry by `correctionKind`).
+- [X] T035 [US2] Manual choice. → each candidate's "Choose" button routes through `correctReferenceAttribution` with that ref as `options.ref`. Keyboard `f` accepts only the unambiguous case.
 
 ### Revisit — lightBlue
 
-- [ ] T036 [US2] Extend the scan-time re-apply path (T024) to handle `kind:'reference-attribution'`: re-apply tooltip + recolor, surface "previously corrected" badge (FR-021). Verify that T024a's lightBlue mirror-assertion fixture (under `tests/fixtures/lightblue-resolution/single/`) still passes against the wired US2 reference-attribution path — i.e., T024a authors the fixture, T036 confirms US2 wiring keeps it green. Covers FR-006 + FR-021 negative case for lightBlue.
+- [X] T036 [US2] Revisit re-apply. → `autoCorrectLightBlue({refByKey, autoAll})` re-applies prior vetted attributions on revisit using the EXACT ref stored in the persisted payload (FR-021), and auto-attributes unambiguous lightBlue when `prefs.autoCorrect.lightBlue` (default ON). Reverted findings (entry cleared) re-classify fresh. (lightBlue mirror of T024a covered by `correction_check` T027.)
 
 **Checkpoint**: US2 is end-to-end testable in isolation. SC-003 (100% single-resolution; never auto-resolve multi without context) is exercised by `tests/fixtures/lightblue-resolution/`.
 

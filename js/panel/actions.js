@@ -194,11 +194,11 @@ const QuranActions = (() => {
   // T032 (US2) — lightBlue reference-attribution from the CONTENT world. Recolors
   // to a lightGreen successor + surfaces the resolved ref in the tooltip; NEVER
   // edits page text. content.js defines correctReferenceAttribution() in US2.
-  async function correctRefAttributionInContent(findingId) {
+  async function correctRefAttributionInContent(findingId, ref) {
     if (!findingId || typeof correctReferenceAttribution !== 'function') {
       return { ok: false, reason: 'not-implemented' };
     }
-    try { return await correctReferenceAttribution(findingId); } catch (_) { return { ok: false }; }
+    try { return await correctReferenceAttribution(findingId, ref ? { ref } : {}); } catch (_) { return { ok: false }; }
   }
 
   // T008 — single correction dispatcher keyed on CorrectionKind. The panel rows

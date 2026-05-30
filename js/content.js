@@ -1408,6 +1408,28 @@ function updateLightBlueTooltips(findings) {
   }
 }
 
+// T036/T049 — re-apply / auto-apply lightBlue reference-attribution (FR-021/FR-018).
+//   • refByKey: id → chosen ref from a prior persisted correction; always re-applied.
+//   • autoAll (prefs.autoCorrect.lightBlue): auto-attribute every UNAMBIGUOUS lightBlue
+//     (resolvedLightBlueRef set). Ambiguous matches are never auto-attributed (FR-019).
+// reference-attribution never edits page text, so this is safe to default ON.
+async function autoCorrectLightBlue({ refByKey, autoAll }) {
+  const lightBlues = STATE.findings.filter(f => f.color === 'lightBlue');
+  let n = 0;
+  for (const f of lightBlues) {
+    const priorRef = refByKey && refByKey.get(f.id);
+    let ref = null;
+    if (priorRef) ref = priorRef;                                  // vetted re-apply (any prior choice)
+    else if (autoAll && f.resolvedLightBlueRef) ref = f.resolvedLightBlueRef; // unambiguous auto
+    if (!ref) continue;
+    try {
+      const r = await correctReferenceAttribution(f.id, { ref, persist: false, silent: true });
+      if (r?.ok) n++;
+    } catch (_) {}
+  }
+  return n;
+}
+
 async function maybeMountSidebar(finalState) {
   if (typeof QuranPanelSidebar === 'undefined') return;
   if (finalState === 'empty' || finalState === 'notArabic') return;
@@ -1431,10 +1453,18 @@ async function maybeMountSidebar(finalState) {
   // which the storage read-path normalizes to 'ref-edit'). All are re-applied on
   // revisit (FR-021); dismissals are not corrections.
   const correctedKeys = new Set();
+  // T036 — map of prior reference-attribution corrections → the chosen ref, so
+  // the lightBlue re-apply uses the exact reference the user picked (which may be
+  // a non-default candidate of an ambiguous match), not just the materialized one.
+  const lightBlueRefByKey = new Map();
   if (Array.isArray(entries)) {
     for (const e of entries) {
       const kind = e.kind || e.action || 'ref-edit';
-      if (kind !== 'dismissal' && kind !== 'dismiss') correctedKeys.add(e.compositeKey);
+      if (kind === 'dismissal' || kind === 'dismiss') continue;
+      correctedKeys.add(e.compositeKey);
+      if (kind === 'reference-attribution' && e.payload && e.payload.resolvedRef) {
+        lightBlueRefByKey.set(e.compositeKey, e.payload.resolvedRef);
+      }
     }
   }
   const autoAll = STATE.prefs?.autoCorrect?.orange === true;
@@ -1443,6 +1473,13 @@ async function maybeMountSidebar(finalState) {
   // Only prior user-vetted yellow corrections are re-applied on revisit (FR-021);
   // hence autoAll is hard-false here, never a preference.
   reapplied += await autoCorrectYellows({ persistedKeys: correctedKeys, autoAll: false });
+  // T036/T049 — lightBlue reference-attribution: re-apply prior vetted ones on
+  // revisit (FR-021), and — when prefs.autoCorrect.lightBlue (default ON, FR-018,
+  // never edits page text) — auto-attribute every unambiguously-resolved lightBlue.
+  reapplied += await autoCorrectLightBlue({
+    refByKey: lightBlueRefByKey,
+    autoAll: STATE.prefs?.autoCorrect?.lightBlue === true,
+  });
 
   // If anything changed, re-settle the badge/popup to the post-correction state.
   if (reapplied) {
@@ -2211,6 +2248,98 @@ async function correctTextInPlace(findingId, options = {}) {
     } catch (_) {}
   }
   return { ok: true, result: { successorFindingId: successorId, fellBackToClipboard, lockedDom: fellBackToClipboard } };
+}
+
+// T032/T035 (FR-007/FR-008) — lightBlue "accept reference": attribute the
+// resolved reference to a lightBlue finding WITHOUT editing the page body. The
+// span is recolored to a lightGreen successor and the resolved ref is surfaced
+// in the tooltip + panel; the ayah text is never touched (this is the spec's
+// override of the design-predecessor's ref-insert). options.ref = a manually
+// chosen candidate (T035); falls back to the materialized resolvedLightBlueRef.
+async function correctReferenceAttribution(findingId, options = {}) {
+  const persist = options.persist !== false;
+  const silent = options.silent === true;
+  const f = STATE.findings.find(x => x.id === findingId);
+  if (!f || f.color !== 'lightBlue') return { ok: false, error: { code: 'NOT_CORRECTABLE', message: 'not a lightBlue finding' } };
+  const resolvedRef = options.ref || f.resolvedLightBlueRef || null;
+  if (!resolvedRef) return { ok: false, error: { code: 'AMBIGUOUS', message: 'no resolved reference' } };
+
+  // Re-verify the cited text AT the resolved reference (Principle I — confirm the
+  // attribution against the index; lightBlue text is authentic, so this is green).
+  let vres = null;
+  try { vres = await sendToBackground({ type: 'verifyFragmentByRef', text: f.text, ref: resolvedRef, candidateConfidence: 'high' }); } catch (_) {}
+  const successorColor = (vres && vres.color) || 'green';
+  const displayColor = 'lightGreen';
+  const successorMatchedRef = (vres && vres.matchedRef) || resolvedRef;
+  const successorId = computeCompositeFindingId(f.text, resolvedRef, successorMatchedRef, f.domPath);
+
+  const ayahSpan = document.querySelector(`[data-finding-id="${cssEscapeId(findingId)}"]`);
+  // FR-005 clipboard fallback is N/A here (no DOM text edit to fall back from);
+  // a missing span just means we can't recolor → report span-missing.
+  if (!ayahSpan) return { ok: false, reason: 'span-missing' };
+
+  STATE.swapInProgress = true;
+  try {
+    // NO text edit (FR-007): recolor + tooltip carries the resolved ref only.
+    for (const c of ALL_HIGHLIGHT_CLASSES) ayahSpan.classList.remove(c);
+    if (CSS_BY_COLOR[displayColor]) ayahSpan.classList.add(CSS_BY_COLOR[displayColor]);
+    const tip = buildTooltip(displayColor, { color: displayColor, correctedFromRef: tt('tip_no_ref'), matchedRef: successorMatchedRef });
+    ayahSpan.dataset.findingId = successorId;
+    ayahSpan.dataset.color = displayColor;
+    ayahSpan.dataset.claimedRef = resolvedRef;
+    ayahSpan.dataset.matchedRef = successorMatchedRef;
+    ayahSpan.dataset.tooltip = tip;
+    if (CATEGORY_LABEL_AR[displayColor]) ayahSpan.setAttribute('aria-label', tt('cat_' + displayColor) + (tip ? '. ' + tip : ''));
+  } finally {
+    setTimeout(() => { STATE.swapInProgress = false; }, 50);
+  }
+
+  const successor = {
+    ...f,
+    id: successorId,
+    category: successorColor,
+    color: displayColor,
+    correctedFromRef: null,          // lightBlue carried no cited reference
+    citedReference: resolvedRef,
+    claimedRef: resolvedRef,
+    matchedReference: successorMatchedRef,
+    matchedRef: successorMatchedRef,
+    matchedRefs: [],
+    authenticText: (vres && vres.authenticText) || f.authenticText,
+    resolvedLightBlueRef: resolvedRef,
+    candidateLightBlueRefs: null,
+    diff: null,
+    nearMatch: null,
+    priorFindingId: findingId,
+    correctionKind: 'reference-attribution',
+    persistedBadge: null,
+    priorFinding: { ...f, priorFinding: undefined },
+  };
+  const idx = STATE.findings.findIndex(x => x.id === findingId);
+  if (idx !== -1) STATE.findings.splice(idx, 1, successor); else STATE.findings.push(successor);
+
+  const perCategoryCount = { green: 0, lightBlue: 0, lightGreen: 0, yellow: 0, orange: 0, red: 0 };
+  for (const x of STATE.findings) if (perCategoryCount[x.color] !== undefined) perCategoryCount[x.color]++;
+  if (!silent) {
+    QuranMsg.emit('SCAN_COMPLETE', {
+      scanId: STATE.scanId, totalCount: STATE.findings.length, perCategoryCount,
+      finalState: computeFinalState(), languageDetected: STATE.languageDetected || 'ar',
+    });
+    if (typeof QuranPanelSidebar !== 'undefined' && QuranPanelSidebar.isMounted()) {
+      try { QuranPanelSidebar.ingest(successor, findingId); } catch (_) {}
+    }
+  }
+  window.__quranMatches = STATE.findings.slice();
+
+  if (persist) {
+    try {
+      await QuranMsg.sendRequest('PERSIST_WRITE', {
+        urlKey: pageUrlKey(), compositeKey: findingId, kind: 'reference-attribution',
+        at: new Date().toISOString(), payload: { resolvedRef },
+      });
+    } catch (_) {}
+  }
+  return { ok: true, result: { successorFindingId: successorId } };
 }
 
 // Restore a corrected (lightGreen) finding to its pre-correction state: rewrite

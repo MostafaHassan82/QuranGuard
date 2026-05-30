@@ -524,7 +524,7 @@ const QuranPanelSidebar = (() => {
     // refs; otherwise the candidate refs are offered for the user to copy.
     if (finding.color === 'lightBlue' && typeof QuranPanelModel !== 'undefined') {
       const sug = QuranPanelModel.suggestRefForLightBlue(finding.id);
-      if (sug) row.append(makeLightBlueSuggestBlock(sug));
+      if (sug) row.append(makeLightBlueSuggestBlock(sug, finding));
     }
 
     // Action buttons (T052). Primary action is row click = jump (FR-011a).
@@ -655,7 +655,7 @@ const QuranPanelSidebar = (() => {
   // lightBlue suggested-reference block (T201 P2). Resolved → show the ref + a
   // copy button; ambiguous → list the candidate refs, each copyable. Copying
   // writes ONLY the reference text — the page DOM is never modified (Q-A).
-  function makeLightBlueSuggestBlock(sug) {
+  function makeLightBlueSuggestBlock(sug, finding) {
     const wrap = document.createElement('div');
     wrap.className = 'quran-ext-panel-suggest';
     const heading = document.createElement('div');
@@ -669,6 +669,13 @@ const QuranPanelSidebar = (() => {
       const item = document.createElement('span');
       item.className = 'quran-ext-panel-suggest-item';
       item.append(refToken(ref));
+      // T032/T035 — accept this reference: recolor the finding to a lightGreen
+      // successor carrying the ref (no page-text edit, FR-007). For the ambiguous
+      // case each candidate gets its own accept (manual choice, FR-010).
+      const accept = makeActionBtn(sug.ambiguous ? T('corr_choose_ref') : T('act_correct'),
+        () => runAction('correctReferenceAttribution', finding, { ref }));
+      accept.classList.add('quran-ext-panel-suggest-accept');
+      item.append(accept);
       const btn = makeActionBtn(T('corr_copy_ref'), async () => {
         try { await navigator.clipboard.writeText(`(${ref})`); btn.textContent = T('corr_copied'); }
         catch (_) { /* clipboard unavailable — the ref is still shown/linkable */ }
@@ -718,11 +725,16 @@ const QuranPanelSidebar = (() => {
     if (r && r.lockedDom) showTransientNote(T(r.iframeBoundary ? 'corr_locked_dom_iframe' : 'corr_locked_dom'));
   }
 
-  async function runAction(kind, finding) {
+  async function runAction(kind, finding, extra) {
     if (typeof QuranActions === 'undefined') return;
     const opts = { pageUrl: location.href };
     try {
       switch (kind) {
+        // T032/T035 — lightBlue accept-reference (recolor + tooltip ref, no page
+        // text edit). extra.ref = a manually chosen candidate (ambiguous case).
+        case 'correctReferenceAttribution':
+          surfaceCorrectionResult(await QuranActions.correctRefAttributionInContent(finding.id, extra && extra.ref));
+          break;
         case 'jump':   QuranActions.jumpInContent(finding.id); break;
         case 'copy':   await QuranActions.copyRecord(finding, opts); break;
         case 'share':  await QuranActions.copyShareArtifact(finding, opts); break;
@@ -1153,6 +1165,12 @@ const QuranPanelSidebar = (() => {
             if (finding.color === 'orange') kind = 'correctInPlace';
             else if (finding.color === 'yellow') { if (finding.unsafeToRewrite) return; kind = 'correctTextInPlace'; }
             else if (finding.color === 'red' && finding.nearMatch && finding.nearMatch.authenticText) kind = 'correctTextInPlace';
+            else if (finding.color === 'lightBlue') {
+              // Accept the resolved reference; ambiguous → must choose in the panel.
+              const sug = QuranPanelModel.suggestRefForLightBlue(finding.id);
+              if (sug && !sug.ambiguous && sug.ref) { runAction('correctReferenceAttribution', finding, { ref: sug.ref }); }
+              return;
+            }
             else if (finding.color === 'lightGreen' && finding.priorFinding) kind = 'revertCorrection';
             else return;
           }

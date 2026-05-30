@@ -244,6 +244,24 @@ async function inPageTests() {
       read.entries.some(e => e.kind === 'dismissal' && e.compositeKey === 'yk1'), JSON.stringify(read.entries));
   }
 
+  // ── T027/T033: reference-attribution persists its resolved ref and reverts ──
+  // cleanly (FR-008/FR-006). No DOM payload — only the chosen ref is stored so a
+  // revisit can re-attribute the exact reference the user picked (FR-021).
+  if (typeof QuranPersisted !== 'undefined') {
+    const key = QuranPersisted.urlKey('http://quran.test/lightblue-attrib');
+    const at = new Date().toISOString();
+    await QuranPersisted.write({ urlKey: key, compositeKey: 'lb1', kind: 'reference-attribution', at, payload: { resolvedRef: 'الرحمن:13' } });
+    let read = await QuranPersisted.read(key);
+    const ra = read.entries.find(e => e.kind === 'reference-attribution' && e.compositeKey === 'lb1');
+    T('T027 reference-attribution persists the chosen ref',
+      ra && ra.payload && ra.payload.resolvedRef === 'الرحمن:13', JSON.stringify(ra));
+    const rem = await QuranPersisted.remove({ urlKey: key, compositeKey: 'lb1', kind: 'reference-attribution' });
+    T('T027 revert removes the reference-attribution entry', rem && rem.removed === true, JSON.stringify(rem));
+    read = await QuranPersisted.read(key);
+    T('T027 reference-attribution cleared after revert',
+      !read.entries.some(e => e.kind === 'reference-attribution' && e.compositeKey === 'lb1'), JSON.stringify(read.entries));
+  }
+
   // ── Guard: non-yellow/non-red results are NOT enriched ──────────────────────
   {
     const r = await send({ type: 'verifyFragmentByRef', text: verseWords.slice(0, 5).join(' '), ref: 'البقرة:255', candidateConfidence: 'high' });
