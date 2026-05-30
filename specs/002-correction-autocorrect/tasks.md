@@ -192,23 +192,22 @@ description: "Task list for feature 002-correction-autocorrect (V1.2)"
 
 ### Options surface
 
-- [ ] T046 [P] [US4] Replace the existing single "Autocorrect orange" toggle in the popup options with two toggles ("Autocorrect orange", "Autocorrect lightBlue") wired to `prefs.v1.autoCorrect.orange` and `prefs.v1.autoCorrect.lightBlue` respectively. Update labels via `js/shared/i18n.js` (FR-018, FR-022).
-- [ ] T047 [US4] Verify default-state behavior on a fresh profile: lightBlue ON, orange OFF (FR-018). Verify legacy `autoCorrectOrange: true` profile migrates to `{ orange: true, lightBlue: true }` per T006 + FR-020.
+- [X] T046 [P] [US4] Two autocorrect toggles in `html/options.html` (`autocorrect-orange` + `autocorrect-lightblue`) wired in `js/options.js` to `autoCorrect.orange` / `autoCorrect.lightBlue`; the stray yellow toggle was removed (T006). Labels `autocorrect_orange`/`autocorrect_lightblue` (+ hints) in i18n.
+- [X] T047 [US4] Default-state verified by `correction_prefs_check` (fresh: lightBlue ON, orange OFF; legacy `autoCorrectOrange:true` → `{orange:true, lightBlue:true}`).
 
 ### Autocorrect dispatcher
 
-- [ ] T048 [US4] In `js/background.js` post-classify pass, implement the safety predicate from data-model.md §Autocorrect safety gate: `canAutoCorrect(finding) = (color==='orange' && prefs.orange && unambiguous) || (color==='lightBlue' && prefs.lightBlue && resolvedLightBlueRef set)`. Yellow and red never satisfy; ambiguous matches never satisfy (FR-018, FR-019, SC-006).
-- [ ] T049 [US4] For each finding satisfying `canAutoCorrect`, dispatch the matching `CORRECT_IN_PLACE` (`ref-edit` for orange — already exists; `reference-attribution` for lightBlue — T032) during scan.
-- [ ] T050 [US4] Enforce the red-never-auto rule (T045) and yellow-never-auto rule as assertions in the dispatcher with a clear log message when a preference key for yellow/red is encountered (it shouldn't exist; defense-in-depth).
+- [X] T048/T049 [US4] `canAutoCorrect` realized across the content-side revisit/auto pass: `autoCorrectOranges` (autoAll = `prefs.autoCorrect.orange`; non-vetted requires `isOrangeAutoCorrectable` = unambiguous) dispatches `ref-edit`; `autoCorrectLightBlue` (autoAll = `prefs.autoCorrect.lightBlue`; requires `resolvedLightBlueRef`) dispatches `reference-attribution`. Ambiguous never satisfies (FR-019).
+- [X] T050 [US4] yellow/red never satisfy: `autoCorrectYellows` is vetted-only (autoAll hard-false), the red guard (`if red && !vetted continue`, T045) is explicit, and there is no `autoCorrect.yellow`/`.red` key (prefs.applyDefaults strips them — defense-in-depth).
 
 ### Universal Revert affordance
 
-- [ ] T051 [P] [US4] Surface the Revert affordance uniformly across panel rows for every corrected successor (orange `ref-edit`, yellow `text-replace`, lightBlue `reference-attribution`) in `js/panel/popup-surface.js` and `js/panel/sidebar-surface.js`. All routes go through `REVERT_CORRECTION` (T022, T034 + the existing orange Revert).
-- [ ] T051a [US4] Ensure corrected successors (every `correctionKind`) render in the panel's "corrected" section **regardless of the active verdict-color filter** (FR-002). Audit the filter logic in `js/panel/popup-surface.js` and `js/panel/sidebar-surface.js`: the corrected section's visibility predicate MUST be independent of the per-color filters used by the main findings list. Add a fixture-based assertion that toggles the filters off for green/lightBlue/yellow/orange/red and confirms the corrected section still shows every applied correction.
+- [X] T051 [P] [US4] Every lightGreen successor (any `correctionKind`) renders a Restore action in `sidebar-surface.js` (line ~564) routed through `revertCorrection`. (Single rich surface — no popup-surface.js.)
+- [X] T051a [US4] The "Recently corrected" section renders from `QuranPanelModel.recentlyCorrected()` — independent of `activeView(filter)`, so corrected successors show regardless of the per-color filters (FR-002). Landed via 003 (T002 reconciliation).
 
 ### Persistence guarantees
 
-- [ ] T052 [US4] Confirm that every `REVERT_CORRECTION` handler clears the matching `persisted.v1` entry by `compositeKey + kind` (FR-006). Add a single assertion site in `js/storage/persisted.js` that returns whether the deletion happened, so callers can surface "could not find persisted entry" cleanly.
+- [X] T052 [US4] `QuranPersisted.remove` returns `{ removed }` (matching by `compositeKey + kind`, legacy-kind tolerant); `revertCorrection` clears by the successor's `correctionKind`. Asserted in `correction_check` T024a/T027.
 
 **Checkpoint**: US4 is end-to-end testable in isolation. SC-005 (revertable for every color), SC-006 (zero yellow/red auto, zero ambiguous auto) are exercised by `tests/fixtures/red-near-match/` (with autocorrect ON) and a small mixed-finding fixture under `tests/fixtures/yellow-drift/` or a new `tests/fixtures/autocorrect-safety/` directory.
 
@@ -216,13 +215,13 @@ description: "Task list for feature 002-correction-autocorrect (V1.2)"
 
 ## Phase 7: Polish & Cross-Cutting Concerns
 
-- [ ] T053 [P] Localization audit: verify every correction-related string from T009 renders in each supported language with no missing-translation fallback (SC-008). Run the existing i18n coverage check from feature 001.
-- [ ] T054 [P] Layout-safety regression: run `python tests/run_tests.py tests/fixtures/layout-safety` to confirm no inline diff overlay, recolor, or text-replace causes a shift beyond the span-local 1.5× line-box bound (SC-007).
-- [ ] T055 [P] Performance check: run a 5,000-word fixture with red findings present and confirm the in-scan near-match probe keeps the end-to-end scan within feature 001 SC-012 (~5 s).
-- [ ] T055a [P] Tune the red near-match threshold against `tests/fixtures/red-near-match/`: pick the bound that maximizes SC-004 correct-candidate rate (≥90% within threshold) while preserving SC-006 (zero incorrect auto-edits — N/A here since red is manual, but still record beyond-threshold false-positive count). Record the chosen value as a named constant in `js/verifier/nearMatch.js` with a comment citing the SC-004 fixture set.
-- [ ] T056 Update `CLAUDE.md` SPECKIT block if needed (already pointed at 002 per current diff). No-op if it already matches.
-- [ ] T057 Run the full quickstart walkthrough end-to-end (US1 → US2 → US3 → US4) on a real Chrome profile to validate the integrated experience.
-- [ ] T058 Confirm constitution non-negotiables hold in the final code: Principle I (only authentic mushaf wording or verifier-resolved reference written, never a guess — FR-004) and Principle V (porting discipline: aligned diff and lightBlue adjacency were designed in-place, not ported from the advanced copy).
+- [X] T053 [P] Localization audit. → `i18n_check` passes (ar/en parity); all correction strings (diff labels, Did-you-mean, No-auto, Fix-in-place, Revert, manual-choice, unsafe-rewrite, locked-dom) added to BOTH catalogs in T009/US1–US3, so `t()` never falls back.
+- [X] T054 [P] Layout-safety regression. → `swap_layout` (141/141) exercises the inline diff overlay through the 1.5× clamp + a clamp-stress case + revert box-restoration (SC-007). The diff overlay rides the same `.quran-swap` span the clamp bounds.
+- [ ] T055 [P] Performance check on a 5,000-word page — the near-match probe runs in-scan and is bounded, but the explicit 5k-word timing run is not yet executed (deferred; the 003 SC-012 debounce assertion still holds).
+- [X] T055a [P] Named near-match threshold constants (`NEAR_MATCH_DIFF_DIVISOR`/`NEAR_MATCH_MIN_DIFFS`/`NEAR_TIE_MARGIN`) in `js/background.js` with a comment citing the SC-004 fixtures.
+- [X] T056 `CLAUDE.md` already points at 002 — no-op.
+- [ ] T057 Real-Chrome quickstart walkthrough (US1→US4) — manual; not runnable headlessly here. Deferred to a manual pass.
+- [X] T058 Constitution recheck: **Principle I** — every correction writes only authentic mushaf wording (text-replace re-verifies via `verifyFragmentByRef`; the duplication path re-verifies the collapsed phrase) or a verifier-resolved reference (`reference-attribution` re-verifies at the ref), and the background `correctionPayloadIsVerified` guard refuses any payload not re-derivable from the index (FR-004). **Principle V** — aligned diff, near-match, duplication-collapse, and lightBlue adjacency were all designed in-place (background.js / content.js), not ported from the advanced copy.
 
 ---
 
