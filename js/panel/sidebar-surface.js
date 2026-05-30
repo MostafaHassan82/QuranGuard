@@ -690,6 +690,34 @@ const QuranPanelSidebar = (() => {
     return b;
   }
 
+  // T020 (FR-005) — transient, aria-live note appended to the panel root. Used to
+  // explain the locked-DOM clipboard fallback (the span couldn't be edited, so the
+  // corrected citation was copied for manual paste). Auto-clears after a few s.
+  let noteTimer = null;
+  function showTransientNote(message) {
+    if (!rootEl || !message) return;
+    let note = rootEl.querySelector('.quran-ext-panel-note');
+    if (!note) {
+      note = document.createElement('div');
+      note.className = 'quran-ext-panel-note';
+      note.setAttribute('role', 'status');
+      note.setAttribute('aria-live', 'polite');
+      rootEl.appendChild(note);
+    }
+    note.textContent = message;
+    note.style.display = 'block';
+    if (noteTimer) clearTimeout(noteTimer);
+    noteTimer = setTimeout(() => { if (note) note.style.display = 'none'; }, 6000);
+  }
+
+  // FR-005: a locked-DOM text-replace fallback copied to the clipboard. When the
+  // cited text lives in a cross-origin/sandboxed iframe the content script can't
+  // reach the span at all — name the iframe boundary so the explanation is true.
+  function surfaceCorrectionResult(res) {
+    const r = res && res.result;
+    if (r && r.lockedDom) showTransientNote(T(r.iframeBoundary ? 'corr_locked_dom_iframe' : 'corr_locked_dom'));
+  }
+
   async function runAction(kind, finding) {
     if (typeof QuranActions === 'undefined') return;
     const opts = { pageUrl: location.href };
@@ -702,8 +730,8 @@ const QuranPanelSidebar = (() => {
         case 'json':   await QuranActions.copyRecordJson(finding, opts); break;
         // T067 — correct-in-place runs directly in this content context; the
         // sidebar model is updated by content.js via QuranPanelSidebar.ingest.
-        case 'correctInPlace': await QuranActions.correctInContent(finding.id); break;
-        case 'correctTextInPlace': await QuranActions.correctTextInContent(finding.id); break;
+        case 'correctInPlace': surfaceCorrectionResult(await QuranActions.correctInContent(finding.id)); break;
+        case 'correctTextInPlace': surfaceCorrectionResult(await QuranActions.correctTextInContent(finding.id)); break;
         case 'revertCorrection': await QuranActions.revertInContent(finding.id); break;
         // T069/T070 — dismiss; T071 — restore. Update this surface's model + persist.
         case 'dismiss':

@@ -201,11 +201,12 @@ async function inPageTests() {
   T('T073 prior finding removed from active set', !(window.__quranMatches || []).some(m => m.id === o1.id));
   T('T073 page DOM ref rewritten to true ref', marker1 && marker1.textContent.includes(trueRef1.split(':')[1]),
     marker1 && marker1.textContent);
-  // PERSIST 'correction' must have landed for this page's urlKey.
+  // A ref-edit correction (orange reference rewrite) must have landed for this
+  // page's urlKey (contracts/storage.md: CorrectionKind 'ref-edit').
   const persisted = await new Promise(r => chrome.storage.local.get(null, r));
   const corrKeys = Object.keys(persisted).filter(k => k.startsWith('persisted.v1.byUrl.'));
   const allEntries = corrKeys.flatMap(k => (persisted[k] && persisted[k].entries) || []);
-  T('T073/T068 a correction was persisted', allEntries.some(e => e.kind === 'correction' && e.compositeKey === o1.id),
+  T('T073/T068 a ref-edit correction was persisted', allEntries.some(e => e.kind === 'ref-edit' && e.compositeKey === o1.id),
     JSON.stringify(allEntries));
 
   // ── T074: locked-DOM finding → clipboard fallback ─────────────────────────

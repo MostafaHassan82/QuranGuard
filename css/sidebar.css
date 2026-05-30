@@ -576,6 +576,28 @@
   margin-top: 6px;
   flex-wrap: wrap;
 }
+/* T018 — inline note shown in place of "Fix in place" when a yellow match is
+   too shaky to safely rewrite (FR-014). */
+.quran-ext-action-note {
+  flex: 1 1 auto;
+  align-self: center;
+  font-size: 12px;
+  font-style: italic;
+  color: var(--q-muted, #888);
+}
+/* T020 (FR-005) — transient locked-DOM clipboard-fallback explanation, pinned at
+   the bottom of the panel with an aria-live role for screen readers. */
+.quran-ext-panel-note {
+  display: none;
+  margin: 6px 8px;
+  padding: 8px 10px;
+  font-size: 12px;
+  line-height: 1.4;
+  border-radius: 6px;
+  background: rgba(150, 210, 80, 0.18);
+  border: 1px solid rgba(110, 170, 50, 0.5);
+  color: var(--q-text, #222);
+}
 .quran-ext-panel-action-btn {
   flex: 0 0 auto;
   padding: 4px 10px;

@@ -222,6 +222,8 @@ const QuranI18n = (() => {
       corr_choose_candidate: 'اختر مرشّحًا',
       corr_candidate_option: 'الخيار {n}',
       corr_unsafe_rewrite: 'لا يمكن التصحيح تلقائيًا (تطابق غير مؤكَّد)',
+      corr_locked_dom: 'تعذّر تعديل هذا الموضع في الصفحة؛ نُسِخ النص الصحيح إلى الحافظة للّصق اليدوي.',
+      corr_locked_dom_iframe: 'النص داخل إطار مُضمَّن لا يمكن تعديله؛ نُسِخ النص الصحيح إلى الحافظة للّصق اليدوي.',
     },
     en: {
       cat_green: 'Verified with reference',
@@ -420,6 +422,8 @@ const QuranI18n = (() => {
       corr_choose_candidate: 'Choose a candidate',
       corr_candidate_option: 'Option {n}',
       corr_unsafe_rewrite: 'Can’t fix automatically (uncertain match)',
+      corr_locked_dom: 'Couldn’t edit this spot on the page; the corrected text was copied to your clipboard to paste manually.',
+      corr_locked_dom_iframe: 'The text is inside an embedded frame that can’t be edited; the corrected text was copied to your clipboard to paste manually.',
     },
   };
 

@@ -1938,6 +1938,7 @@ async function correctInPlace(findingId, options = {}) {
     deviation: (vres && vres.deviation) || f.deviation,
     refText: corrected || f.refText,
     priorFindingId: findingId,
+    correctionKind: 'ref-edit',   // FR-002: orange reference rewrite
     persistedBadge: null,
     // Snapshot of the pre-correction finding so revertCorrection can rebuild
     // the original row (color, refs, …) without re-running the verifier.
@@ -1981,7 +1982,10 @@ async function correctInPlace(findingId, options = {}) {
   // finding has the prior id; keying on the successor would never re-match.
   if (persist) {
     try {
-      await QuranMsg.sendRequest('PERSIST_WRITE', { urlKey: pageUrlKey(), compositeKey: findingId, kind: 'correction', at: new Date().toISOString() });
+      await QuranMsg.sendRequest('PERSIST_WRITE', {
+        urlKey: pageUrlKey(), compositeKey: findingId, kind: 'ref-edit',
+        at: new Date().toISOString(), payload: { resolvedRef: trueRef },
+      });
     } catch (_) {}
   }
 
@@ -2094,6 +2098,7 @@ async function correctTextInPlace(findingId, options = {}) {
     diff: null,
     nearMatch: null,
     priorFindingId: findingId,
+    correctionKind: 'text-replace',   // FR-002: yellow Fix-in-place / accepted red near-match
     persistedBadge: null,
     // Snapshot of the pre-correction finding so revertCorrection can rebuild
     // the original row (color, refs, diff, …) without re-running the verifier.
@@ -2122,9 +2127,15 @@ async function correctTextInPlace(findingId, options = {}) {
   window.__quranMatches = STATE.findings.slice();
 
   if (persist) {
-    try { await QuranMsg.sendRequest('PERSIST_WRITE', { urlKey: pageUrlKey(), compositeKey: findingId, kind: 'correction', at: new Date().toISOString() }); } catch (_) {}
+    try {
+      await QuranMsg.sendRequest('PERSIST_WRITE', {
+        urlKey: pageUrlKey(), compositeKey: findingId, kind: 'text-replace',
+        at: new Date().toISOString(),
+        payload: { authenticExcerpt: authentic, originalCitedText: correctedFromText },
+      });
+    } catch (_) {}
   }
-  return { ok: true, result: { successorFindingId: successorId, fellBackToClipboard } };
+  return { ok: true, result: { successorFindingId: successorId, fellBackToClipboard, lockedDom: fellBackToClipboard } };
 }
 
 // Restore a corrected (lightGreen) finding to its pre-correction state: rewrite
@@ -2172,8 +2183,14 @@ async function revertCorrection(findingId) {
   const idx = STATE.findings.findIndex(x => x.id === findingId);
   if (idx !== -1) STATE.findings.splice(idx, 1, original); else STATE.findings.push(original);
 
-  // Clear the persisted correction so the revert sticks across reloads.
-  try { await QuranMsg.sendRequest('PERSIST_REMOVE', { urlKey: pageUrlKey(), compositeKey: findingId, kind: 'correction' }); } catch (_) {}
+  // Clear the persisted correction so the revert sticks across reloads (FR-006).
+  // Remove the entry matching this correction's kind; also clear the interim
+  // 'correction' literal so pre-migration dev entries revert cleanly too.
+  const revertKind = f.correctionKind || 'ref-edit';
+  try { await QuranMsg.sendRequest('PERSIST_REMOVE', { urlKey: pageUrlKey(), compositeKey: findingId, kind: revertKind }); } catch (_) {}
+  if (revertKind !== 'correction') {
+    try { await QuranMsg.sendRequest('PERSIST_REMOVE', { urlKey: pageUrlKey(), compositeKey: findingId, kind: 'correction' }); } catch (_) {}
+  }
 
   if (typeof QuranPanelSidebar !== 'undefined' && QuranPanelSidebar.isMounted()) {
     try { QuranPanelSidebar.revertCorrection(findingId, original); } catch (_) {}
