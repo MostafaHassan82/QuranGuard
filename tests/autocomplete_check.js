@@ -199,6 +199,16 @@ async function inPageTests() {
   T('prefs.autocomplete defaults present', ac && ac.enabled === true && ac.liveRender === true
     && ac.refFormat === 'arabicName' && ac.refPlacement === 'after' && ac.minWords === 2, JSON.stringify(ac));
 
+  // (f) Bare-alef typed for an Uthmani hamza: "قل هو الله احد" must surface
+  // 112:1 (أَحَدٌ tier1 → "ءحد"). Without same-position drift↔drift substitution
+  // in the soft word-index lookup, 112:1 never enters the candidate set.
+  // Field-reported.
+  const r4 = await send({ type: 'MATCH_PARTIAL', text: 'قل هو الله احد', limit: 8 });
+  const c4 = (r4 && r4.candidates) || [];
+  T('bare-alef "احد" still surfaces 112:1 (modern hamza-drop, soft tier)',
+    c4.some(c => c.ref.surah === 112 && c.ref.ayah === 1),
+    JSON.stringify(c4.slice(0, 5)));
+
   // ── US1: synthetic typing → dropdown → accept (T011-T016, hook T008) ────────
   const composeLoaded = typeof window.__quranCompose === 'object' && window.__quranCompose
     && typeof window.__quranCompose.acceptSelected === 'function';

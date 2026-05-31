@@ -528,6 +528,7 @@ function softWordIndexLookup(word, wordIdx) {
   const exact = wordIdx.get(word);
   if (exact && exact.size > 0) return exact;
   const combined = new Set();
+  const isDrift = c => c === 'ا' || c === 'و' || c === 'ي' || c === 'ء';
   // Try inserting ا, و, ي, or ء at each position (mirrors softEqualWord tolerance)
   for (let i = 0; i <= word.length; i++) {
     for (const c of ['ا', 'و', 'ي', 'ء']) {
@@ -538,9 +539,19 @@ function softWordIndexLookup(word, wordIdx) {
   }
   // Try deleting one ا, و, ي, or ء
   for (let i = 0; i < word.length; i++) {
-    const ch = word[i];
-    if (ch === 'ا' || ch === 'و' || ch === 'ي' || ch === 'ء') {
-      const v = word.slice(0, i) + word.slice(i + 1);
+    if (!isDrift(word[i])) continue;
+    const v = word.slice(0, i) + word.slice(i + 1);
+    const s = wordIdx.get(v);
+    if (s) for (const k of s) combined.add(k);
+  }
+  // Try one same-position drift→drift substitution. softEqualWord already
+  // accepts ا↔ء↔و↔ي at the same position; without this variant, "احد" would
+  // never look up 112:1's word "ءحد" (modern bare-alef vs Uthmani أ→ء).
+  for (let i = 0; i < word.length; i++) {
+    if (!isDrift(word[i])) continue;
+    for (const c of ['ا', 'و', 'ي', 'ء']) {
+      if (c === word[i]) continue;
+      const v = word.slice(0, i) + c + word.slice(i + 1);
       const s = wordIdx.get(v);
       if (s) for (const k of s) combined.add(k);
     }
@@ -558,13 +569,26 @@ function softWordIndexLookup(word, wordIdx) {
 function softWordKeysUnion(word, wordIdx) {
   const out = new Set();
   const add = s => { if (s) for (const k of s) out.add(k); };
+  const isDrift = c => c === 'ا' || c === 'و' || c === 'ي' || c === 'ء';
   add(wordIdx.get(word));
+  // Insertion variants (modern omission of an alef/waw/yeh in the Uthmani spelling).
   for (let i = 0; i <= word.length; i++) {
     for (const c of ['ا', 'و', 'ي', 'ء']) add(wordIdx.get(word.slice(0, i) + c + word.slice(i)));
   }
+  // Deletion variants (modern extra letter not in Uthmani spelling).
   for (let i = 0; i < word.length; i++) {
-    const ch = word[i];
-    if (ch === 'ا' || ch === 'و' || ch === 'ي' || ch === 'ء') add(wordIdx.get(word.slice(0, i) + word.slice(i + 1)));
+    if (isDrift(word[i])) add(wordIdx.get(word.slice(0, i) + word.slice(i + 1)));
+  }
+  // Single same-position drift↔drift substitution. Without this, a modern
+  // bare-alef typed for an Uthmani hamza (e.g. "احد" for أَحَدٌ → tier1 "ءحد")
+  // never enters the soft candidate set, even though softEqualWord would
+  // accept it at alignment time.
+  for (let i = 0; i < word.length; i++) {
+    if (!isDrift(word[i])) continue;
+    for (const c of ['ا', 'و', 'ي', 'ء']) {
+      if (c === word[i]) continue;
+      add(wordIdx.get(word.slice(0, i) + c + word.slice(i + 1)));
+    }
   }
   return out;
 }
@@ -632,12 +656,28 @@ function findFuzzyGlobal(t1Words) {
 // applied to every (K, K+1) pair where the citation's first word soft-matches
 // somewhere in K AND its last word soft-matches somewhere in K+1. Returns
 // scored candidates the red enrichment can rank alongside single-ayah hits.
+// Cross-ayah near-match probe. Tries spans of N=2..CROSS_AYAH_MAX_SPAN
+// consecutive ayahs anchored on the first cited word; returns one match per
+// (surah, startAyah) — the shortest matching span wins so a quote that fits
+// in 2 ayahs isn't also reported as 3. Word cap is the safety bound on the
+// alignment cost (currently 30 words covers most short-surah quotes including
+// the 3-ayah Surah Al-Asr at 14 words; long whole-page citations should fall
+// through to the per-ayah probe instead of doing combinatorial work here).
+// Bounds chosen to cover whole-surah quotes of every short surah anyone
+// realistically chats: Al-Asr (3 ayahs / 14 words), Al-Kawthar (3 / 10),
+// Al-Ikhlas (4 / 15), Quraysh (4 / 17), Al-Fil (5 / 20), Al-Falaq (5 / 23),
+// An-Nas (6 / 20), Al-Ma'un (7 / 25). Span=7 + words=40 fits all of these
+// with margin. Cost grows linearly in span (extra alignment per length) and
+// in the candidate count gated by max-words — both manageable at these
+// values; perf_check stayed at ~330 ms after the bump.
+const CROSS_AYAH_MAX_SPAN = 7;
+const CROSS_AYAH_MAX_WORDS = 40;
 function findCrossAyahFuzzy(t1Words) {
-  if (t1Words.length < 2 || t1Words.length > 12) return [];
+  if (t1Words.length < 2 || t1Words.length > CROSS_AYAH_MAX_WORDS) return [];
   const firstKeys = softWordIndexLookup(t1Words[0], indexes.wordIndex);
   const lastKeys = softWordIndexLookup(t1Words[t1Words.length - 1], indexes.wordIndex);
   if (!firstKeys.size || !lastKeys.size) return [];
-  const lastBySurah = new Map(); // surahNum → Set<ayahNum>
+  const lastBySurah = new Map(); // surahNum → Set<ayahNum> (positions of the last cited word)
   for (const k of lastKeys) {
     const { surahNum, ayahNum } = parseKey(k);
     let s = lastBySurah.get(surahNum);
@@ -645,48 +685,63 @@ function findCrossAyahFuzzy(t1Words) {
     s.add(ayahNum);
   }
   const looseDiffs = Math.max(2, Math.ceil(t1Words.length / 4));
+  const dispWordsOf = (rec) => (rec.uthmaniWords && rec.uthmaniWords.length === rec.tier1Words.length)
+    ? rec.uthmaniWords
+    : rec.text.split(/\s+/).filter(Boolean);
   const results = [];
   for (const k of firstKeys) {
     const { surahNum, ayahNum } = parseKey(k);
     const nextSet = lastBySurah.get(surahNum);
-    if (!nextSet || !nextSet.has(ayahNum + 1)) continue;
-    const recA = indexes.byRef[surahNum]?.[ayahNum];
-    const recB = indexes.byRef[surahNum]?.[ayahNum + 1];
-    if (!recA || !recB) continue;
-    const joined = recA.tier1Words.concat(recB.tier1Words);
-    const diffs = wordLevelCompareSingleAyahLoose(t1Words, joined, looseDiffs);
-    if (diffs !== null) {
-      // Build a boundary-aware excerpt for the matched window so accepting the
-      // suggestion replaces only the cited slice (with the verse separator `*`
-      // reinserted if the window straddles the ayah boundary at position
-      // recA.tier1Words.length).
-      const dispWordsOf = (rec) => (rec.uthmaniWords && rec.uthmaniWords.length === rec.tier1Words.length)
-        ? rec.uthmaniWords
-        : rec.text.split(/\s+/).filter(Boolean);
-      const joinedDisp = dispWordsOf(recA).concat(dispWordsOf(recB));
-      const boundary = recA.tier1Words.length;
-      const win = bestAlignWindow(t1Words, joined);
+    if (!nextSet) continue;
+    // Try shortest span first so a quote that fits in 2 ayahs isn't also
+    // reported as 3 (the longer-span alignment would still validate).
+    for (let span = 2; span <= CROSS_AYAH_MAX_SPAN; span++) {
+      const lastAyah = ayahNum + span - 1;
+      if (!nextSet.has(lastAyah)) continue;
+      // Collect records for the consecutive span; bail if any verse is missing.
+      const recs = [];
+      let missing = false;
+      for (let a = ayahNum; a <= lastAyah; a++) {
+        const r = indexes.byRef[surahNum]?.[a];
+        if (!r) { missing = true; break; }
+        recs.push(r);
+      }
+      if (missing) continue;
+      // Joined tier1 (for the alignment) + display words (for the excerpt),
+      // tracking the boundary indices where the verse separator `*` belongs.
+      const joinedTier1 = [];
+      const joinedDisp = [];
+      const boundaries = new Set();
+      for (let i = 0; i < recs.length; i++) {
+        if (i > 0) boundaries.add(joinedTier1.length);
+        joinedTier1.push(...recs[i].tier1Words);
+        joinedDisp.push(...dispWordsOf(recs[i]));
+      }
+      const diffs = wordLevelCompareSingleAyahLoose(t1Words, joinedTier1, looseDiffs);
+      if (diffs === null) continue;
+      const win = bestAlignWindow(t1Words, joinedTier1);
       let excerpt = null;
       if (win) {
         const out = [];
         for (let i = 0; i < win.L; i++) {
           const globalIdx = win.s + i;
-          if (globalIdx === boundary && i > 0) out.push('*');
+          if (boundaries.has(globalIdx) && i > 0) out.push('*');
           const w = joinedDisp[globalIdx];
           if (w) out.push(w);
         }
         excerpt = out.join(' ');
       }
       results.push({
-        ref: `${recA.surahName}:${recA.ayahNum}-${recB.ayahNum}`,
-        refLabel: `${recA.surahName}:${recA.ayahNum}-${recB.ayahNum}`,
-        authenticText: `${recA.text} * ${recB.text}`,
+        ref: `${recs[0].surahName}:${recs[0].ayahNum}-${recs[recs.length - 1].ayahNum}`,
+        refLabel: `${recs[0].surahName}:${recs[0].ayahNum}-${recs[recs.length - 1].ayahNum}`,
+        authenticText: recs.map(r => r.text).join(' * '),
         authenticExcerpt: excerpt,
         diffs,
         crossAyah: true,
         surahNum,
-        ayahNum: recA.ayahNum,
+        ayahNum: recs[0].ayahNum,
       });
+      break; // shortest matching span for this start anchor wins
     }
   }
   return results;
