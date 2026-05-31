@@ -308,20 +308,21 @@
 
   // ── Fall-through classification (FR-011a) ─────────────────────────────────
   // A recognized citation the author did NOT resolve via the dropdown (caret
-  // moved away / typed past with candidates still showing) is handed to the
-  // verdict classifier so it is still highlighted by its verdict color. Uses the
-  // top candidate's tier (Principle V — reuse the matcher's decision). The
-  // no-candidate case is already handled inline in process() (marked red there).
+  // moved away / typed past with candidates still showing) is recorded with the
+  // top candidate's verdict (Principle V — reuse the matcher's decision). We do
+  // NOT splice the DOM here: framework editors (Lexical/Draft/ProseMirror —
+  // WhatsApp, Slack, etc.) reconcile a foreign span mutation against their own
+  // model and drop the surrounding text, which would erase the author's typed
+  // citation on blur. Constitution non-negotiable #1 (never alter the ayah)
+  // outranks the cosmetic verdict color. The no-candidate case is already
+  // handled inline in process(); pre-existing-on-focus rendering (renderOnFocus)
+  // still applies markup once, before the editor has decided we're foreign.
   function dismissFallthrough() {
-    if (!settings.liveRender) return;
     if (STATE.mode !== 'candidates') return;        // scope/end-word menus aren't dismissals
     const top = STATE.candidates[0];
     if (!top || !STATE.det || !STATE.ctx) return;
     const verdict = QuranComposeRenderEditable.verdictForTier(top.tier);
-    const ok = QuranComposeRenderEditable.mark(
-      STATE.ctx, STATE.det.citeStart, STATE.ctx.caret, verdict,
-      { fontFamily: QuranComposeRenderEditable.fontFamily(fontKey) });
-    if (ok) hook.lastClassification = { ref: top.refLabel, verdict, viaFallthrough: true };
+    hook.lastClassification = { ref: top.refLabel, verdict, viaFallthrough: true };
   }
 
   // ── Pre-existing-on-focus rendering (FR-018a) ─────────────────────────────
@@ -376,6 +377,19 @@
   }
 
   function onKeyDown(e) {
+    // Backspace/Delete inside an editable: framework editors (Lexical/Draft/
+    // ProseMirror — WhatsApp, Slack, etc.) often don't emit a synthetic `input`
+    // event for deletions, so the dropdown would otherwise keep showing the
+    // pre-deletion candidate list. Re-run the pipeline after the host processed
+    // the key. Runs regardless of dropdown visibility so a backspace that drops
+    // word-count below minWords also closes a still-showing menu.
+    if ((e.key === 'Backspace' || e.key === 'Delete') && !composing && !inserting) {
+      const el = e.target;
+      if (QuranComposeEditable.surfaceOf(el) && !QuranComposeDropdown.contains(el)) {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => { process(el); }, DEBOUNCE_MS);
+      }
+    }
     if (!QuranComposeDropdown.isVisible()) return;
     // In end-word mode the prompt input owns the keyboard — let it through.
     if (STATE.mode === 'endword') return;

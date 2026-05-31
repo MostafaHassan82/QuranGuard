@@ -64,6 +64,25 @@ const QuranComposeRenderEditable = (() => {
     catch (_) { return null; }
   }
 
+  // Framework editors (Lexical/Draft/ProseMirror — WhatsApp, Slack, Facebook,
+  // Twitter/X, Notion, etc.) maintain their own document model and reconcile any
+  // foreign DOM mutation against it, which can drop the surrounding text. Detect
+  // them by ancestor signals and skip markup there — text-only is safe.
+  function isFrameworkEditor(el) {
+    let n = el;
+    while (n && n.nodeType === 1) {
+      if (n.matches && n.matches(
+        '[data-lexical-editor], [contenteditable][data-block], ' +
+        '.notranslate.public-DraftEditor-content, [data-contents="true"], ' +
+        '.ProseMirror, .ql-editor, .ck-editor__editable, .tiptap, ' +
+        '[data-slate-editor="true"], [data-tiptap-editor], .fr-element, ' +
+        '.trix-content, .mce-content-body'
+      )) return true;
+      n = n.parentNode;
+    }
+    return false;
+  }
+
   // Wrap [start, end) of a contenteditable block in a verdict span — additively.
   // Returns true when markup was applied (and the text content verified
   // unchanged), false otherwise. Plain inputs return false (no markup possible).
@@ -74,6 +93,9 @@ const QuranComposeRenderEditable = (() => {
     if (!(end > start)) return false;
     const root = ctx.node;
     if (!root || !root.ownerDocument) return false;
+    // Constitution #1: never alter the ayah. In framework editors the splice
+    // below would be reconciled away and drop the author's text — bail out.
+    if (isFrameworkEditor(ctx.el || root)) return false;
     const doc = root.ownerDocument;
     const expected = (root.textContent || '').slice(start, end);
     if (!expected) return false;
