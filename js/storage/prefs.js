@@ -35,7 +35,8 @@ const QuranPrefs = (() => {
     // ON; the feature toggle is the ONLY way to turn autocomplete off (no Esc).
     // refFormat/refPlacement shape the inserted reference; minWords is the
     // performance gate before matching starts.
-    autocomplete: { enabled: true, liveRender: true, refFormat: 'arabicName', refPlacement: 'after', minWords: 2 },
+    // maxCandidates: dropdown row budget. 0 = unlimited (show every match).
+    autocomplete: { enabled: true, liveRender: true, refFormat: 'arabicName', refPlacement: 'after', minWords: 2, maxCandidates: 8 },
   };
 
   const VALID_REF_FORMATS = new Set(['arabicName', 'number']);
@@ -108,6 +109,12 @@ const QuranPrefs = (() => {
       let mw = parseInt(p.autocomplete.minWords, 10);
       if (!Number.isFinite(mw)) mw = DEFAULTS.autocomplete.minWords;
       p.autocomplete.minWords = Math.min(5, Math.max(1, mw));
+    }
+    {
+      // 0 = unlimited; otherwise clamp to a sane upper bound (50).
+      let mc = parseInt(p.autocomplete.maxCandidates, 10);
+      if (!Number.isFinite(mc) || mc < 0) mc = DEFAULTS.autocomplete.maxCandidates;
+      p.autocomplete.maxCandidates = mc === 0 ? 0 : Math.min(50, Math.max(1, mc));
     }
 
     // Clamp: red MUST be false

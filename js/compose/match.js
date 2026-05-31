@@ -15,13 +15,14 @@
  * Exposed as the QuranComposeMatch global.
  */
 const QuranComposeMatch = (() => {
-  let cacheText = null;
+  let cacheKey = null;
   let cachePromise = null;
 
   async function query(text, limit = 8) {
     const t = String(text || '');
-    if (t === cacheText && cachePromise) return cachePromise;
-    cacheText = t;
+    const key = t + '|' + (limit | 0);
+    if (key === cacheKey && cachePromise) return cachePromise;
+    cacheKey = key;
     cachePromise = (async () => {
       try {
         const resp = await chrome.runtime.sendMessage({ type: 'MATCH_PARTIAL', text: t, limit });

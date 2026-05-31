@@ -1567,6 +1567,13 @@ function matchPartial(text, limit = 8) {
   const allWords = t1.split(' ').filter(Boolean);
   if (allWords.length === 0) return { candidates: [] };
 
+  // `limit = 0` (or falsy/negative) means "no cap" — show every match across
+  // all tiers. Internally we use Infinity for the cap comparisons and a safe
+  // hard cap (500) for the final slice so a buggy caller can't OOM the page.
+  const unlimited = !(limit > 0);
+  const cap = unlimited ? Infinity : (limit | 0);
+  const HARD_CAP = 500;
+
   // Run the full cascade for a given word list. Separated so we can retry with a
   // shorter list (drop a trailing partial word) when the full list matches nothing.
   function collect(words) {
@@ -1592,9 +1599,9 @@ function matchPartial(text, limit = 8) {
     for (const rec of sortRecs(findExactGlobal(joined))) push(rec, 'exact');
     for (const rec of sortRecs(findOrderedContiguousGlobal(words))) push(rec, 'exact');
     // Tier 2 — drift-tolerant ("word-level") contiguous match
-    if (out.length < limit) for (const rec of sortRecs(findOrderedContiguousSoftGlobal(words))) push(rec, 'wordLevel');
+    if (out.length < cap) for (const rec of sortRecs(findOrderedContiguousSoftGlobal(words))) push(rec, 'wordLevel');
     // Tier 3 — loosely-similar ("fuzzy") match (FR-007 red tier)
-    if (out.length < limit) for (const rec of sortRecs(findFuzzyGlobal(words))) push(rec, 'fuzzy');
+    if (out.length < cap) for (const rec of sortRecs(findFuzzyGlobal(words))) push(rec, 'fuzzy');
     return out;
   }
 
@@ -1607,7 +1614,8 @@ function matchPartial(text, limit = 8) {
 
   out.sort((a, b) =>
     TIER_RANK[a.tier] - TIER_RANK[b.tier] || a.ref.surah - b.ref.surah || a.ref.ayah - b.ref.ayah);
-  const limited = out.slice(0, Math.max(1, limit | 0));
+  const sliceN = unlimited ? Math.min(out.length, HARD_CAP) : Math.max(1, cap);
+  const limited = out.slice(0, sliceN);
   limited.forEach((c, i) => { c.rank = i; });
   return { candidates: limited };
 }

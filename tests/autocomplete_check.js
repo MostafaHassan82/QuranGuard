@@ -209,6 +209,13 @@ async function inPageTests() {
     c4.some(c => c.ref.surah === 112 && c.ref.ayah === 1),
     JSON.stringify(c4.slice(0, 5)));
 
+  // (g) Unlimited cap: limit=0 must NOT return an empty list (regression guard
+  // for the new "بدون حد / Unlimited" option). Use a common fragment to stress.
+  const r5 = await send({ type: 'MATCH_PARTIAL', text: 'الحمد لله', limit: 0 });
+  const c5 = (r5 && r5.candidates) || [];
+  T('limit=0 means unlimited (returns more than the default 8)',
+    c5.length > 8, `c5.length=${c5.length}`);
+
   // ── US1: synthetic typing → dropdown → accept (T011-T016, hook T008) ────────
   const composeLoaded = typeof window.__quranCompose === 'object' && window.__quranCompose
     && typeof window.__quranCompose.acceptSelected === 'function';

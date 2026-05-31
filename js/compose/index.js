@@ -16,13 +16,21 @@
  */
 (() => {
   const DEBOUNCE_MS = 100;
-  const LIMIT = 8;
+  const DEFAULT_LIMIT = 8;
+  // Dropdown row budget. Read live from settings.maxCandidates so an options
+  // change reaches the next query without a reload. 0 = unlimited (let the
+  // background return every match across all tiers, up to its hard cap).
+  function activeLimit() {
+    const n = parseInt(settings.maxCandidates, 10);
+    if (!Number.isFinite(n) || n < 0) return DEFAULT_LIMIT;
+    return n;  // 0 propagates as "unlimited"
+  }
   // Pre-existing-on-focus render (FR-018a) is scheduled this long after focus and
   // CANCELED the moment the author starts typing — a field they immediately type
   // into is a newly-typed citation (dropdown territory), not pre-existing content.
   const FOCUS_RENDER_MS = 60;
 
-  let settings = { enabled: true, liveRender: true, refFormat: 'arabicName', refPlacement: 'after', minWords: 2 };
+  let settings = { enabled: true, liveRender: true, refFormat: 'arabicName', refPlacement: 'after', minWords: 2, maxCandidates: DEFAULT_LIMIT };
   // The global Quran-font choice (prefs.font, NOT under prefs.autocomplete) used
   // when rendering matched text in-editor (FR-018).
   let fontKey = 'uthmaniHafs';
@@ -136,7 +144,7 @@
 
     setActive('suggesting');
     const token = ++queryToken;
-    const candidates = await QuranComposeMatch.query(det.citationText, LIMIT);
+    const candidates = await QuranComposeMatch.query(det.citationText, activeLimit());
     if (token !== queryToken) return;                 // superseded by newer typing
 
     // Re-confirm the citation is still current before showing.
@@ -327,7 +335,7 @@
     if (QuranComposeRenderEditable.isMarked(el)) return;
     const det = QuranComposeDetect.detect(el.textContent || '');
     if (!det || det.wordCount < settings.minWords) return;
-    const candidates = await QuranComposeMatch.query(det.citationText, LIMIT);
+    const candidates = await QuranComposeMatch.query(det.citationText, activeLimit());
     if (QuranComposeRenderEditable.isMarked(el)) return;             // raced with a live render
     const ctx = { surface: 'contenteditable', el, node: el };
     const end = det.citeStart + det.citationText.length;

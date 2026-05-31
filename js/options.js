@@ -126,6 +126,15 @@ async function applyPrefsToUI(prefs) {
   if (acRefPlacement) acRefPlacement.value = acomp.refPlacement === 'before' ? 'before' : 'after';
   const acMinWords = document.getElementById('ac-min-words');
   if (acMinWords) acMinWords.value = String(Math.min(5, Math.max(1, parseInt(acomp.minWords, 10) || 2)));
+  // Dropdown size — 0 means "unlimited". If a user previously had an unusual
+  // value not in the select's option set, the assignment becomes a no-op and
+  // the select keeps its first option ("5"); that's acceptable cosmetic drift
+  // because the live setting still reflects the persisted value.
+  const acMaxCand = document.getElementById('ac-max-candidates');
+  if (acMaxCand) {
+    const mc = parseInt(acomp.maxCandidates, 10);
+    acMaxCand.value = String(Number.isFinite(mc) && mc >= 0 ? mc : 8);
+  }
 
   const collapsed = await loadSidebarCollapsed();
   const elState = document.getElementById(collapsed ? 'state-collapsed' : 'state-expanded');
@@ -229,6 +238,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
   document.getElementById('ac-min-words').addEventListener('change', (e) => {
     savePrefs({ autocomplete: { minWords: parseInt(e.target.value, 10) } });
+  });
+  const acMaxCandEl = document.getElementById('ac-max-candidates');
+  if (acMaxCandEl) acMaxCandEl.addEventListener('change', (e) => {
+    savePrefs({ autocomplete: { maxCandidates: parseInt(e.target.value, 10) } });
   });
 
   // Clear remembered corrections + dismissals (T072 / FR-024).
