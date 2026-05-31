@@ -149,6 +149,12 @@ const LEAD_IN_PATTERNS = [
   'بقوله تعالى', 'بقوله سبحانه', 'بقوله عز وجل', 'بقوله جل وعلا', 'بقوله الكريم', 'بقول الله تعالى',
   'كقوله تعالى', 'كقوله سبحانه', 'كقوله عز وجل', 'كقوله جل وعلا', 'كقول الله تعالى',
   'لقوله تعالى', 'لقوله سبحانه', 'لقوله عز وجل',
+  // Noun-phrase forms ("the saying of Allah") — common in everyday Arabic and
+  // chat messages, e.g. "فردِّد دائمًا قول الله تعالى: {…}". The verb forms
+  // ('قال الله تعالى' etc.) and the noun-with-ب/ك prefixes are already above;
+  // the bare noun form was missing.
+  'قول الله تعالى', 'وقول الله تعالى', 'فقول الله تعالى',
+  'قول الله سبحانه', 'قول الله عز وجل', 'قول الله جل جلاله',
 ];
 // Word-boundary guard: lead-in patterns must NOT be preceded by another Arabic letter,
 // or they'd false-match substrings of unrelated words (e.g. قوله inside عقولهم — "their
@@ -171,7 +177,13 @@ const AR_CHAR = '[\\u0621-\\u063A\\u0641-\\u064A\\u066E\\u066F\\u0671-\\u06D3\\u
 // to AR_CHAR so the class definition stays the single source of truth.
 const AR_CHAR_RE = new RegExp(AR_CHAR);
 // Tashkeel (harakat + superscript alef) that follow Arabic letters in vocalized text.
-const AR_TASHKEEL = '[\\u064B-\\u065F\\u0670]';
+// Range U+06D6–U+06ED covers the Quranic annotation marks the standard mushaf
+// orthography sprinkles through fully-vocalized verses (small high seen, small
+// high meem isolated, small high madda, small high dotless head of khah ۡ, the
+// end-of-ayah marker, etc.). Without these, an AR_RUN breaks mid-ayah on any
+// mushaf-style copy (e.g. مِنۡ هَمَزَٰتِ where ۡ is U+06E1) and BRACE_RE
+// fails to match the whole braced ayah.
+const AR_TASHKEEL = '[\\u064B-\\u065F\\u0670\\u06D6-\\u06ED]';
 // WS includes \x00 (text-node boundary in combined text) so brace/run matching crosses node boundaries.
 // Common pattern: <font>{</font><font color=...>ayah text</font><font>}</font> — the { and } end up
 // in different text nodes, with \x00 boundaries on either side of the inner Arabic.
@@ -732,7 +744,12 @@ function computeDomPath(node) {
   if (!node) return '';
   const parts = [];
   let el = node.nodeType === 1 ? node : node.parentElement;
-  while (el && el !== document.documentElement && parts.length < 12) {
+  // Cap = 30: WhatsApp Web (and other deeply-nested SPAs) routinely bury text
+  // nodes 15-20+ levels deep. A cap of 12 collapsed two distinct message
+  // bubbles to the same path because their first 12 inner ancestors were
+  // identical — only the chat-list ancestor's siblingIndex distinguished them.
+  // Path remains deterministic, so FR-024 persistence is unaffected.
+  while (el && el !== document.documentElement && parts.length < 30) {
     let idx = 0;
     let sib = el;
     while ((sib = sib.previousElementSibling) != null) if (sib.tagName === el.tagName) idx++;
@@ -1994,17 +2011,55 @@ function wrapSubstringInNode(node, start, end, findingId) {
 // text and wrap its first occurrence. The reference always follows the ayah
 // for every ref-bearing extractor, so a bounded document-order walk after the
 // span finds it without relying on stale char offsets from the scan buffer.
+// Bidi controls + zero-width chars that WhatsApp Web (and other rich text
+// surfaces) routinely inject around mixed-direction text. The extractor reads
+// the DOM at scan time and records refText WITHOUT these marks; the rendered
+// text node may contain them by the time placeRefMarkers runs, which breaks a
+// literal indexOf. We strip on both sides for matching and map the offsets
+// back to the original text node for wrapping. Covers:
+//   U+061C       (ALM — Arabic Letter Mark; WhatsApp Web injects this heavily)
+//   U+200B-U+200F (ZWSP, ZWNJ, ZWJ, LRM, RLM)
+//   U+202A-U+202E (LRE, RLE, PDF, LRO, RLO)
+//   U+2066-U+2069 (LRI, RLI, FSI, PDI)
+//   U+FEFF       (zero-width NBSP / BOM)
+const BIDI_ZW_RE = /[؜​-‏‪-‮⁦-⁩﻿]/g;
+const BIDI_ZW_ONE = /[؜​-‏‪-‮⁦-⁩﻿]/;
+function stripBidiZw(s) { return s.replace(BIDI_ZW_RE, ''); }
+// Map an offset in the stripped string back to an offset in the original.
+function origOffsetFromStripped(orig, strippedOffset) {
+  let s = 0;
+  for (let o = 0; o < orig.length; o++) {
+    if (s >= strippedOffset) return o;
+    if (!BIDI_ZW_ONE.test(orig[o])) s++;
+  }
+  return orig.length;
+}
 function wrapRefAfter(ayahSpan, refText, findingId) {
   if (!refText) return false;
+  const refClean = stripBidiZw(refText);
+  if (!refClean) return false;
   const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
   walker.currentNode = ayahSpan;
   let scanned = 0;
   let node;
   while ((node = walker.nextNode())) {
     if (ayahSpan.contains(node)) continue; // skip the ayah's own text nodes
-    const idx = node.textContent.indexOf(refText);
-    if (idx !== -1) return wrapSubstringInNode(node, idx, idx + refText.length, findingId);
-    scanned += node.textContent.length;
+    const raw = node.textContent;
+    // Fast path: exact match in the unaltered text.
+    let idx = raw.indexOf(refText);
+    let endIdx = idx === -1 ? -1 : idx + refText.length;
+    // Fallback: WhatsApp-style bidi/zero-width injection — strip both sides,
+    // match, then map the stripped offsets back to the original node text.
+    if (idx === -1) {
+      const cleaned = stripBidiZw(raw);
+      const cIdx = cleaned.indexOf(refClean);
+      if (cIdx !== -1) {
+        idx = origOffsetFromStripped(raw, cIdx);
+        endIdx = origOffsetFromStripped(raw, cIdx + refClean.length);
+      }
+    }
+    if (idx !== -1) return wrapSubstringInNode(node, idx, endIdx, findingId);
+    scanned += raw.length;
     if (scanned > 400) break; // the reference sits right after the ayah
   }
   return false;

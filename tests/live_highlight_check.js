@@ -208,6 +208,98 @@ async function inPageTests() {
   T('T143 — Arabic arriving after a no-Arabic shell is live-highlighted',
     lateHighlighted, `lateAyahHTML=${lateAyah.outerHTML.slice(0, 200)} latestScan=${window.__quranScan?.finalState}`);
 
+  // Duplicate-citation gate: two identical Quranic messages streamed in
+  // sequence should EACH produce a ref marker. Reproduces a field report
+  // where the second of two identical WhatsApp messages didn't show the
+  // gold ref highlight even though both ayahs are extracted and verified.
+  document.body.innerHTML = '<div id="dup-shell">Chat shell</div><div id="dup-feed"></div>';
+  await window.__quranRunScan();
+  await sleep(150); // past swap-window
+
+  const feed = document.getElementById('dup-feed');
+  const MSG = 'قوله تعالى: {كَذَٰلِكَ يُبَيِّنُ ٱللَّهُ لَكُمْ ءَايَٰتِهِۦ لَعَلَّكُمْ تَعْقِلُونَ} (البقرة:242).';
+  const m1 = document.createElement('div'); m1.className = 'message'; m1.textContent = MSG;
+  feed.appendChild(m1);
+  await sleep(1500);
+  const m2 = document.createElement('div'); m2.className = 'message'; m2.textContent = MSG;
+  feed.appendChild(m2);
+  await sleep(2000);
+
+  const refMarkers = document.querySelectorAll('.quran-ref-marker');
+  const ayahHighlights = document.querySelectorAll('.quran-green');
+  T('dup-citations: both ayahs highlighted',
+    ayahHighlights.length === 2, `ayahHighlights=${ayahHighlights.length}`);
+  T('dup-citations: both refs got gold markers',
+    refMarkers.length === 2, `refMarkers=${refMarkers.length}`);
+
+  // Deep-nest variant: WhatsApp Web buries each message bubble 15-20+ levels
+  // deep inside identically-structured wrapper divs. If computeDomPath caps
+  // its ancestor walk too shallow, two identical bubbles get the same
+  // composite findingId, and placeRefMarkers skips the second one (the marker
+  // selector finds the first finding's marker and bails). Field-reported.
+  document.body.innerHTML = '<div id="deep-shell">Chat shell</div><div id="deep-feed"></div>';
+  await window.__quranRunScan();
+  await sleep(150);
+  function deepBubble(msg) {
+    let outer = document.createElement('div'); outer.className = 'bubble';
+    let cur = outer;
+    for (let i = 0; i < 20; i++) {
+      const w = document.createElement('div'); w.className = 'w'; cur.appendChild(w); cur = w;
+    }
+    cur.textContent = msg;
+    return outer;
+  }
+  const deepFeed = document.getElementById('deep-feed');
+  deepFeed.appendChild(deepBubble(MSG));
+  await sleep(1500);
+  deepFeed.appendChild(deepBubble(MSG));
+  await sleep(2000);
+  const deepGreens = document.querySelectorAll('#deep-feed .quran-green').length;
+  const deepMarkers = document.querySelectorAll('#deep-feed .quran-ref-marker').length;
+  const deepFids = new Set([...document.querySelectorAll('#deep-feed .quran-green')].map(g => g.dataset.findingId));
+  T('deep-nest dup-citations: both ayahs highlighted',
+    deepGreens === 2, `deepGreens=${deepGreens}`);
+  T('deep-nest dup-citations: distinct findingIds',
+    deepFids.size === 2, `distinctIds=${deepFids.size}`);
+  T('deep-nest dup-citations: both refs got gold markers',
+    deepMarkers === 2, `deepMarkers=${deepMarkers}`);
+
+  // WhatsApp bidi-injection scenario: after a clean message is rendered,
+  // WhatsApp Web sometimes rewrites mixed-direction text nodes by inserting
+  // directional/zero-width marks (U+200E, U+202B/C, U+2068/9 etc.) around the
+  // Arabic ref's parens+digits. Our extractor read the clean text at scan
+  // time, but the rendered DOM text node now differs — wrapRefAfter must
+  // tolerate that delta or the gold marker is lost.
+  document.body.innerHTML = '<div id="bidi-shell">Chat shell</div><div id="bidi-feed"></div>';
+  await window.__quranRunScan();
+  await sleep(150);
+
+  const bidiFeed = document.getElementById('bidi-feed');
+  // Insert a clean message — extractor will record refText="(البقرة:242)".
+  const bm = document.createElement('div'); bm.className = 'message';
+  bm.textContent = MSG;
+  bidiFeed.appendChild(bm);
+  await sleep(1500);
+  // Now mutate the ref text node IN PLACE the way WhatsApp would: pad the
+  // ref with LRM + RLE + PDF marks. The marker must end up on this node
+  // (the bidi-tolerant fallback in wrapRefAfter handles this).
+  const bidiMsg = document.createElement('div'); bidiMsg.className = 'message';
+  // Build the mixed-bidi version inline; the marks are invisible to the eye
+  // but live in the underlying string. ‎ = LRM, ‫ = RLE, ‬ = PDF.
+  // ‎ = LRM (U+200E), ‫ = RLE (U+202B), ‬ = PDF (U+202C), ؜ = ALM (U+061C).
+  // ALM is the one WhatsApp Web actually injects most often around Arabic refs;
+  // it lives outside the U+200B-U+200F range so was missed by an earlier fix.
+  bidiMsg.textContent = 'قوله تعالى: {كَذَٰلِكَ يُبَيِّنُ ٱللَّهُ لَكُمْ ءَايَٰتِهِۦ لَعَلَّكُمْ تَعْقِلُونَ} ‎‫؜(البقرة:242)؜‬.';
+  bidiFeed.appendChild(bidiMsg);
+  await sleep(2000);
+
+  const bidiMarkers = document.querySelectorAll('.quran-ref-marker').length;
+  const bidiGreens = document.querySelectorAll('.quran-green').length;
+  T('bidi-injection: both ayahs highlighted',
+    bidiGreens === 2, `bidiGreens=${bidiGreens}`);
+  T('bidi-injection: both refs got markers (bidi-tolerant wrap)',
+    bidiMarkers === 2, `bidiMarkers=${bidiMarkers}`);
+
   return { results };
 }
 
