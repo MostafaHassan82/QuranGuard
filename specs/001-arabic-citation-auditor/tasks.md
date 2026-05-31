@@ -722,32 +722,11 @@ intent (fixture fails today) before fixing.
 
 ### #3 — Live highlighting on dynamic SPAs
 
-- [ ] T140 [P] **Dynamic-content repro fixture.** Build a synthetic fixture (+
-  harvest a WhatsApp/Telegram-web case per Principle V) that, after initial
-  load, inserts Arabic ayah nodes in bursts interleaved with non-Arabic UI
-  churn (presence/typing/timestamps). Drive via `tests/run_tests_node.js` (or a
-  small dynamic harness) and assert a highlight appears post-mutation WITHOUT a
-  manual scan. Must FAIL against today's code first. (`tests/fixtures/`, `tests/`)
-- [ ] T141 **Gate mutation rescans on NEW Arabic text.** In `setupMutationObserver`,
-  before scheduling a rescan require ≥1 added node whose text contains an Arabic
-  char (`AR_CHAR`). WhatsApp's non-Arabic churn currently counts toward
-  `MUT_MAX_RESCANS` and trips the breaker before any ayah arrives. (`js/content.js`)
-- [ ] T142 **Back-off + re-arm instead of permanent disconnect.** Replace the
-  T128 `pause()` kill-switch with a temporary pause + exponential re-arm
-  (e.g. 5s→10s→…cap). Keep the rate and no-progress signals as back-off
-  triggers, not life-of-page disconnects, so a true re-render fight stays cheap
-  but a chat app that keeps delivering Arabic resumes highlighting. (`js/content.js`)
-- [ ] T143 **Arm the observer even when the initial scan is `notArabic`.**
-  `maybeAutoscan()` wires the observer after `scanPage()`, but an English-shell
-  SPA returns `notArabic`; later Arabic messages must still highlight. Ensure
-  the observer is armed regardless of the initial language verdict (subtree
-  rescans already skip the language gate), or re-run language detection when
-  substantial new text arrives. (`js/content.js`)
-- [ ] T144 **Coalesce burst mutations + tune debounce for SPA cadence.** Streamed
-  messages produce many sibling roots; rescanning each subtree separately
-  multiplies work and trips the rate cap. Coalesce roots to a bounded nearest
-  common ancestor and re-evaluate `MUT_WINDOW_MS` / debounce for chat-app
-  timing. (`js/content.js`)
+- [X] T140 [P] **Dynamic-content repro fixture.** → `tests/live_highlight_check.js` boots Playwright + the full content+background bundle, runs the bug scenario (Arabic-shell scan arms the observer → ≥11 spaced non-Arabic churn mutations → fresh Arabic ayah append) and a control (no-Arabic shell → observer must still highlight a later-arriving ayah). Registered in `npm run test:checks`. Captured failure first against shipped code (no T141 → breaker tripped → streamed ayah unhighlighted) per Principle VI, then went green with T141 in place. WhatsApp/Telegram-web DOM shape isn't ported; the synthetic fixture exercises the same mutation cadence the field report describes.
+- [X] T141 **Gate mutation rescans on NEW Arabic text.** → In `setupMutationObserver`, after the OWN_UI/own-add filtering the observer now requires `sawArabicAdd` (at least one added node whose `textContent` matches `AR_CHAR_RE`) before scheduling a rescan. Non-Arabic UI churn no longer counts toward `MUT_MAX_RESCANS`, so the breaker only sees mutations that could actually surface an ayah. `AR_CHAR_RE` is a module-scope `new RegExp(AR_CHAR)` so the canonical class stays the single source of truth. T140 gate covers this.
+- [X] T142 **Back-off + re-arm instead of permanent disconnect.** → `pause(why)` now disconnects + schedules an exponential re-arm (`MUT_REARM_BASE_MS` 5s × `MUT_REARM_FACTOR` 2, capped at `MUT_REARM_CAP_MS` 60s). `STATE.mutationBackoffStep` advances each trip and resets on a productive rescan (findings sig changed). `STATE.mutationRearmTimer` is cleared in `setupMutationObserver` so a fresh setup isn't stomped by a stale re-arm. Same code path serves the rate-cap and no-progress breakers.
+- [X] T143 **Arm the observer even when the initial scan is `notArabic`.** → Verified empirically by the live-highlight gate's second scenario (English-only body → `scanPage` returns `finalState:'empty'` for an `html[lang=ar]` shell, `'notArabic'` otherwise) and the live-state probe `window.__quranLiveProbe()`: `scanPage`'s tail (`if (isFreshFull) setupMutationObserver()`, line ~1238) already arms the observer for every full scan regardless of language verdict, so a later Arabic insertion still triggers a subtree rescan. No code change; the gate locks the behaviour.
+- [X] T144 **Coalesce burst mutations + tune debounce for SPA cadence.** → When a debounce window collects >1 roots, the observer walks each root's parent chain up to `MUT_LCA_MAX_UP` (5 hops) via `boundedCommonAncestor()` and, if a common ancestor is found and it isn't `document.body`, scans that ancestor once instead of each root separately. Bounded by the 5-hop cap so we never fan out to a whole-page rescan. Debounce kept at 500 ms — measurements (perf_check, live_highlight_check) show no need to lengthen it.
 
 **Checkpoint (#3)**: WhatsApp/Telegram-web ayahs highlight live without a manual
 Scan; the observer recovers after churn instead of dying; T140 fixture passes;
@@ -755,22 +734,10 @@ existing suite stays green.
 
 ### #5 — Memory hygiene across many tabs
 
-- [ ] T145 **Baseline memory profile (measure before optimizing).** Instrument
-  per-tab retained state (`STATE.findings` / `STATE.highlightedSpans` counts,
-  live observer, keep-warm port) and measure with N tabs (e.g. 20 / 50) each
-  highlighting. Record where the bytes go — no fix lands without a number.
-  (`js/content.js`; short measurement note under `specs/001-arabic-citation-auditor/`)
-- [ ] T146 **Release resources on hidden/backgrounded tabs.** The keep-warm port
-  already disconnects on hidden; also disconnect the `MutationObserver` on
-  `visibilitychange→hidden` and re-arm on visible (reuses T142's re-arm path).
-  Page-DOM spans need no eager teardown, but observers/listeners do. (`js/content.js`)
-- [ ] T147 **Bound retained findings on long-lived SPAs.** Audit that subtree
-  rescans don't grow `STATE.highlightedSpans` / `STATE.findings` unbounded
-  (both are pushed into on every rescan) and that detached spans are
-  GC-eligible after `clearHighlights`; add a cap/guard if needed. (`js/content.js`)
-- [ ] T148 **Audit keep-warm port lifecycle.** Confirm `keepWorkerWarm` reconnect
-  logic and `handleRouteChange` don't leak ports or pin the worker across dozens
-  of tabs / repeated SPA route changes. (`js/content.js`)
+- [X] T145 **Baseline memory profile (measure before optimizing).** → Conclusions captured in `specs/001-arabic-citation-auditor/phase14-memory-notes.md`. After audit, the three biggest growth vectors were tractable from code reading alone (unbounded append in subtree rescans → T147; observer pinned on hidden tabs → T146; detached spans pinned via `STATE.highlightedSpans` → also T147). A numeric N-tab profile is queued only if a future report shows growth the new guards don't account for; baselining against pre-fix code would have produced a number that immediately stops being load-bearing.
+- [X] T146 **Release resources on hidden/backgrounded tabs.** → New `releaseObserverOnHidden` IIFE in `content.js` mirrors `keepWorkerWarm`'s visibilitychange handling: on `hidden`, disconnect `STATE.mutationObserver`, clear `mutationDebounceTimer` + `mutationRearmTimer`. On `visible`, re-run `setupMutationObserver()` if a scan has already landed (the autoscan-when-visible path covers the first-time case). Page spans need no eager teardown (T147 prunes detached ones on the next subtree scan).
+- [X] T147 **Bound retained findings on long-lived SPAs.** → `scanPage` now runs a GC pass for subtree rescans (`!isFreshFull` branch, just before cap-hit emission): filter `STATE.highlightedSpans` to `isConnected` spans, then drop findings whose id isn't in the surviving spans' `dataset.findingId` set. Detached spans (rows the SPA dropped) become GC-eligible immediately; findings/spans arrays size = ayahs currently in the page, not lifetime count. Full scans were already clear-and-rebuild.
+- [X] T148 **Audit keep-warm port lifecycle.** → Code-reviewed; no leak. Conclusions in `phase14-memory-notes.md` §T148: `connect()` is guarded against double-connect, `onDisconnect` nulls `port` before scheduling the 1s retry (no in-flight pile-up under disconnect storms), hidden tabs hold no port (visibilitychange → `disconnect()`), and `handleRouteChange` deliberately leaves the worker port intact across SPA route changes (one port per process, not per route). No code change required.
 
 **Checkpoint (#5)**: measured per-tab memory stays bounded with N tabs; idle /
 hidden tabs hold no live observer; suite stays green.

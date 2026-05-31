@@ -19,6 +19,21 @@ const STATE = {
   prefs: null,
 };
 
+// T140 — read-only probe so the live_highlight_check gate can introspect the
+// observer/breaker state from the page world. Intentionally narrow: surfaces a
+// handful of scalar signals, not the live STATE object.
+window.__quranLiveProbe = function () {
+  return {
+    observerArmed: !!STATE.mutationObserver,
+    backoffStep: STATE.mutationBackoffStep || 0,
+    rescanTimes: (STATE.rescanTimes || []).length,
+    noProgressRescans: STATE.noProgressRescans || 0,
+    rearmPending: !!STATE.mutationRearmTimer,
+    lastScanUrl: STATE.lastScanUrl || null,
+    findings: STATE.findings.length,
+  };
+};
+
 // T060 — load prefs once at startup so applySwap is ready when the first
 // finding lands. PREFS_CHANGED handler later keeps this cache in sync.
 (async function loadInitialPrefs() {
@@ -152,6 +167,9 @@ const SECONDARY_LEAD_IN_RE = new RegExp(LEAD_IN_BOUNDARY + '(' + SECONDARY_LEAD_
 const SECONDARY_WINDOW = 150;
 
 const AR_CHAR = '[\\u0621-\\u063A\\u0641-\\u064A\\u066E\\u066F\\u0671-\\u06D3\\u06FA-\\u06FF\\uFB50-\\uFDFF\\uFE70-\\uFEFF]';
+// Standalone single-char Arabic test (T141 — mutation-rescan gate). Kept next
+// to AR_CHAR so the class definition stays the single source of truth.
+const AR_CHAR_RE = new RegExp(AR_CHAR);
 // Tashkeel (harakat + superscript alef) that follow Arabic letters in vocalized text.
 const AR_TASHKEEL = '[\\u064B-\\u065F\\u0670]';
 // WS includes \x00 (text-node boundary in combined text) so brace/run matching crosses node boundaries.
@@ -983,6 +1001,44 @@ const MUT_WINDOW_MS = 5000;
 // IDENTICAL finding set — that's a page re-rendering over our highlights (a
 // no-win fight), not real new content. Catches slow loops the rate cap misses.
 const MUT_MAX_NOPROGRESS = 2;
+// T142 — both breakers used to permanently disconnect the observer (fatal on
+// chat apps that keep streaming Arabic). Now they pause + re-arm with
+// exponential back-off: 5s → 10s → 20s → 40s → cap (60s). A productive rescan
+// (the finding signature changes) resets the back-off step. The disconnect
+// stays cheap during the actual fight; the re-arm restores live highlighting
+// once the page settles.
+const MUT_REARM_BASE_MS = 5000;
+const MUT_REARM_CAP_MS = 60000;
+const MUT_REARM_FACTOR = 2;
+// T144 — when multiple sibling roots arrive in one mutation tick, walk up at
+// most this many parents from each looking for a shared ancestor. Bounds the
+// coalesce search so we never accidentally widen to document.body via a long
+// chain. Five hops is enough to cover the typical chat row → list → container
+// → article → main shape; deeper than that, prefer per-root scans.
+const MUT_LCA_MAX_UP = 5;
+
+// Bounded lowest-common-ancestor for a set of DOM nodes. Walks each node's
+// parent chain up to maxUp levels, returns the deepest node present in every
+// chain or null if no common ancestor is found within the bound. Used by the
+// mutation-rescan coalescer (T144).
+function boundedCommonAncestor(nodes, maxUp) {
+  if (!nodes || nodes.length === 0) return null;
+  if (nodes.length === 1) return nodes[0];
+  const chains = nodes.map((n) => {
+    const chain = new Set();
+    let cur = n;
+    for (let i = 0; i <= maxUp && cur; i++) { chain.add(cur); cur = cur.parentNode; }
+    return chain;
+  });
+  let cur = nodes[0];
+  for (let i = 0; i <= maxUp && cur; i++) {
+    let inAll = true;
+    for (let j = 1; j < chains.length; j++) { if (!chains[j].has(cur)) { inAll = false; break; } }
+    if (inAll) return cur;
+    cur = cur.parentNode;
+  }
+  return null;
+}
 
 // ── Main scan orchestrator (T017, T022, T023, T024, T025) ────────────────────
 
@@ -1192,6 +1248,20 @@ async function scanPage({ liftCap = false, subtreeRoot = null } = {}) {
     const tMat = performance.now();
     materializeHighlights();
     T.materializeMs = performance.now() - tMat;
+  }
+  // T147 — bound retained state on long-lived SPAs. Subtree rescans never
+  // clear STATE.findings / STATE.highlightedSpans, so detached spans (rows the
+  // page has dropped from its DOM) pin memory and unrelated findings grow
+  // without bound. After a subtree pass, prune spans no longer connected and
+  // drop findings whose span is gone. Full scans already clear-and-rebuild.
+  if (!isFreshFull) {
+    const connected = STATE.highlightedSpans.filter((s) => s && s.isConnected);
+    if (connected.length !== STATE.highlightedSpans.length) {
+      const keepIds = new Set();
+      for (const s of connected) if (s.dataset && s.dataset.findingId) keepIds.add(s.dataset.findingId);
+      STATE.highlightedSpans = connected;
+      STATE.findings = STATE.findings.filter((f) => keepIds.has(f.id));
+    }
   }
   // Cap notification (after materialization so it fires with visible highlights).
   if (STATE.capHit) {
@@ -1565,6 +1635,11 @@ window.addEventListener('popstate', () => { handleRouteChange().catch(() => {});
 
 function setupMutationObserver() {
   if (STATE.mutationObserver) STATE.mutationObserver.disconnect();
+  // T142 — clear any pending re-arm from a previous (paused) observer so the
+  // fresh setup isn't tripped by a delayed observe() against the new body.
+  clearTimeout(STATE.mutationRearmTimer);
+  STATE.mutationRearmTimer = null;
+  STATE.mutationBackoffStep = 0;
   // Seed the no-progress baseline with the initial scan's findings so the first
   // rescan that changes nothing already counts toward the no-progress streak.
   STATE.lastRescanSig = STATE.findings.map(f => `${f.id}:${f.color}`).sort().join('|');
@@ -1592,6 +1667,12 @@ function setupMutationObserver() {
     }
     STATS.mutationsObserved += mutations.length;
     const roots = new Set();
+    // T141 — require at least one added node carrying Arabic text before we
+    // schedule a rescan. Chat-app churn (presence/typing/timestamps) used to
+    // count toward MUT_MAX_RESCANS and trip the breaker before any ayah
+    // arrived; gating on AR_CHAR makes the rate breaker measure RELEVANT
+    // mutations only. AR_CHAR_RE is the same class used to match Quranic runs.
+    let sawArabicAdd = false;
     for (const m of mutations) {
       if (m.addedNodes.length === 0) continue;
       // Ignore mutations inside our own sidebar (or its collapsed tab) — their
@@ -1603,12 +1684,23 @@ function setupMutationObserver() {
       let isOurOwnAdd = true;
       for (const n of m.addedNodes) {
         if (n.nodeType === 1 && (n.classList?.contains('quran-ext-panel') || n.classList?.contains('quran-ext-panel-tab') || n.classList?.contains('quran-ext-ref-tip') || n.closest?.(OWN_UI))) continue;
-        isOurOwnAdd = false; break;
+        isOurOwnAdd = false;
+        // Check the added node's text for Arabic. textContent on a text node
+        // is its data; on an element it's the concatenated descendants — both
+        // covered by one read. Stop checking once we've seen Arabic anywhere.
+        if (!sawArabicAdd) {
+          const txt = n.nodeType === 3 ? n.data : (n.textContent || '');
+          if (txt && AR_CHAR_RE.test(txt)) sawArabicAdd = true;
+        }
       }
       if (isOurOwnAdd) continue;
       roots.add(m.target);
     }
     if (roots.size === 0) return;
+    // T141 — bail if nothing Arabic was added. The page might still be doing
+    // heavy non-Arabic work (typing indicators, timestamps), but no ayah can
+    // appear from that, so we neither rescan nor count it toward the breaker.
+    if (!sawArabicAdd) return;
     // Diagnostic (debug): what's driving the rescan — our own highlight/swap
     // nodes (a feedback loop) or the page's own dynamic content?
     if (QuranLog.enabled('debug')) {
@@ -1625,10 +1717,22 @@ function setupMutationObserver() {
     STATE.mutationDebounceTimer = setTimeout(async () => {
       if (STATE.scanning) return;
       const pause = (why) => {
-        // info, not warn: pausing is a normal, handled outcome (not an error),
-        // and console.warn renders an alarming stack trace for it.
-        QuranLog.scope('mutation').info(`${why} — pausing the MutationObserver; re-scan manually if needed.`);
-        if (STATE.mutationObserver) { STATE.mutationObserver.disconnect(); STATE.mutationObserver = null; }
+        // T142 — disconnect + exponential re-arm (not a life-of-page kill).
+        // info, not warn: pausing is a normal handled outcome (not an error).
+        if (!STATE.mutationObserver) return;
+        STATE.mutationObserver.disconnect();
+        clearTimeout(STATE.mutationRearmTimer);
+        const step = (STATE.mutationBackoffStep = (STATE.mutationBackoffStep || 0) + 1);
+        const ms = Math.min(MUT_REARM_BASE_MS * Math.pow(MUT_REARM_FACTOR, step - 1), MUT_REARM_CAP_MS);
+        QuranLog.scope('mutation').info(`${why} — pausing the MutationObserver; re-arming in ${ms} ms (step ${step}).`);
+        STATE.mutationRearmTimer = setTimeout(() => {
+          if (!STATE.mutationObserver) return; // teardown / route change cleared us
+          STATE.rescanTimes = [];
+          STATE.noProgressRescans = 0;
+          STATE.lastRescanSig = STATE.findings.map(f => `${f.id}:${f.color}`).sort().join('|');
+          try { STATE.mutationObserver.observe(document.body, { childList: true, subtree: true }); } catch (_) {}
+          QuranLog.scope('mutation').info(`MutationObserver re-armed after ${ms} ms back-off`);
+        }, ms);
       };
       // Rate breaker: a fast rescan↔re-render loop (page framework re-inserting
       // its OWN nodes over our highlights — our filter can't detect those).
@@ -1640,7 +1744,16 @@ function setupMutationObserver() {
         return;
       }
       STATS.mutationRescans++;
-      for (const root of roots) {
+      // T144 — coalesce sibling roots to a bounded common ancestor. Streamed
+      // chat messages produce many sibling mutation targets (each row is its
+      // own root); scanning each subtree independently multiplies extract+
+      // verify cost N× and bumps the rate breaker N× too. If the roots share
+      // an ancestor within MUT_LCA_MAX_UP hops (and it isn't document.body,
+      // which defeats the point of a subtree rescan), scan the ancestor once.
+      const rootList = [...roots];
+      const lca = rootList.length > 1 ? boundedCommonAncestor(rootList, MUT_LCA_MAX_UP) : null;
+      const scanTargets = (lca && lca !== document.body && lca.nodeType === 1) ? [lca] : rootList;
+      for (const root of scanTargets) {
         await scanPage({ subtreeRoot: root }).catch(() => {});
       }
       // No-progress breaker: a SLOW re-render fight evades the rate cap, but its
@@ -1655,6 +1768,9 @@ function setupMutationObserver() {
       } else {
         STATE.noProgressRescans = 0;
         STATE.lastRescanSig = sig;
+        // T142 — a productive rescan (findings changed) clears the back-off
+        // step so the next breaker trip starts the ladder fresh.
+        STATE.mutationBackoffStep = 0;
       }
     }, 500);
   });
@@ -2741,6 +2857,30 @@ window.addEventListener('scroll', hideRefTip, { passive: true, capture: true });
     if (document.visibilityState === 'visible') connect(); else disconnect();
   });
   connect();
+})();
+
+// T146 — release the MutationObserver on hidden tabs. A background tab keeps
+// no useful state by observing the page (we can't highlight what the user
+// can't see, and a real conversation that streams while the tab is hidden
+// will be picked up by the rescan-on-visible path). Reduces idle CPU and
+// retained closures across many backgrounded tabs (field report #5).
+(function releaseObserverOnHidden() {
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') {
+      if (STATE.mutationObserver) {
+        try { STATE.mutationObserver.disconnect(); } catch (_) {}
+      }
+      clearTimeout(STATE.mutationDebounceTimer);
+      clearTimeout(STATE.mutationRearmTimer);
+      STATE.mutationRearmTimer = null;
+    } else if (document.visibilityState === 'visible') {
+      // Re-arm if a scan has already run on this page. setupMutationObserver
+      // is safe to call repeatedly (it disconnect/rebuilds), and re-running it
+      // here also re-scans nothing — the next mutation triggers the work.
+      // Skip if no scan has run yet; the autoscan-when-visible path will arm.
+      if (STATE.lastScanUrl) setupMutationObserver();
+    }
+  });
 })();
 
 // ── Startup ───────────────────────────────────────────────────────────────────

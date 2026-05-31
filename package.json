@@ -5,7 +5,7 @@
   "scripts": {
     "gen-fixtures": "node tests/gen_orange_cases.js && node tests/gen_drift_cases.js",
     "test:suite": "node tests/run_tests_node.js --all",
-    "test:checks": "node tests/i18n_check.js && node tests/share_check.js && node tests/panel_layout_check.js && node tests/swap_layout_check.js && node tests/interaction_check.js && node tests/autocomplete_check.js && node tests/correction_check.js && node tests/correction_model_check.js && node tests/correction_prefs_check.js && node tests/perf_check.js",
+    "test:checks": "node tests/i18n_check.js && node tests/share_check.js && node tests/panel_layout_check.js && node tests/swap_layout_check.js && node tests/interaction_check.js && node tests/autocomplete_check.js && node tests/correction_check.js && node tests/correction_model_check.js && node tests/correction_prefs_check.js && node tests/perf_check.js && node tests/live_highlight_check.js",
     "test": "npm run test:suite && npm run test:checks"
   }
 }
