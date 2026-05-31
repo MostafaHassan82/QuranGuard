@@ -175,6 +175,30 @@ async function inPageTests() {
     }
   }
 
+  // ── P1a-trailing: a substituted LAST word surfaces as `sub`, not `extra` ─────
+  // Regression for the bestAlignWindow tie-break: when the final cited word is
+  // wrong, the L=candLen-1 window (drops it as `extra`) and the L=candLen window
+  // (renders a `sub`) tie on edit distance. The aligner must prefer the
+  // equal-length window so the overlay shows the authentic replacement, not a
+  // bare strike. Substitute the trailing word of a 7-word fragment → one diff →
+  // yellow, and the diff must carry a `sub` pairing the foreign word.
+  {
+    const base = verseWords.slice(0, 7);
+    const foreigns = ['برثقومةٌ', 'ثقثقثقث', 'غضغضغضغ'];
+    const target = base[6];
+    const foreign = foreigns.find(f => Math.abs(t1(f).length - t1(target).length) >= 2) || foreigns[0];
+    const drifted = base.slice(); drifted[6] = foreign;
+    const r = await send({ type: 'verifyFragmentByRef', text: drifted.join(' '), ref: 'البقرة:255', candidateConfidence: 'high' });
+    T('P1a-trailing trailing-substitution fragment classifies yellow', r && r.color === 'yellow', JSON.stringify({ color: r && r.color }));
+    if (r && Array.isArray(r.diff)) {
+      const subOp = r.diff.find(d => d.op === 'sub' && d.cited === foreign);
+      T('P1a-trailing trailing sub renders as a sub op with an authentic counterpart (not extra)',
+        !!subOp && !!subOp.authentic && subOp.authentic !== foreign, JSON.stringify(subOp || r.diff.map(d => d.op)));
+      T('P1a-trailing no spurious extra op for the trailing word',
+        !r.diff.some(d => d.op === 'extra' && d.cited === foreign), JSON.stringify(r.diff.map(d => d.op)));
+    }
+  }
+
   // ── P1b: red near-match (design §3) ────────────────────────────────────────
   // TWO interior substitutions in a 7-word fragment exceed the word-level budget
   // (allowedDiffs 1) → red; the first/last words are untouched so the fuzzy probe

@@ -713,16 +713,26 @@ function recByRefLabel(refLabel) {
 }
 
 // Best-aligning contiguous window of `ayahT1` for `candT1`, by soft edit distance.
+// On a distance tie, prefer the window whose length is closest to candT1.length:
+// the equal-length window aligns a changed word as a `sub` (one keep-row swap)
+// rather than letting a shorter window degrade it into an `extra` (cited word with
+// no authentic counterpart). Without this bias a *trailing* substitution
+// (e.g. "رب الكون" vs "رب العالمين") ties between the L=candLen-1 window — which
+// drops the last word as `extra`, so the diff overlay shows a strike with no
+// replacement — and the L=candLen window that renders the proper `sub`. The
+// substitution window is the one the reader needs (it shows the correct word).
 function bestAlignWindow(candT1, ayahT1) {
   const allowed = Math.max(2, Math.ceil(candT1.length / 4));
   const minLen = Math.max(1, candT1.length - allowed);
   const maxLen = Math.min(ayahT1.length, candT1.length + allowed);
+  const lenGap = (L) => Math.abs(L - candT1.length);
   let best = null;
   for (let s = 0; s + minLen <= ayahT1.length; s++) {
     for (let L = minLen; L <= maxLen && s + L <= ayahT1.length; L++) {
       const d = wordEditDistance(candT1, ayahT1.slice(s, s + L), allowed);
-      if (d !== null && (best === null || d < best.d)) best = { s, L, d };
-      if (best && best.d === 0) return best;
+      if (d !== null && (best === null || d < best.d ||
+          (d === best.d && lenGap(L) < lenGap(best.L)))) best = { s, L, d };
+      if (best && best.d === 0 && lenGap(best.L) === 0) return best;
     }
   }
   return best;
