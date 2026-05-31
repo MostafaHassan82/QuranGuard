@@ -854,6 +854,12 @@ function enrichCorrection(r, text) {
   if (!r || !r.color) return r;
   const clean = String(text || '').replace(/\*/g, ' ');
   if (r.color === 'yellow' && r.matchedRef) {
+    // Multi-segment (`*`-spanned) matches arrive with matchedRef as a range
+    // (e.g. "الإخلاص:1-2") and a precomputed boundary-aware diff. Re-aligning
+    // against a single ayah here would parseInt("1-2")→1 and pick the wrong
+    // window (e.g. "هُوَ ٱللَّهُ" instead of "أَحَدٌ * ٱللَّهُ"). Trust the
+    // precomputed diff in those cases.
+    if (r.diff && r.diff.length && String(r.matchedRef).includes('-')) return r;
     const rec = recByRefLabel(r.matchedRef);
     if (rec) {
       const candT1 = tier1Normalize(clean).split(' ').filter(Boolean);

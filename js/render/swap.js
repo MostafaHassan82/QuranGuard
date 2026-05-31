@@ -81,13 +81,11 @@ const QuranSwap = (() => {
     const text = String(finding.text || finding.rawText || '');
     const matchedRef = String(finding.matchedRef || finding.matchedReference || '');
     if (text.includes('*') && matchedRef && !matchedRef.includes('-')) return true;
-    // `*`-cited text matched to a multi-verse ref (e.g. الإخلاص:1-2) is never
-    // auto-swapped: the boundary slice is small and a silent rewrite would
-    // overwrite the page wording without producing a Corrected-panel entry.
-    // The user still gets the explicit "Fix in place" affordance on the yellow
-    // row, which goes through correctTextInPlace (separate integrity gate) and
-    // emits a lightGreen successor that the panel pins to "Recently corrected".
-    if (text.includes('*') && matchedRef.includes('-')) return true;
+    // A `*`-cited text matched to a multi-verse ref (e.g. الإخلاص:1-2) is the
+    // SAFE case: matchMultiSegmentCitation produced a boundary-aware excerpt
+    // ("أَحَدٌ * ٱللَّهُ") that lines up with the cited slice. Treating it as
+    // shaky hid the "Fix in place" button on the row (a field-reported
+    // regression — the user used to be able to fix this in one click).
     if (Array.isArray(finding.matchedRefs) && finding.matchedRefs.length > 1) return true;
     return false;
   }
