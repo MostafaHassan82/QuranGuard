@@ -142,7 +142,10 @@ async function inPageTests(budgetMs) {
 
   const items = [];
   let citedWordCount = 0;
-  const pushItem = (text, ref) => { items.push({ text, ref, candidateConfidence: 'high' }); citedWordCount += text.split(/\s+/).filter(Boolean).length; };
+  // Mirror the content-script batch shape (js/content.js → verifyFragmentBatch):
+  // each item carries its own `type` so the handler routes it through the
+  // by-ref verifier (the path that yields yellow diffs / red near-match probes).
+  const pushItem = (text, ref) => { items.push({ type: 'verifyFragmentByRef', text, ref, candidateConfidence: 'high' }); citedWordCount += text.split(/\s+/).filter(Boolean).length; };
 
   for (let i = 0; i < verses.length; i++) {
     const v = verses[i];
@@ -168,17 +171,17 @@ async function inPageTests(budgetMs) {
   // ── Time the batch verification (one scan) ─────────────────────────────────
   // One warm-up (absorb first-call JIT), then time three scans and keep the
   // slowest — the budget must hold for the worst observed scan, not the best.
-  await send({ type: 'verifyCitations', items });
+  await send({ type: 'verifyFragmentBatch', items });
   let worstMs = 0;
   let lastRes = null;
   for (let run = 0; run < 3; run++) {
     const t0 = performance.now();
-    lastRes = await send({ type: 'verifyCitations', items });
+    lastRes = await send({ type: 'verifyFragmentBatch', items });
     const dt = performance.now() - t0;
     if (dt > worstMs) worstMs = dt;
   }
 
-  const arr = Array.isArray(lastRes) ? lastRes : [];
+  const arr = lastRes && Array.isArray(lastRes.results) ? lastRes.results : [];
   const reds = arr.filter(r => r && r.color === 'red');
   const redsWithProbe = reds.filter(r => r && r.nearMatch && r.nearMatch.refLabel);
   const yellows = arr.filter(r => r && r.color === 'yellow' && Array.isArray(r.diff));
