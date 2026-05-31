@@ -113,17 +113,19 @@ async function applyPrefsToUI(prefs) {
 
   // Ayah autocomplete (feature 003). Defaults: enabled/liveRender on,
   // arabicName/after, minWords 2 — mirrors prefs.js DEFAULTS.autocomplete.
-  const ac = prefs?.autocomplete || {};
+  // (Named `acomp` rather than `ac` to avoid colliding with the autoCorrect
+  // alias above; both used to be `ac` in the same function scope.)
+  const acomp = prefs?.autocomplete || {};
   const acEnable = document.getElementById('ac-enable');
-  if (acEnable) acEnable.checked = ac.enabled !== false;
+  if (acEnable) acEnable.checked = acomp.enabled !== false;
   const acLiveRender = document.getElementById('ac-live-render');
-  if (acLiveRender) acLiveRender.checked = ac.liveRender !== false;
+  if (acLiveRender) acLiveRender.checked = acomp.liveRender !== false;
   const acRefFormat = document.getElementById('ac-ref-format');
-  if (acRefFormat) acRefFormat.value = ac.refFormat === 'number' ? 'number' : 'arabicName';
+  if (acRefFormat) acRefFormat.value = acomp.refFormat === 'number' ? 'number' : 'arabicName';
   const acRefPlacement = document.getElementById('ac-ref-placement');
-  if (acRefPlacement) acRefPlacement.value = ac.refPlacement === 'before' ? 'before' : 'after';
+  if (acRefPlacement) acRefPlacement.value = acomp.refPlacement === 'before' ? 'before' : 'after';
   const acMinWords = document.getElementById('ac-min-words');
-  if (acMinWords) acMinWords.value = String(Math.min(5, Math.max(1, parseInt(ac.minWords, 10) || 2)));
+  if (acMinWords) acMinWords.value = String(Math.min(5, Math.max(1, parseInt(acomp.minWords, 10) || 2)));
 
   const collapsed = await loadSidebarCollapsed();
   const elState = document.getElementById(collapsed ? 'state-collapsed' : 'state-expanded');
