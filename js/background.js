@@ -1916,8 +1916,20 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
             // multi-ref matches are NOT auto-corrected). Recorded so fixtures
             // can assert orange detection AND which oranges are correctable.
             if (c.orange) {
+              // Mirrors content.js isOrangeAutoCorrectable: single candidate,
+              // or multi-candidate where the claimed surah disambiguates to
+              // exactly one (the "right surah, wrong ayah" typo).
+              const sameSurahUnique = (f) => {
+                if (!Array.isArray(f.matchedRefs) || f.matchedRefs.length <= 1) return true;
+                const claimedSurah = String(f.claimedRef || '').split(':')[0].trim();
+                const matched = String(f.matchedRef || '');
+                const matchedSurah = matched.split(':')[0].trim();
+                if (!claimedSurah || matchedSurah !== claimedSurah) return false;
+                const sameSurah = f.matchedRefs.filter(r => String(r).split(':')[0].trim() === claimedSurah);
+                return sameSurah.length === 1 && sameSurah[0] === matched;
+              };
               stats.autoCorrectableOranges = findings.filter(
-                f => f.color === 'orange' && !(Array.isArray(f.matchedRefs) && f.matchedRefs.length > 1)
+                f => f.color === 'orange' && sameSurahUnique(f)
               ).length;
             }
             QuranLog.scope('stats').info(JSON.stringify({ id, sourceUrl: url, fixture: id ? `${id}.html` : null, stats }));

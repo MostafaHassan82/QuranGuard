@@ -1379,8 +1379,20 @@ function emitComplete(scanId, startedAt, startTime) {
 // Manual correct-in-place is unaffected — the user can still review + fix them.
 function isOrangeAutoCorrectable(f) {
   if (!f) return false;
-  if (Array.isArray(f.matchedRefs) && f.matchedRefs.length > 1) return false;
-  return true;
+  if (!Array.isArray(f.matchedRefs) || f.matchedRefs.length <= 1) return true;
+  // Multi-ref orange: still safe to auto-correct when the cited reference's
+  // surah disambiguates to exactly one candidate (the common "right surah,
+  // wrong ayah" typo — e.g. claimed مريم:45, text "رحمتنا" matches مريم:50
+  // and also 21:75/21:86; the surah anchor picks مريم:50 unambiguously).
+  // f.matchedRef carries the preferred candidate; verify it (a) belongs to
+  // the claimed surah, and (b) is the ONLY same-surah candidate.
+  const claimed = String(f.claimedRef || f.citedReference || '');
+  const matched = String(f.matchedRef || '');
+  const claimedSurah = claimed.split(':')[0].trim();
+  const matchedSurah = matched.split(':')[0].trim();
+  if (!claimedSurah || matchedSurah !== claimedSurah) return false;
+  const sameSurah = f.matchedRefs.filter(r => String(r).split(':')[0].trim() === claimedSurah);
+  return sameSurah.length === 1 && sameSurah[0] === matched;
 }
 
 // Correct orange findings in place (silently, without re-persisting).
