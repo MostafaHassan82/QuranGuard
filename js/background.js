@@ -1939,6 +1939,20 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
               stats.autoCorrectableOranges = findings.filter(
                 f => f.color === 'orange' && sameSurahUnique(f)
               ).length;
+              // Diagnostic: dump every orange's relevant fields so a "0 auto-
+              // correctable" surprise can be debugged without enabling debug
+              // log level. Remove once the gate is trusted in the field.
+              for (const f of findings) {
+                if (f.color !== 'orange') continue;
+                QuranLog.scope('orange').info(JSON.stringify({
+                  id: f.id, text: f.text,
+                  claimedRef: f.claimedRef, matchedRef: f.matchedRef,
+                  matchedRefs: f.matchedRefs,
+                  claimedSurah: surahOf(f.claimedRef),
+                  matchedSurah: surahOf(f.matchedRef),
+                  autoCorrectable: sameSurahUnique(f),
+                }));
+              }
             }
             QuranLog.scope('stats').info(JSON.stringify({ id, sourceUrl: url, fixture: id ? `${id}.html` : null, stats }));
           }
