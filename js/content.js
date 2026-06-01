@@ -176,32 +176,64 @@ const AR_CHAR = '[\\u0621-\\u063A\\u0641-\\u064A\\u066E\\u066F\\u0671-\\u06D3\\u
 // Standalone single-char Arabic test (T141 — mutation-rescan gate). Kept next
 // to AR_CHAR so the class definition stays the single source of truth.
 const AR_CHAR_RE = new RegExp(AR_CHAR);
-// Tashkeel (harakat + superscript alef) that follow Arabic letters in vocalized text.
-// Range U+06D6–U+06ED covers the Quranic annotation marks the standard mushaf
-// orthography sprinkles through fully-vocalized verses (small high seen, small
-// high meem isolated, small high madda, small high dotless head of khah ۡ, the
-// end-of-ayah marker, etc.). Without these, an AR_RUN breaks mid-ayah on any
-// mushaf-style copy (e.g. مِنۡ هَمَزَٰتِ where ۡ is U+06E1) and BRACE_RE
-// fails to match the whole braced ayah.
-const AR_TASHKEEL = '[\\u064B-\\u065F\\u0670\\u06D6-\\u06ED]';
+// Tashkeel (harakat + superscript alef) that follow Arabic letters in vocalized
+// text. Quranic annotation marks U+06D6-U+06ED are handled separately by
+// STANDALONE_TASH (see AR_RUN below) — keeping the ranges disjoint avoids
+// catastrophic backtracking when an annotation mark could be attributed
+// either to a word-trailing AR_TASHKEEL* or to a standalone-group branch.
+// The greedy STANDALONE_TASH+ alt covers both attached (no preceding space)
+// and orphan (space-separated) annotation marks.
+const AR_TASHKEEL = '[\\u064B-\\u065F\\u0670]';
 // WS includes \x00 (text-node boundary in combined text) so brace/run matching crosses node boundaries.
 // Common pattern: <font>{</font><font color=...>ayah text</font><font>}</font> — the { and } end up
 // in different text nodes, with \x00 boundaries on either side of the inner Arabic.
 const WS = '[\\s\\x00]';
-const AR_RUN = `${AR_CHAR}${AR_TASHKEEL}*(?:${WS}*${AR_CHAR}${AR_TASHKEEL}*)*`;
+// Standalone Quranic annotation marks (small-high sad/seen/meem, end-of-ayah,
+// etc.). In copy-pasted ayahs they sometimes sit between spaces on their own
+// (e.g. "وَٱلنُّورَ ۖ ثُمَّ") instead of attached to a letter. Listed as a
+// separate alternative in AR_RUN — disjoint from AR_CHAR's first char, so
+// the regex engine never has to backtrack between branches (avoiding the
+// AR_TASHKEEL/AR_WS overlap that caused catastrophic backtracking on long
+// vocalized ayahs and stalled WhatsApp Web).
+const STANDALONE_TASH = '[\\u06D6-\\u06ED]';
+const AR_RUN = `${AR_CHAR}${AR_TASHKEEL}*(?:${WS}*(?:${AR_CHAR}${AR_TASHKEEL}*|${STANDALONE_TASH}+))*`;
 // `.` and `…` are common excerpt markers inside braced ayahs (e.g.
 // `{وسيق الذين كفروا...الكافرين}` shows "first part … last part" from one ayah).
 // Without them in the separator class, BRACE_RE would fail to match the brace
 // at all, and the backward-ref extractor would walk past it to grab an
 // unrelated earlier brace.
-const BRACE_INNER_SEP = `[*.…،,\\s\\x00]+`;
+// At least one punctuation char (*, ., …, ، ,) — pure-whitespace separators
+// are redundant with AR_RUN's internal WS handling and would create 2^N
+// attribution ambiguity for each space between AR_RUN and BRACE_INNER_SEP,
+// causing catastrophic backtracking on long ayahs with no closing brace.
+const BRACE_INNER_SEP = `[\\s\\x00]*[*.…،,]+[\\s\\x00]*`;
+// Weak wrappers (paren, angle, ASCII + curly double/single quotes, backtick).
+// Treated like parens in extractLeadInBraced: requires a trailing ref or ≥2
+// words to count as a citation. Open/close pairing is intentionally lax (a
+// `"foo'` would match) — strict pairing isn't worth the regex complexity for
+// chat-style text, and the downstream verifier filters spurious matches.
+//   U+201C/U+201D — curly double quotes  “ ”
+//   U+2018/U+2019 — curly single quotes  ‘ ’
+const WEAK_OPEN  = '[(<"“‘\'`]';
+const WEAK_CLOSE = '[)>"”’\'`]';
 const BRACE_RE = new RegExp(
   '[{«\\[]' + WS + '*(' + AR_RUN + '(?:' + BRACE_INNER_SEP + AR_RUN + ')*)' + WS + '*[}»\\]]' +
-  '|\\(' + WS + '*(' + AR_RUN + '(?:' + BRACE_INNER_SEP + AR_RUN + ')*)' + WS + '*\\)',
+  '|' + WEAK_OPEN + WS + '*(' + AR_RUN + '(?:' + BRACE_INNER_SEP + AR_RUN + ')*)' + WS + '*' + WEAK_CLOSE,
   'u'
 );
 const STRONG_BRACE_RE = new RegExp(
   '[{«\\[]' + WS + '*(' + AR_RUN + '(?:' + BRACE_INNER_SEP + AR_RUN + ')*)' + WS + '*[}»\\]]',
+  'u'
+);
+// Lax fallback used only after a lead-in fires but no closing wrapper appears
+// in the search window. Captures: open wrapper + AR_RUN, no close required.
+// The ayah ends where AR_RUN naturally terminates (first non-Arabic char), so
+// trailing prose is excluded. The caller MUST also gate on REF_RE — if the
+// open wrapper actually starts a recognized ref bracket like `(البقرة:242)`,
+// we know it's a ref (not an unclosed ayah) and the lax match must be discarded.
+const OPEN_LAX = '[{«\\[(<"“‘\'`]';
+const OPEN_LAX_RE = new RegExp(
+  OPEN_LAX + WS + '*(' + AR_RUN + '(?:' + BRACE_INNER_SEP + AR_RUN + ')*)',
   'u'
 );
 // AR_CHAR_NAME includes tatweel U+0640 so surah names like يــس are matched.
@@ -345,9 +377,20 @@ function extractLeadInBraced(combined, map, textNodes) {
     // Window must comfortably hold the longest Quran ayah with tashkeel + braces.
     // Long ayahs (e.g. الحج:18) exceed 500 chars vocalized; use 1000 to cover ranges too.
     const window = combined.slice(afterLead, afterLead + 1000);
-    const bm = BRACE_RE.exec(window);
-    if (!bm) continue;
-    if (bm.index > LEAD_IN_BRACE_MAX_GAP) continue; // brace too far from lead-in
+    let bm = BRACE_RE.exec(window);
+    // Salvage path: lead-in opened a wrapper but sender never closed it
+    // (e.g. WhatsApp message `قوله تعالى: {ayah` with no `}`). Match on the
+    // open wrapper + AR_RUN; the ayah ends where AR_RUN naturally terminates.
+    if (!bm || bm.index > LEAD_IN_BRACE_MAX_GAP) {
+      const lax = OPEN_LAX_RE.exec(window);
+      if (!lax || lax.index > LEAD_IN_BRACE_MAX_GAP) continue;
+      // If the lax open wrapper is actually the start of a recognized ref like
+      // `(البقرة:242)`, this isn't a salvaged unclosed ayah — it's a ref, and
+      // taking the surah name as an "ayah" would mis-classify it as red.
+      const refAtOpen = new RegExp('^' + REF_RE.source, 'u').exec(window.slice(lax.index));
+      if (refAtOpen) continue;
+      bm = lax;
+    }
     // Parens (vs strong braces {…}/«…»/[…]) are weak citation signals — they're
     // also used for asides, emphasis, definitions. Require either a trailing ref
     // OR a non-trivial word count to count a paren as a citation. Strong braces
