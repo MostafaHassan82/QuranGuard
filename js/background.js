@@ -1934,25 +1934,19 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
                 const matchedSurah = surahOf(f.matchedRef);
                 if (!claimedSurah || matchedSurah !== claimedSurah) return false;
                 const sameSurah = f.matchedRefs.filter(r => surahOf(r) === claimedSurah);
-                return sameSurah.length === 1 && sameSurah[0] === f.matchedRef;
+                if (sameSurah.length === 1 && sameSurah[0] === f.matchedRef) return true;
+                // Multi same-surah: prefer the uniquely-closest by ayah number.
+                const claimedAyah = parseInt(String(f.claimedRef || '').split(':')[1] || '', 10);
+                if (!Number.isFinite(claimedAyah)) return false;
+                const ayahOf2 = (r) => parseInt(String(r).split(':')[1] || '', 10);
+                const dist = (r) => Math.abs(ayahOf2(r) - claimedAyah);
+                const ranked = sameSurah.slice().sort((a, b) => dist(a) - dist(b));
+                if (ranked[0] !== f.matchedRef) return false;
+                return ranked.length === 1 || dist(ranked[1]) > dist(ranked[0]);
               };
               stats.autoCorrectableOranges = findings.filter(
                 f => f.color === 'orange' && sameSurahUnique(f)
               ).length;
-              // Diagnostic: dump every orange's relevant fields so a "0 auto-
-              // correctable" surprise can be debugged without enabling debug
-              // log level. Remove once the gate is trusted in the field.
-              for (const f of findings) {
-                if (f.color !== 'orange') continue;
-                QuranLog.scope('orange').info(JSON.stringify({
-                  id: f.id, text: f.text,
-                  claimedRef: f.claimedRef, matchedRef: f.matchedRef,
-                  matchedRefs: f.matchedRefs,
-                  claimedSurah: surahOf(f.claimedRef),
-                  matchedSurah: surahOf(f.matchedRef),
-                  autoCorrectable: sameSurahUnique(f),
-                }));
-              }
             }
             QuranLog.scope('stats').info(JSON.stringify({ id, sourceUrl: url, fixture: id ? `${id}.html` : null, stats }));
           }

@@ -1391,16 +1391,26 @@ function isOrangeAutoCorrectable(f) {
   if (!f) return false;
   if (!Array.isArray(f.matchedRefs) || f.matchedRefs.length <= 1) return true;
   // Multi-ref orange: still safe to auto-correct when the cited reference's
-  // surah disambiguates to exactly one candidate (the common "right surah,
-  // wrong ayah" typo — e.g. claimed مريم:45, text "رحمتنا" matches مريم:50
-  // and also 21:75 / 21:86; the surah anchor picks مريم:50 unambiguously).
-  // f.matchedRef carries the preferred candidate; verify it (a) belongs to
-  // the claimed surah, and (b) is the ONLY same-surah candidate.
+  // surah disambiguates to a single best candidate.
+  //   (a) Exactly one same-surah candidate → that's the answer
+  //       (claimed مريم:45, "رحمتنا" → مريم:50; 21:75/21:86 are noise).
+  //   (b) Multiple same-surah candidates → prefer the one closest in ayah
+  //       number to the claimed ayah, but only when it's STRICTLY closer
+  //       than the runner-up (claimed مريم:45 → 50@dist5 vs 53@dist8 picks
+  //       50; an equal-distance tie like 50/52 against claim 51 stays
+  //       manual). The matcher's f.matchedRef must already be that winner.
   const claimedSurah = refSurah(f.claimedRef || f.citedReference);
   const matchedSurah = refSurah(f.matchedRef);
   if (!claimedSurah || matchedSurah !== claimedSurah) return false;
   const sameSurah = f.matchedRefs.filter(r => refSurah(r) === claimedSurah);
-  return sameSurah.length === 1 && sameSurah[0] === f.matchedRef;
+  if (sameSurah.length === 1 && sameSurah[0] === f.matchedRef) return true;
+  const claimedAyah = parseInt(String(f.claimedRef || '').split(':')[1] || '', 10);
+  if (!Number.isFinite(claimedAyah)) return false;
+  const ayahOf = (r) => parseInt(String(r).split(':')[1] || '', 10);
+  const dist = (r) => Math.abs(ayahOf(r) - claimedAyah);
+  const ranked = sameSurah.slice().sort((a, b) => dist(a) - dist(b));
+  if (ranked[0] !== f.matchedRef) return false;
+  return ranked.length === 1 || dist(ranked[1]) > dist(ranked[0]);
 }
 
 // Correct orange findings in place (silently, without re-persisting).
