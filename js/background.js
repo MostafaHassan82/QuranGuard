@@ -1919,14 +1919,22 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
               // Mirrors content.js isOrangeAutoCorrectable: single candidate,
               // or multi-candidate where the claimed surah disambiguates to
               // exactly one (the "right surah, wrong ayah" typo).
+              // claimedRef arrives in raw cited form ("(مريم:45)"); matchedRef
+              // is canonical "surahName:ayah". Strip brackets/whitespace before
+              // comparing surah names.
+              const surahOf = (ref) => {
+                const s = String(ref || '');
+                const i = s.indexOf(':');
+                if (i < 0) return '';
+                return s.slice(0, i).replace(/^[\s({«﴿\[]+/u, '').replace(/[)}»﴾\]\s]+$/u, '').trim();
+              };
               const sameSurahUnique = (f) => {
                 if (!Array.isArray(f.matchedRefs) || f.matchedRefs.length <= 1) return true;
-                const claimedSurah = String(f.claimedRef || '').split(':')[0].trim();
-                const matched = String(f.matchedRef || '');
-                const matchedSurah = matched.split(':')[0].trim();
+                const claimedSurah = surahOf(f.claimedRef);
+                const matchedSurah = surahOf(f.matchedRef);
                 if (!claimedSurah || matchedSurah !== claimedSurah) return false;
-                const sameSurah = f.matchedRefs.filter(r => String(r).split(':')[0].trim() === claimedSurah);
-                return sameSurah.length === 1 && sameSurah[0] === matched;
+                const sameSurah = f.matchedRefs.filter(r => surahOf(r) === claimedSurah);
+                return sameSurah.length === 1 && sameSurah[0] === f.matchedRef;
               };
               stats.autoCorrectableOranges = findings.filter(
                 f => f.color === 'orange' && sameSurahUnique(f)
