@@ -1138,15 +1138,35 @@ const QuranPanelSidebar = (() => {
 
   // Mount the sidebar into the host page if not already present. Reads filter
   // from PREFS_READ so chips render in the saved state.
+  //
+  // mount() is async (fetchTemplate / loadUi / PREFS_READ all await). On busy
+  // SPAs (WhatsApp Web) the mutation-rescan path and PREFS_CHANGED can both call
+  // it in quick succession; without a latch, two callers pass the rootEl guard
+  // while it's still null, both append a panel, and the second overwrites the
+  // module's rootEl/tabEl refs — leaving the first one orphaned in the DOM as a
+  // dead panel with no working pin or collapse tab. Serialize by returning the
+  // pending promise to any concurrent caller.
+  let mountInFlight = null;
   async function mount() {
     if (userClosed) return;
+    if (mountInFlight) return mountInFlight;
     if (rootEl && document.body.contains(rootEl)) { render(); return; }
     if (!document.body) return;
-
+    mountInFlight = (async () => { try { await doMount(); } finally { mountInFlight = null; } })();
+    return mountInFlight;
+  }
+  async function doMount() {
     const html = await fetchTemplate();
     const wrapper = document.createElement('div');
     wrapper.innerHTML = html;
     rootEl = wrapper.firstElementChild;
+    // Defensive sweep: drop any stray panel/tab nodes left over from an earlier
+    // orphaned mount (e.g. if the host page tore the DOM down and back up
+    // without our unmount running).
+    document.querySelectorAll('.quran-ext-panel:not(.quran-ext-panel-error), .quran-ext-panel-tab').forEach(n => {
+      if (n !== rootEl) n.remove();
+    });
+    tabEl = null;
     document.body.appendChild(rootEl);
     // Reserve gutter space on <html> so the sidebar doesn't overlap content.
     document.documentElement.classList.add('quran-ext-sidebar-mounted');
