@@ -8,6 +8,10 @@ const STATE = {
   scanId: null,
   findings: [],
   highlightedSpans: [],
+  // Monotonic counter of successful wrap operations. The no-progress breaker
+  // uses this to detect re-wraps on virtualized re-mounts (same finding id,
+  // new span) as progress, even when finding count/colors are unchanged.
+  wrapOps: 0,
   capHit: false,
   capLifted: false,
   languageDetected: null,
@@ -910,6 +914,7 @@ function applyHighlight(candidate, result, { hidden = false } = {}) {
     // scans wrap hidden and get their modifier in materializeHighlights().
     if (!hidden) applyHighlightStyleClass(span);
     STATE.highlightedSpans.push(span);
+    STATE.wrapOps++;
     const finding = {
       id: findingId,
       category: color,
@@ -954,7 +959,14 @@ function applyHighlight(candidate, result, { hidden = false } = {}) {
       // the ayah highlight, since the reference always follows the ayah text.
       refText: candidate.ref || null,
     };
-    STATE.findings.push(finding);
+    // Dedup by composite id. Virtualized lists (WhatsApp Web, etc.) remount
+    // scrolled-out messages, so the same row can be scanned multiple times in
+    // a session. The composite id is deterministic on (rawText, refs, domPath),
+    // so an existing entry already describes this row — replace it in place so
+    // the latest highlight span is the one referenced by the sidebar.
+    const existingIdx = STATE.findings.findIndex((f) => f.id === findingId);
+    if (existingIdx !== -1) STATE.findings[existingIdx] = finding;
+    else STATE.findings.push(finding);
     // T060 — authentic-text swap is DEFERRED to emitComplete (T058z). Running
     // applySwap here mutates page text mid-scan, which causes subsequent
     // convergence passes and the MutationObserver to operate on swapped text
@@ -1060,15 +1072,21 @@ const MUT_WINDOW_MS = 5000;
 // Pause the observer after this many consecutive rescans that produce the
 // IDENTICAL finding set — that's a page re-rendering over our highlights (a
 // no-win fight), not real new content. Catches slow loops the rate cap misses.
-const MUT_MAX_NOPROGRESS = 2;
+// T149 — raised from 2 to 5: chat apps (WhatsApp Web) mount many message rows
+// per scroll burst and only a fraction carry ayah text, so 2-in-a-row empty
+// rescans are normal scroll churn, not a re-render fight. 5 still catches
+// genuine re-render loops (which produce dozens of identical rescans/second).
+const MUT_MAX_NOPROGRESS = 5;
 // T142 — both breakers used to permanently disconnect the observer (fatal on
 // chat apps that keep streaming Arabic). Now they pause + re-arm with
-// exponential back-off: 5s → 10s → 20s → 40s → cap (60s). A productive rescan
-// (the finding signature changes) resets the back-off step. The disconnect
-// stays cheap during the actual fight; the re-arm restores live highlighting
-// once the page settles.
+// exponential back-off: 5s → 10s → 20s → cap. A productive rescan resets the
+// back-off step. The disconnect stays cheap during the actual fight; the
+// re-arm restores live highlighting once the page settles.
+// T149 — capped at 15s (was 60s): on WhatsApp Web a 40–60s blackout during
+// active scrolling is indistinguishable from "the extension stopped working".
+// 15s is still long enough to dampen a genuine re-render loop.
 const MUT_REARM_BASE_MS = 5000;
-const MUT_REARM_CAP_MS = 60000;
+const MUT_REARM_CAP_MS = 15000;
 const MUT_REARM_FACTOR = 2;
 // T144 — when multiple sibling roots arrive in one mutation tick, walk up at
 // most this many parents from each looking for a shared ancestor. Bounds the
@@ -1310,18 +1328,15 @@ async function scanPage({ liftCap = false, subtreeRoot = null } = {}) {
     T.materializeMs = performance.now() - tMat;
   }
   // T147 — bound retained state on long-lived SPAs. Subtree rescans never
-  // clear STATE.findings / STATE.highlightedSpans, so detached spans (rows the
-  // page has dropped from its DOM) pin memory and unrelated findings grow
-  // without bound. After a subtree pass, prune spans no longer connected and
-  // drop findings whose span is gone. Full scans already clear-and-rebuild.
+  // clear STATE.highlightedSpans, so detached spans (rows the page has
+  // dropped from its DOM) pin memory. After a subtree pass, drop the dead
+  // span refs. KEEP STATE.findings — virtualized lists (WhatsApp Web, Slack,
+  // etc.) unmount scrolled-out messages and remount them on scroll-back;
+  // purging findings on every disconnect empties the sidebar mid-session
+  // and the user loses their verification history. Findings are small text
+  // blobs; keeping them is cheap, and re-mounts dedup on the composite id.
   if (!isFreshFull) {
-    const connected = STATE.highlightedSpans.filter((s) => s && s.isConnected);
-    if (connected.length !== STATE.highlightedSpans.length) {
-      const keepIds = new Set();
-      for (const s of connected) if (s.dataset && s.dataset.findingId) keepIds.add(s.dataset.findingId);
-      STATE.highlightedSpans = connected;
-      STATE.findings = STATE.findings.filter((f) => keepIds.has(f.id));
-    }
+    STATE.highlightedSpans = STATE.highlightedSpans.filter((s) => s && s.isConnected);
   }
   // Cap notification (after materialization so it fires with visible highlights).
   if (STATE.capHit) {
@@ -1732,9 +1747,13 @@ function setupMutationObserver() {
   STATE.mutationBackoffStep = 0;
   // Seed the no-progress baseline with the initial scan's findings so the first
   // rescan that changes nothing already counts toward the no-progress streak.
-  STATE.lastRescanSig = STATE.findings.map(f => `${f.id}:${f.color}`).sort().join('|');
+  STATE.lastRescanSig = STATE.findings.map(f => `${f.id}:${f.color}`).sort().join('|') +
+    '#wrap=' + STATE.wrapOps;
   STATE.noProgressRescans = 0;
   STATE.rescanTimes = [];
+  // T148 — pending set accumulates across debounced callbacks; reset on setup.
+  STATE.mutationPendingRoots = new Set();
+  STATE.mutationPendingArabic = false;
 
   STATE.mutationObserver = new MutationObserver(mutations => {
     // Ignore mutations we cause ourselves: those observed mid-scan (our own
@@ -1756,13 +1775,26 @@ function setupMutationObserver() {
       return;
     }
     STATS.mutationsObserved += mutations.length;
-    const roots = new Set();
+    // T148 — accumulate roots across ALL callbacks coalesced by the 500ms
+    // debounce, not just the last one. WhatsApp Web inserts a re-mounted row
+    // in two batches: an outer skeleton (`div.message-in focusable-list-item …`)
+    // and the inner `p._aupe copyable-text` bubble. If the inner batch arrives
+    // first and the outer arrives second within 500ms, resetting the timer
+    // dropped the inner root and the scheduled scan only walked the (tiny)
+    // outer skeleton — `nodes=3 candidates=0` repeated until the no-progress
+    // breaker tripped. Persist the pending set on STATE and drain it when the
+    // timer actually fires.
+    if (!STATE.mutationPendingRoots) STATE.mutationPendingRoots = new Set();
+    const roots = STATE.mutationPendingRoots;
+    const rootsBefore = roots.size;
     // T141 — require at least one added node carrying Arabic text before we
     // schedule a rescan. Chat-app churn (presence/typing/timestamps) used to
     // count toward MUT_MAX_RESCANS and trip the breaker before any ayah
     // arrived; gating on AR_CHAR makes the rate breaker measure RELEVANT
     // mutations only. AR_CHAR_RE is the same class used to match Quranic runs.
-    let sawArabicAdd = false;
+    // Sticky across coalesced callbacks (see T148): one Arabic-bearing batch
+    // in the window is enough — sibling outer-row batches must not cancel it.
+    let sawArabicAdd = !!STATE.mutationPendingArabic;
     for (const m of mutations) {
       if (m.addedNodes.length === 0) continue;
       // Ignore mutations inside our own sidebar (or its collapsed tab) — their
@@ -1786,10 +1818,11 @@ function setupMutationObserver() {
       if (isOurOwnAdd) continue;
       roots.add(m.target);
     }
+    STATE.mutationPendingArabic = sawArabicAdd;
     if (roots.size === 0) return;
-    // T141 — bail if nothing Arabic was added. The page might still be doing
-    // heavy non-Arabic work (typing indicators, timestamps), but no ayah can
-    // appear from that, so we neither rescan nor count it toward the breaker.
+    // T141 — bail if nothing Arabic was added across the coalesced window.
+    // Keep the pending roots for the next callback: a later batch in the same
+    // window may bring Arabic text whose ancestor we already captured.
     if (!sawArabicAdd) return;
     // Diagnostic (debug): what's driving the rescan — our own highlight/swap
     // nodes (a feedback loop) or the page's own dynamic content?
@@ -1801,7 +1834,8 @@ function setupMutationObserver() {
           sample.push(n.nodeType === 1 ? `${n.tagName.toLowerCase()}.${(n.className || '').toString().slice(0, 40)}` : `#text"${(n.textContent || '').trim().slice(0, 25)}"`);
         }
       }
-      QuranLog.scope('mutation').debug(`rescan trigger: ${mutations.length} mutations, ${roots.size} roots; added: ${sample.join(' | ')}`);
+      const added = roots.size - rootsBefore;
+      QuranLog.scope('mutation').debug(`rescan trigger: ${mutations.length} mutations, +${added} roots (pending ${roots.size}); added: ${sample.join(' | ')}`);
     }
     clearTimeout(STATE.mutationDebounceTimer);
     STATE.mutationDebounceTimer = setTimeout(async () => {
@@ -1815,13 +1849,38 @@ function setupMutationObserver() {
         const step = (STATE.mutationBackoffStep = (STATE.mutationBackoffStep || 0) + 1);
         const ms = Math.min(MUT_REARM_BASE_MS * Math.pow(MUT_REARM_FACTOR, step - 1), MUT_REARM_CAP_MS);
         QuranLog.scope('mutation').info(`${why} — pausing the MutationObserver; re-arming in ${ms} ms (step ${step}).`);
+        STATE.mutationPendingRoots = new Set();
+        STATE.mutationPendingArabic = false;
+        // T149 — snapshot findings + wrapOps at pause so the rearm can tell if
+        // anything productive happened during the back-off (e.g. a fresh full
+        // scan from autoscan, or the user's manual trigger). If so, the page
+        // is clearly making progress and the next pause should not escalate.
+        const pauseFindings = STATE.findings.length;
+        const pauseWrapOps = STATE.wrapOps;
         STATE.mutationRearmTimer = setTimeout(() => {
           if (!STATE.mutationObserver) return; // teardown / route change cleared us
           STATE.rescanTimes = [];
           STATE.noProgressRescans = 0;
-          STATE.lastRescanSig = STATE.findings.map(f => `${f.id}:${f.color}`).sort().join('|');
+          STATE.lastRescanSig = STATE.findings.map(f => `${f.id}:${f.color}`).sort().join('|') +
+            '#wrap=' + STATE.wrapOps;
+          // T149 — if work landed during the back-off (a wrap or new finding),
+          // restart the ladder so the next breaker trip pauses 5s, not 10/20/15.
+          // Without this, a long-lived chat tab climbs to the cap and stays
+          // there even though the page is clearly NOT in a re-render fight.
+          if (STATE.findings.length > pauseFindings || STATE.wrapOps > pauseWrapOps) {
+            STATE.mutationBackoffStep = 0;
+          }
           try { STATE.mutationObserver.observe(document.body, { childList: true, subtree: true }); } catch (_) {}
           QuranLog.scope('mutation').info(`MutationObserver re-armed after ${ms} ms back-off`);
+          // T150 — catch-up pass after pause. Rows that re-mounted during the
+          // paused window produced mutations we never saw, and if the user
+          // has stopped scrolling there will be no further mutations to
+          // trigger a rescan — so those ayahs stay unhighlighted until the
+          // next scroll. One subtree scan of document.body picks them up.
+          // Gated on !scanning so we don't collide with a fresh full scan.
+          if (!STATE.scanning) {
+            scanPage({ subtreeRoot: document.body }).catch(() => {});
+          }
         }, ms);
       };
       // Rate breaker: a fast rescan↔re-render loop (page framework re-inserting
@@ -1834,13 +1893,18 @@ function setupMutationObserver() {
         return;
       }
       STATS.mutationRescans++;
+      // T148 — drain the accumulated pending set built up across every
+      // callback in this debounce window, then reset for the next window.
+      const drained = STATE.mutationPendingRoots || new Set();
+      STATE.mutationPendingRoots = new Set();
+      STATE.mutationPendingArabic = false;
       // T144 — coalesce sibling roots to a bounded common ancestor. Streamed
       // chat messages produce many sibling mutation targets (each row is its
       // own root); scanning each subtree independently multiplies extract+
       // verify cost N× and bumps the rate breaker N× too. If the roots share
       // an ancestor within MUT_LCA_MAX_UP hops (and it isn't document.body,
       // which defeats the point of a subtree rescan), scan the ancestor once.
-      const rootList = [...roots];
+      const rootList = [...drained];
       const lca = rootList.length > 1 ? boundedCommonAncestor(rootList, MUT_LCA_MAX_UP) : null;
       const scanTargets = (lca && lca !== document.body && lca.nodeType === 1) ? [lca] : rootList;
       for (const root of scanTargets) {
@@ -1850,7 +1914,13 @@ function setupMutationObserver() {
       // rescans never change the findings. If the finding set is identical for
       // MUT_MAX_NOPROGRESS consecutive rescans, stop. A genuinely-updating page
       // changes findings → resets the streak → keeps rescanning.
-      const sig = STATE.findings.map(f => `${f.id}:${f.color}`).sort().join('|');
+      // Signature includes the cumulative wrapOps counter so that a virtualized
+      // re-mount (WhatsApp Web scrolling back to a previously-scanned chat row)
+      // counts as progress: the finding id/color and even the live span count
+      // can be identical to last rescan, but every successful wrap bumps
+      // wrapOps — so re-wrapping on a re-mount changes the sig.
+      const sig = STATE.findings.map(f => `${f.id}:${f.color}`).sort().join('|') +
+        '#wrap=' + STATE.wrapOps;
       if (sig === STATE.lastRescanSig) {
         if ((STATE.noProgressRescans = (STATE.noProgressRescans || 0) + 1) >= MUT_MAX_NOPROGRESS) {
           pause('rescans are not changing the findings (page re-rendering over our highlights)');
