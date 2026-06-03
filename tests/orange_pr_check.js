@@ -17,14 +17,14 @@ const path = require('path');
 const { execFileSync } = require('child_process');
 
 const ROOT = path.join(__dirname, '..');
-const GROUND = path.join(ROOT, 'tests', 'fixtures', 'orange_cases.expected.json');
-const OBSERVED = path.join(ROOT, 'tests', 'fixtures', 'orange_cases.observed.json');
+const GROUND = path.join(ROOT, 'tests', 'fixtures', 'synthetic', 'orange_cases.expected.json');
+const OBSERVED = path.join(ROOT, 'tests', 'fixtures', 'synthetic', 'orange_cases.observed.json');
 
 if (!fs.existsSync(GROUND)) { console.error('Missing fixture — run node tests/gen_orange_cases.js first.'); process.exit(1); }
 
 // Drive the scan through the existing harness so we score the SAME pipeline CI
 // runs (no second, divergent scan path).
-execFileSync('node', [path.join('tests', 'run_tests_node.js'), path.join('tests', 'fixtures', 'orange_cases.html'), '--write-observed'],
+execFileSync('node', [path.join('tests', 'run_tests_node.js'), path.join('tests', 'fixtures', 'synthetic', 'orange_cases.html'), '--write-observed'],
   { cwd: ROOT, stdio: 'ignore' });
 
 const ground = JSON.parse(fs.readFileSync(GROUND, 'utf8'));

@@ -13,7 +13,7 @@ const path = require('path');
 const { execFileSync } = require('child_process');
 
 const ROOT = path.join(__dirname, '..');
-const GROUND = path.join(ROOT, 'tests', 'fixtures', 'orange_cases.expected.json');
+const GROUND = path.join(ROOT, 'tests', 'fixtures', 'synthetic', 'orange_cases.expected.json');
 if (!fs.existsSync(GROUND)) { console.error('Missing fixture — run node tests/gen_orange_cases.js first.'); process.exit(1); }
 const ground = JSON.parse(fs.readFileSync(GROUND, 'utf8'));
 
