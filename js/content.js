@@ -280,6 +280,12 @@ function detectLanguage() {
 
 const SKIP_TAGS = new Set(['SCRIPT','STYLE','NOSCRIPT','IFRAME','CODE','PRE','HEAD','TEXTAREA','INPUT','SELECT','BUTTON']);
 
+// Our own UI surfaces. Text nodes inside these must never be walked by the
+// scanner — otherwise the catch-up rescan (T150) and any document.body
+// subtree scan re-extract the ayahs the panel is *displaying*, re-verify
+// them, and wrap them, applying the Quranic font class to the panel text.
+const OWN_UI_SELECTOR = '.quran-ext-panel, .quran-ext-panel-tab, .quran-ext-ref-tip';
+
 function createTextWalker(root) {
   return document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
     acceptNode(node) {
@@ -287,6 +293,8 @@ function createTextWalker(root) {
       if (!parent) return NodeFilter.FILTER_REJECT;
       if (SKIP_TAGS.has(parent.tagName)) return NodeFilter.FILTER_REJECT;
       if (parent.closest(HIGHLIGHT_SELECTOR)) return NodeFilter.FILTER_REJECT;
+      // T152 — never walk into our own panel/tab/tooltip.
+      if (parent.closest(OWN_UI_SELECTOR)) return NodeFilter.FILTER_REJECT;
       // Keep short non-whitespace text nodes — single chars like "{", "}", "*"
       // often sit in their own text nodes between inline elements (e.g.
       //   {<font>v88</font> * <font>v89</font>}) and are required for BRACE_RE
@@ -897,6 +905,21 @@ function applyHighlight(candidate, result, { hidden = false } = {}) {
   const findingId = computeCompositeFindingId(
     candidate.text, result.claimedRef, result.matchedRef, domPath
   );
+  // T151 — session-stable identity that survives virtualization re-mounts.
+  // domPath changes every time React/Vue re-attaches the row at a new
+  // position; sessionIdentity hashes nearby DOM text instead, so the same
+  // logical message produces the same key across mounts. Computed BEFORE
+  // wrapTextNodes mutates the DOM so the source node's neighbourhood is
+  // still intact. Defensive against missing module (won't crash if the
+  // context-atom script failed to load).
+  const sessionIdentity = (typeof QuranContextAtom !== 'undefined')
+    ? QuranContextAtom.computeSessionIdentity({
+        rawText: candidate.text,
+        claimedRef: result.claimedRef,
+        matchedRef: result.matchedRef,
+        sourceNode: candidate.nodes && candidate.nodes[0],
+      })
+    : null;
   const dataAttrs = {
     tooltip, color, findingId,
     matchedRef: result.matchedRef || '',
@@ -958,15 +981,47 @@ function applyHighlight(candidate, result, { hidden = false } = {}) {
       // Used to place the correct-in-place marker span by forward-search from
       // the ayah highlight, since the reference always follows the ayah text.
       refText: candidate.ref || null,
+      // T151 — host-app-agnostic session identity (see js/context-atom.js).
+      // Stable across virtualization re-mounts where domPath changes but
+      // surrounding text doesn't. Used for in-session dedup below.
+      sessionIdentity,
     };
-    // Dedup by composite id. Virtualized lists (WhatsApp Web, etc.) remount
-    // scrolled-out messages, so the same row can be scanned multiple times in
-    // a session. The composite id is deterministic on (rawText, refs, domPath),
-    // so an existing entry already describes this row — replace it in place so
-    // the latest highlight span is the one referenced by the sidebar.
-    const existingIdx = STATE.findings.findIndex((f) => f.id === findingId);
-    if (existingIdx !== -1) STATE.findings[existingIdx] = finding;
-    else STATE.findings.push(finding);
+    // Dedup. Virtualized lists (WhatsApp Web, Slack, etc.) re-mount scrolled-
+    // out rows at a different DOM position, so the composite finding id
+    // (which hashes domPath in) differs even for the same logical message.
+    // Match on sessionIdentity (T151) instead — it hashes nearby DOM text,
+    // not position, so re-mounts collapse to one entry. Fall back to the
+    // composite id when sessionIdentity isn't available (defensive: e.g.
+    // the context-atom module failed to load) so behaviour degrades to the
+    // previous dedup rather than silently breaking.
+    const existingIdx = STATE.findings.findIndex((f) => {
+      if (sessionIdentity && f.sessionIdentity === sessionIdentity) return true;
+      return f.id === findingId;
+    });
+    if (existingIdx !== -1) {
+      // Preserve the original composite id so FR-024 persisted state
+      // (badges, dismissals) stays linked. Everything else (span, color,
+      // refs, diff) updates to the latest extraction.
+      const preservedId = STATE.findings[existingIdx].id;
+      finding.id = preservedId;
+      STATE.findings[existingIdx] = finding;
+      // T151b — wrapTextNodes stamped the new span with the brand-new
+      // composite id (computed above from the current domPath), but the
+      // finding object's id is now the preserved old one. Without syncing,
+      // querySelector('[data-finding-id=…]') in render/swap.js, the gold
+      // ref-marker decoration, and the panel-row → page-span focus link all
+      // break — they look up by finding.id but the DOM carries the new id.
+      // Re-stamp the span (and any ref marker we already placed for it).
+      try {
+        span.dataset.findingId = preservedId;
+        const refMarker = document.querySelector(
+          `.${REF_MARKER_CLASS}[data-finding-id="${cssEscapeId(findingId)}"]`
+        );
+        if (refMarker) refMarker.dataset.findingId = preservedId;
+      } catch (_) {}
+    } else {
+      STATE.findings.push(finding);
+    }
     // T060 — authentic-text swap is DEFERRED to emitComplete (T058z). Running
     // applySwap here mutates page text mid-scan, which causes subsequent
     // convergence passes and the MutationObserver to operate on swapped text

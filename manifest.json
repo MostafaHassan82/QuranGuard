@@ -25,6 +25,7 @@
         "js/panel/sidebar-surface.js",
         "js/render/fonts.js",
         "js/render/swap.js",
+        "js/context-atom.js",
         "js/content.js",
         "js/verifier/normalize.js",
         "js/compose/editable.js",

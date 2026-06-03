@@ -103,10 +103,22 @@ const QuranSwap = (() => {
   }
 
   // Returns the highlight wrapper element for a Finding id, or null.
+  // T153 — the sidebar panel also stamps data-finding-id on its row elements
+  // (panel/sidebar-surface.js). Without a scope, this querySelector falls
+  // through to a panel row whenever the page span is detached (e.g. during a
+  // WhatsApp virtualization re-mount), and applySwap then mutates the panel
+  // row's style + textContent — visible as the panel ayah font flickering to
+  // the Quranic mushaf font and back. Exclude anything inside the panel.
   function findSpan(findingId) {
     if (!findingId) return null;
-    try { return document.querySelector(`[data-finding-id="${cssEscape(findingId)}"]`); }
-    catch (_) { return null; }
+    try {
+      const all = document.querySelectorAll(`[data-finding-id="${cssEscape(findingId)}"]`);
+      for (const el of all) {
+        if (el.closest('.quran-ext-panel, .quran-ext-panel-tab, .quran-ext-ref-tip')) continue;
+        return el;
+      }
+      return null;
+    } catch (_) { return null; }
   }
   function cssEscape(s) {
     if (typeof CSS !== 'undefined' && CSS.escape) return CSS.escape(s);
