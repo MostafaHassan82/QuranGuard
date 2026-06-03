@@ -42,7 +42,13 @@ const QuranPrefs = (() => {
     // refFormat/refPlacement shape the inserted reference; minWords is the
     // performance gate before matching starts.
     // maxCandidates: dropdown row budget. 0 = unlimited (show every match).
-    autocomplete: { enabled: true, liveRender: true, refFormat: 'arabicName', refPlacement: 'after', minWords: 2, maxCandidates: 8 },
+    // multiAyahsCount    — how many ayahs the "N ayahs" insertion scope spans
+    //                      (the matched ayah + the next N-1 in the same surah).
+    // multiAyahsWordCap  — word ceiling for both the N-ayahs and surah-end
+    //                      scopes; refuses the insert when the resulting body
+    //                      would exceed this (so a "to surah end" on al-Baqarah
+    //                      doesn't paste the whole surah into a chat field).
+    autocomplete: { enabled: true, liveRender: true, refFormat: 'arabicName', refPlacement: 'after', minWords: 2, maxCandidates: 8, multiAyahsCount: 5, multiAyahsWordCap: 200 },
   };
 
   const VALID_REF_FORMATS = new Set(['arabicName', 'number']);
@@ -123,6 +129,16 @@ const QuranPrefs = (() => {
       let mc = parseInt(p.autocomplete.maxCandidates, 10);
       if (!Number.isFinite(mc) || mc < 0) mc = DEFAULTS.autocomplete.maxCandidates;
       p.autocomplete.maxCandidates = mc === 0 ? 0 : Math.min(50, Math.max(1, mc));
+    }
+    {
+      let mac = parseInt(p.autocomplete.multiAyahsCount, 10);
+      if (!Number.isFinite(mac)) mac = DEFAULTS.autocomplete.multiAyahsCount;
+      p.autocomplete.multiAyahsCount = Math.min(20, Math.max(2, mac));
+    }
+    {
+      let cap = parseInt(p.autocomplete.multiAyahsWordCap, 10);
+      if (!Number.isFinite(cap)) cap = DEFAULTS.autocomplete.multiAyahsWordCap;
+      p.autocomplete.multiAyahsWordCap = Math.min(2000, Math.max(20, cap));
     }
 
     // Clamp: red MUST be false

@@ -30,7 +30,7 @@
   // into is a newly-typed citation (dropdown territory), not pre-existing content.
   const FOCUS_RENDER_MS = 60;
 
-  let settings = { enabled: true, liveRender: true, refFormat: 'arabicName', refPlacement: 'after', minWords: 2, maxCandidates: DEFAULT_LIMIT };
+  let settings = { enabled: true, liveRender: true, refFormat: 'arabicName', refPlacement: 'after', minWords: 2, maxCandidates: DEFAULT_LIMIT, multiAyahsCount: 5, multiAyahsWordCap: 200 };
   // The global Quran-font choice (prefs.font, NOT under prefs.autocomplete) used
   // when rendering matched text in-editor (FR-018).
   let fontKey = 'uthmaniHafs';
@@ -46,13 +46,26 @@
   const STATE = { el: null, ctx: null, det: null, candidates: [], selIndex: 0, mode: 'candidates', pending: null };
 
   // Insertion scopes for the second menu (FR-015). Labels are localized at show
-  // time so a language change between loads is reflected.
+  // time so a language change between loads is reflected. multiAyahs and
+  // surahEnd extend the insert across verse boundaries (subject to the word
+  // cap in settings.multiAyahsWordCap).
   const SCOPES = [
     { key: 'whole', i18n: 'ac_scope_whole' },
     { key: 'typedPortion', i18n: 'ac_scope_typed' },
     { key: 'startToEndWord', i18n: 'ac_scope_endword' },
+    { key: 'multiAyahs', i18n: 'ac_scope_multi_ayahs' },
+    { key: 'surahEnd', i18n: 'ac_scope_surah_end' },
   ];
-  function tt(key) { return (typeof QuranI18n !== 'undefined') ? QuranI18n.t(key) : key; }
+  function tt(key, params) {
+    if (typeof QuranI18n === 'undefined') return key;
+    const s = QuranI18n.t(key);
+    if (!params) return s;
+    return s.replace(/\{(\w+)\}/g, (_, k) => (params[k] != null ? String(params[k]) : `{${k}}`));
+  }
+  function scopeLabel(s) {
+    if (s.key === 'multiAyahs') return tt(s.i18n, { n: settings.multiAyahsCount });
+    return tt(s.i18n);
+  }
 
   // ── Opt-in trace ─────────────────────────────────────────────────────────────
   // Toggle from the page console:  __quranDebug(true)  then type in the field.
@@ -226,14 +239,15 @@
     STATE.selIndex = 0;
     STATE.candidates = [];          // candidate list is replaced by the scope menu
     publishCandidates();
-    const scopes = SCOPES.map(s => ({ key: s.key, label: tt(s.i18n) }));
+    const scopes = SCOPES.map(s => ({ key: s.key, label: scopeLabel(s) }));
     setActive('scopeMenu');
     QuranComposeDropdown.showScope(scopes, 0, STATE.pending.rect, (idx) => chooseScope(SCOPES[idx].key));
   }
 
   // The user picked an insertion scope. whole/typedPortion insert immediately;
-  // startToEndWord opens the end-word prompt instead (FR-015c).
-  function chooseScope(key) {
+  // startToEndWord opens the end-word prompt; multiAyahs/surahEnd fetch the
+  // extra ayahs from the worker, then insert (or show the cap-exceeded note).
+  async function chooseScope(key) {
     if (!STATE.pending) return;
     if (key === 'startToEndWord') {
       STATE.mode = 'endword';
@@ -244,7 +258,50 @@
         tt('ac_endword_prompt'));
       return;
     }
+    if (key === 'multiAyahs' || key === 'surahEnd') {
+      await insertMultiAyahs(key);
+      return;
+    }
     doInsert(key, null);
+  }
+
+  // Fetch the (N-1) ayahs after the candidate (or to the surah's end) and
+  // delegate to doInsert with them attached. The word-cap refusal is enforced
+  // inside QuranComposeInsert.buildBody; the caller surfaces it as a note.
+  async function insertMultiAyahs(key) {
+    const p = STATE.pending;
+    if (!p) return;
+    const cand = p.cand;
+    const startAyah = cand.ref.ayah;
+    let toAyah;
+    if (key === 'multiAyahs') {
+      const n = Math.max(2, parseInt(settings.multiAyahsCount, 10) || 5);
+      toAyah = startAyah + (n - 1);
+    } else {
+      toAyah = -1;   // sentinel: "to end" — getAyahRange clamps to surahLastAyah
+    }
+    let extras = [];
+    let endAyah = startAyah;
+    try {
+      const resp = await chrome.runtime.sendMessage({
+        type: 'getAyahRange', surahNum: cand.ref.surah, fromAyah: startAyah, toAyah,
+      });
+      const texts = (resp && Array.isArray(resp.texts)) ? resp.texts : [];
+      // The first text in the response is the candidate ayah itself; the
+      // "extras" are everything after it.
+      extras = texts.slice(1);
+      endAyah = startAyah + Math.max(0, texts.length - 1);
+      if (key === 'surahEnd' && resp && Number.isFinite(resp.surahLastAyah)) {
+        endAyah = Math.min(resp.surahLastAyah, endAyah);
+      }
+    } catch (_) {}
+    const err = doInsert(key, null, { extraAyahs: extras, endAyah, wordCap: settings.multiAyahsWordCap });
+    if (err === 'capExceeded') {
+      // Show a non-destructive note; keep the scope menu open so the user can
+      // pick a smaller scope. (Don't tear down — the citation is still pending.)
+      const cap = settings.multiAyahsWordCap;
+      QuranComposeDropdown.showNote(tt('ac_cap_exceeded', { cap }), p.rect);
+    }
   }
 
   function submitEndWord(word) {
@@ -262,14 +319,15 @@
   }
 
   // Perform the actual replacement for a resolved scope. Returns an error code
-  // ('endWordNotFound' | 'endWordMissing') when the insert could not be made, so
-  // the caller can keep the prompt open; returns null on success.
-  function doInsert(scope, endWord) {
+  // ('endWordNotFound' | 'endWordMissing' | 'capExceeded') when the insert could
+  // not be made; returns null on success. `extra` carries multi-ayah context
+  // (extraAyahs, endAyah, wordCap) when present.
+  function doInsert(scope, endWord, extra) {
     const p = STATE.pending;
     if (!p) return null;
-    const built = QuranComposeInsert.buildInsertText(p.cand, scope, settings, {
+    const built = QuranComposeInsert.buildInsertText(p.cand, scope, settings, Object.assign({
       typedText: p.typedText, endWord, openBracket: p.openBracket, closeBracket: p.closeBracket,
-    });
+    }, extra || {}));
     if (built.error) return built.error;
 
     inserting = true;
@@ -294,7 +352,7 @@
       ref: cand.refLabel,
       scope,
       insertedText: built.text,
-      reference: QuranComposeInsert.buildReference(cand, settings),
+      reference: QuranComposeInsert.buildReference(cand, settings, extra),
       surface: p.ctx.surface,
       persistedMarkup,
     };

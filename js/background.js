@@ -1878,6 +1878,30 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         }
         case 'getAyahText':
           return getAyahText(msg.surahNum, msg.ayahNum);
+        case 'getAyahRange': {
+          // Writer-side autocomplete (multi-ayah / surah-end scopes). Returns
+          // the texts for [fromAyah..toAyah] in surahNum, plus the index of the
+          // last ayah actually present (so the caller knows when 'toEnd' truly
+          // reached the surah end vs. stopped early). Empty texts array when
+          // surah/from is invalid.
+          const surahNum = parseInt(msg.surahNum, 10);
+          const fromAyah = parseInt(msg.fromAyah, 10);
+          const toAyahRaw = parseInt(msg.toAyah, 10);
+          const surahRecs = indexes.byRef[surahNum];
+          if (!surahRecs || !surahRecs[fromAyah]) return { texts: [], surahLastAyah: 0 };
+          let surahLastAyah = 0;
+          for (const k of Object.keys(surahRecs)) {
+            const n = parseInt(k, 10);
+            if (Number.isFinite(n) && n > surahLastAyah) surahLastAyah = n;
+          }
+          const toAyah = Math.min(Number.isFinite(toAyahRaw) ? toAyahRaw : surahLastAyah, surahLastAyah);
+          const texts = [];
+          for (let a = fromAyah; a <= toAyah; a++) {
+            const rec = surahRecs[a];
+            if (rec) texts.push(rec.text);
+          }
+          return { texts, surahLastAyah };
+        }
         case 'MATCH_PARTIAL':
           // Writer-side autocomplete candidate lookup (feature 003). Bare-shape
           // internal verifier RPC, like verifyFragment/getAyahText (per the

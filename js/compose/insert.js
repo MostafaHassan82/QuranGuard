@@ -72,11 +72,16 @@ const QuranComposeInsert = (() => {
     return false;
   }
 
-  function buildReference(candidate, settings) {
-    const ayah = candidate.ref.ayah;
+  // When opts.endAyah is set and differs from candidate.ref.ayah, format the
+  // reference as a range ("البقرة:255-257"). Used by the multi-ayah / surah-end
+  // insertion scopes.
+  function buildReference(candidate, settings, opts) {
+    const start = candidate.ref.ayah;
+    const end = (opts && Number.isFinite(opts.endAyah) && opts.endAyah > start) ? opts.endAyah : start;
+    const ayahPart = (end === start) ? String(start) : `${start}-${end}`;
     const inner = (settings && settings.refFormat === 'number')
-      ? `${candidate.ref.surah}:${ayah}`
-      : `${candidate.surahName}:${ayah}`;
+      ? `${candidate.ref.surah}:${ayahPart}`
+      : `${candidate.surahName}:${ayahPart}`;
     return `(${inner})`;
   }
 
@@ -132,15 +137,38 @@ const QuranComposeInsert = (() => {
   }
 
   // Returns { body } with the authentic wording for the chosen scope, or
-  // { error } when the scope cannot be satisfied (e.g. end word not found).
-  // opts: { typedText, endWord }
+  // { error } when the scope cannot be satisfied (e.g. end word not found, or
+  // the body would exceed opts.wordCap for the multi-ayah / surah-end scopes).
+  // opts: { typedText, endWord, extraAyahs, wordCap }
+  //   extraAyahs — authentic texts for the ayahs FOLLOWING candidate (caller
+  //                fetches them via the getAyahRange RPC).
+  //   wordCap    — refuse with { error: 'capExceeded', wordCount } when the
+  //                resulting body's word count would exceed this. Only applies
+  //                to 'multiAyahs' / 'surahEnd' scopes.
   function buildBody(candidate, scope, opts) {
     opts = opts || {};
     const verse = candidate.authenticText;
-    if (scope === 'whole' || !opts.typedText) return { body: verse };
+    if (scope === 'whole' || (!opts.typedText && scope !== 'multiAyahs' && scope !== 'surahEnd')) {
+      return { body: verse };
+    }
 
     const verseWords = verse.split(/\s+/).filter(Boolean);
     const verseNorm = verseWords.map(norm);
+
+    if (scope === 'multiAyahs' || scope === 'surahEnd') {
+      // Span across the matched ayah + the fetched extras. The matched ayah is
+      // emitted whole — alignment within it isn't meaningful when we're going
+      // to cross verse boundaries anyway. Authentic-only (FR-017): we never
+      // mix in the user's typed wording.
+      const extras = Array.isArray(opts.extraAyahs) ? opts.extraAyahs : [];
+      const parts = [verse, ...extras];
+      const wordCount = parts.reduce((n, t) => n + String(t).split(/\s+/).filter(Boolean).length, 0);
+      if (typeof opts.wordCap === 'number' && wordCount > opts.wordCap) {
+        return { error: 'capExceeded', wordCount };
+      }
+      return { body: parts.join(' ') };
+    }
+
     const span = alignSpan(opts.typedText, verseNorm);
     // No alignment → fall back to the whole authentic verse (still authentic +
     // complete; we never insert the user's drifted text — FR-017).
@@ -152,7 +180,7 @@ const QuranComposeInsert = (() => {
     if (scope === 'startToEndWord') {
       if (!opts.endWord) return { error: 'endWordMissing' };
       const endIdx = findEndWord(opts.endWord, verseNorm, span.start);
-      if (endIdx < 0) return { error: 'endWordNotFound' };   // FR-016 — no truncated insert
+      if (endIdx < 0) return { error: 'endWordNotFound' };
       return { body: verseWords.slice(span.start, endIdx + 1).join(' ') };
     }
     return { body: verse };
@@ -166,14 +194,15 @@ const QuranComposeInsert = (() => {
     '"': '"', "'": "'", '“': '”', '‘': '’',
   };
 
-  // Returns { text } ready to insert, or { error } (e.g. 'endWordNotFound').
-  // When the citation was opened with a quote/bracket, the body is wrapped in the
-  // matching pair so the opener isn't left dangling (FR-014); the reference is
-  // placed OUTSIDE the brackets.
+  // Returns { text } ready to insert, or { error } (e.g. 'endWordNotFound',
+  // 'capExceeded'). When the citation was opened with a quote/bracket, the body
+  // is wrapped in the matching pair so the opener isn't left dangling
+  // (FR-014); the reference is placed OUTSIDE the brackets. For multi-ayah /
+  // surah-end scopes, opts.endAyah lets buildReference emit a range.
   function buildInsertText(candidate, scope, settings, opts) {
     const r = buildBody(candidate, scope, opts);
-    if (r.error) return { error: r.error };
-    const ref = buildReference(candidate, settings);
+    if (r.error) return { error: r.error, wordCount: r.wordCount };
+    const ref = buildReference(candidate, settings, opts);
     const ob = opts && opts.openBracket;
     const cb = (opts && opts.closeBracket) || (ob ? CLOSERS[ob] : null);
     const body = (ob && cb) ? `${ob}${r.body}${cb}` : r.body;
