@@ -1,12 +1,12 @@
 'use strict';
 /*
- * V1.2 correction prefs migration gate (T006 / FR-018 / FR-020).
+ * Correction prefs migration gate.
  * ---------------------------------------------------------------------------
  * Pure-Node test of QuranPrefs.applyDefaults — the one-way migration from the
  * legacy `autoCorrectOrange` boolean to the generalized `autoCorrect` object
- * {orange, lightBlue}. Per the V1.2 spec:
+ * {orange, lightBlue, yellow, red}:
  *   - lightBlue defaults ON (it never edits page text — safe to auto-surface).
- *   - There is NO autoCorrect.yellow and NO autoCorrect.red (manual by rule).
+ *   - orange / yellow / red default OFF (opt-in; all edit page text).
  *   - The legacy `autoCorrectOrange` key is migrated then DELETED (no mirror).
  *
  * Run: node tests/correction_prefs_check.js
@@ -17,13 +17,13 @@ const Prefs = require(path.join('..', 'js', 'storage', 'prefs.js'));
 const results = [];
 const T = (name, pass, detail) => results.push({ name, pass: !!pass, detail: pass ? '' : (detail || '') });
 
-// (1) Fresh install: orange OFF, lightBlue ON; no yellow/red/legacy keys.
+// (1) Fresh install: only lightBlue ON; orange/yellow/red OFF; no legacy key.
 {
   const p = Prefs.applyDefaults({});
   T('fresh: orange off', p.autoCorrect && p.autoCorrect.orange === false, JSON.stringify(p.autoCorrect));
-  T('fresh: lightBlue ON (FR-018)', p.autoCorrect.lightBlue === true, JSON.stringify(p.autoCorrect));
-  T('fresh: yellow is never a key', !('yellow' in p.autoCorrect), JSON.stringify(p.autoCorrect));
-  T('fresh: red is never a key', !('red' in p.autoCorrect), JSON.stringify(p.autoCorrect));
+  T('fresh: lightBlue ON', p.autoCorrect.lightBlue === true, JSON.stringify(p.autoCorrect));
+  T('fresh: yellow off', p.autoCorrect.yellow === false, JSON.stringify(p.autoCorrect));
+  T('fresh: red off', p.autoCorrect.red === false, JSON.stringify(p.autoCorrect));
   T('fresh: legacy autoCorrectOrange deleted', !('autoCorrectOrange' in p), JSON.stringify(Object.keys(p)));
 }
 
@@ -35,12 +35,13 @@ const T = (name, pass, detail) => results.push({ name, pass: !!pass, detail: pas
   T('legacy key removed after migrate', !('autoCorrectOrange' in p), JSON.stringify(Object.keys(p)));
 }
 
-// (3) Existing new object preserved; missing lightBlue default-fills to ON; yellow stripped.
+// (3) Existing new object preserved; missing keys default-fill (lightBlue ON, rest OFF).
 {
   const p = Prefs.applyDefaults({ autoCorrect: { orange: true, yellow: true } });
   T('explicit orange preserved (true)', p.autoCorrect.orange === true, JSON.stringify(p.autoCorrect));
   T('missing lightBlue default-fills ON', p.autoCorrect.lightBlue === true, JSON.stringify(p.autoCorrect));
-  T('stray yellow key stripped', !('yellow' in p.autoCorrect), JSON.stringify(p.autoCorrect));
+  T('explicit yellow preserved (true)', p.autoCorrect.yellow === true, JSON.stringify(p.autoCorrect));
+  T('missing red default-fills OFF', p.autoCorrect.red === false, JSON.stringify(p.autoCorrect));
 }
 
 // (4) Explicit lightBlue:false is honored (user opted out — not overwritten).
@@ -56,10 +57,13 @@ const T = (name, pass, detail) => results.push({ name, pass: !!pass, detail: pas
   T('legacy deleted even when new object wins', !('autoCorrectOrange' in p), JSON.stringify(Object.keys(p)));
 }
 
-// (6) Garbage value falls back to fresh defaults (orange off, lightBlue on).
+// (6) Garbage value falls back to fresh defaults (only lightBlue on).
 {
   const p = Prefs.applyDefaults({ autoCorrect: 'nope' });
-  T('non-object autoCorrect resets', p.autoCorrect && p.autoCorrect.orange === false && p.autoCorrect.lightBlue === true, JSON.stringify(p.autoCorrect));
+  T('non-object autoCorrect resets',
+    p.autoCorrect && p.autoCorrect.orange === false && p.autoCorrect.lightBlue === true
+      && p.autoCorrect.yellow === false && p.autoCorrect.red === false,
+    JSON.stringify(p.autoCorrect));
 }
 
 const failed = results.filter(r => !r.pass);

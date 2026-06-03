@@ -9,14 +9,20 @@ const QuranPrefs = (() => {
     perColor: { green: true, lightBlue: true, yellow: true, orange: true, red: false },
     font: 'uthmaniHafs',
     scanTrigger: 'manual',
-    // T006 / FR-018 / FR-020 — generalized autocorrect. Only two keys exist:
+    // Generalized autocorrect. Four keys, all default OFF except lightBlue:
     //   orange    — rewrite the wrong on-page reference (edits DOM).
     //   lightBlue — surface the verifier-resolved reference (panel/tooltip only,
     //               NEVER edits page text), so it is safe to default ON.
-    // There is intentionally NO autoCorrect.yellow / .red: yellow and red are
-    // manual by rule (FR-018). The legacy single-flag `autoCorrectOrange` is
-    // migrated-and-deleted on first read (see applyDefaults) — no mirror is kept.
-    autoCorrect: { orange: false, lightBlue: true },
+    //   yellow    — replace drifted ayah text with the authentic mushaf wording
+    //               on every scan (edits DOM; opt-in; integrity-preserving since
+    //               it always replaces user text with the authentic ayah).
+    //   red       — accept the verifier's near-match (when one exists) and
+    //               replace the user text with that ayah. HIGHEST RISK: the
+    //               original text was "not in Quran"; only near-matches with
+    //               a single candidate are eligible. Opt-in.
+    // The legacy single-flag `autoCorrectOrange` is migrated-and-deleted on
+    // first read (see applyDefaults) — no mirror is kept.
+    autoCorrect: { orange: false, lightBlue: true, yellow: false, red: false },
     refLinks: true,
     // Whether the cited reference is visually highlighted on the page (gold
     // marker). Independent of refLinks (clickability) and of the hover tooltip,
@@ -64,24 +70,26 @@ const QuranPrefs = (() => {
     if (!VALID_FONTS.has(p.font)) p.font = DEFAULTS.font;
     if (!VALID_SCAN_TRIGGERS.has(p.scanTrigger)) p.scanTrigger = DEFAULTS.scanTrigger;
 
-    // T006 — generalized autocorrect with one-way migration (FR-018/FR-020).
+    // Generalized autocorrect with one-way migration of the legacy single flag.
     // Idempotent; applied on every read so callers always see the migrated shape.
     //   (a) migrate    — legacy `autoCorrectOrange` present: seed orange from it
     //                    (only when the new object hasn't set orange), default
     //                    lightBlue ON, then DELETE the legacy key (no mirror).
-    //   (b) fresh / fill — orange defaults OFF, lightBlue defaults ON.
-    // yellow/red keys are stripped: they must never exist (manual by rule).
+    //   (b) fresh / fill — orange/yellow/red default OFF, lightBlue defaults ON.
     const legacyOrange = (typeof p.autoCorrectOrange === 'boolean') ? p.autoCorrectOrange : undefined;
     if (!p.autoCorrect || typeof p.autoCorrect !== 'object') p.autoCorrect = {};
     if (typeof p.autoCorrect.orange !== 'boolean') {
       p.autoCorrect.orange = (legacyOrange !== undefined) ? legacyOrange : DEFAULTS.autoCorrect.orange;
     }
     if (typeof p.autoCorrect.lightBlue !== 'boolean') {
-      p.autoCorrect.lightBlue = DEFAULTS.autoCorrect.lightBlue; // FR-018: ON
+      p.autoCorrect.lightBlue = DEFAULTS.autoCorrect.lightBlue;
     }
-    // Defense-in-depth: drop any key that must not exist + the legacy flag.
-    delete p.autoCorrect.yellow;
-    delete p.autoCorrect.red;
+    if (typeof p.autoCorrect.yellow !== 'boolean') {
+      p.autoCorrect.yellow = DEFAULTS.autoCorrect.yellow;
+    }
+    if (typeof p.autoCorrect.red !== 'boolean') {
+      p.autoCorrect.red = DEFAULTS.autoCorrect.red;
+    }
     delete p.autoCorrectOrange;
     if (typeof p.refLinks !== 'boolean') p.refLinks = DEFAULTS.refLinks;
     if (typeof p.refHighlight !== 'boolean') p.refHighlight = DEFAULTS.refHighlight;

@@ -1593,21 +1593,23 @@ async function autoCorrectOranges({ persistedKeys, autoAll }) {
 // both yellow (Fix-in-place) and red (accepted near-match) — both run through
 // correctTextInPlace, and an accepted-red correction is persisted keyed on the
 // original red finding, which re-classifies red on reload.
-// FR-018 / FR-045 (SC-006) — yellow and red are MANUAL by rule: callers pass
-// autoAll:false. The assertion below makes the red-never-auto guarantee explicit
-// and defensive: a red finding is corrected ONLY when the user vetted it before;
-// it is NEVER auto-corrected, regardless of any preference.
-async function autoCorrectYellows({ persistedKeys, autoAll }) {
+//
+// Auto-application (autoYellow / autoRed) is opt-in via prefs.autoCorrect.{yellow,red}:
+//   • yellow: replaces drifted user text with the authentic mushaf wording —
+//     integrity-preserving (replacement is always canonical text).
+//   • red:    accepts the verifier's near-match when one exists. Higher risk —
+//     gated on f.nearMatch being present.
+// Both still default OFF; the safety gate is the user's explicit opt-in.
+async function autoCorrectYellows({ persistedKeys, autoYellow, autoRed }) {
   const candidates = STATE.findings.filter(f =>
     f.color === 'yellow' || (f.color === 'red' && f.nearMatch));
   let n = 0;
   for (const f of candidates) {
     const vetted = persistedKeys && persistedKeys.has(f.id);
-    // T045 (FR-018, SC-006): red is never auto-corrected — only re-applied when
-    // the user already accepted it (vetted). Yellow is likewise vetted-only here
-    // (autoAll is always false for this path).
-    if (f.color === 'red' && !vetted) continue;
-    if (!vetted && !autoAll) continue;
+    let allow = vetted;
+    if (!allow && f.color === 'yellow' && autoYellow) allow = true;
+    if (!allow && f.color === 'red' && autoRed && f.nearMatch) allow = true;
+    if (!allow) continue;
     try {
       const r = await correctTextInPlace(f.id, { persist: false, silent: true });
       if (r?.ok && !r.result.fellBackToClipboard) n++;
@@ -1749,10 +1751,12 @@ async function maybeMountSidebar(finalState) {
   }
   const autoAll = STATE.prefs?.autoCorrect?.orange === true;
   let reapplied = await autoCorrectOranges({ persistedKeys: correctedKeys, autoAll });
-  // FR-018: yellow is MANUAL by rule — never auto-corrected regardless of prefs.
-  // Only prior user-vetted yellow corrections are re-applied on revisit (FR-021);
-  // hence autoAll is hard-false here, never a preference.
-  reapplied += await autoCorrectYellows({ persistedKeys: correctedKeys, autoAll: false });
+  // Yellow + red auto-application is opt-in via prefs.autoCorrect.{yellow,red}.
+  // Vetted (user-accepted-before) findings are always re-applied (FR-021); the
+  // prefs only govern whether NEW yellows/reds get auto-corrected on this scan.
+  const autoYellow = STATE.prefs?.autoCorrect?.yellow === true;
+  const autoRed = STATE.prefs?.autoCorrect?.red === true;
+  reapplied += await autoCorrectYellows({ persistedKeys: correctedKeys, autoYellow, autoRed });
   // T036/T049 — lightBlue reference-attribution: re-apply prior vetted ones on
   // revisit (FR-021), and — when prefs.autoCorrect.lightBlue (default ON, FR-018,
   // never edits page text) — auto-attribute every unambiguously-resolved lightBlue.

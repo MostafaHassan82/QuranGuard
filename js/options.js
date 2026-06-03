@@ -95,7 +95,10 @@ async function applyPrefsToUI(prefs) {
   if (auto) auto.checked = ac.orange === true;
   const autoLB = document.getElementById('autocorrect-lightblue');
   if (autoLB) autoLB.checked = ac.lightBlue === true;
-  // No yellow/red autocorrect toggle exists (FR-018: manual by rule).
+  const autoY = document.getElementById('autocorrect-yellow');
+  if (autoY) autoY.checked = ac.yellow === true;
+  const autoR = document.getElementById('autocorrect-red');
+  if (autoR) autoR.checked = ac.red === true;
 
   const refLinks = document.getElementById('ref-links');
   if (refLinks) refLinks.checked = prefs?.refLinks !== false;
@@ -187,9 +190,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     savePrefs({ autoCorrect: { orange: e.target.checked } });
   });
   // Auto-surface the resolved lightBlue reference (panel/tooltip only, no page
-  // edit) → autoCorrect.lightBlue. There is no yellow/red toggle (FR-018).
+  // edit) → autoCorrect.lightBlue. Yellow (replace drifted ayah text with the
+  // authentic mushaf wording) and red (accept verifier's near-match when one
+  // exists) are opt-in toggles, default OFF.
   const lbEl = document.getElementById('autocorrect-lightblue');
   if (lbEl) lbEl.addEventListener('change', (e) => savePrefs({ autoCorrect: { lightBlue: e.target.checked } }));
+  const yEl = document.getElementById('autocorrect-yellow');
+  if (yEl) yEl.addEventListener('change', (e) => savePrefs({ autoCorrect: { yellow: e.target.checked } }));
+  const rEl = document.getElementById('autocorrect-red');
+  if (rEl) rEl.addEventListener('change', (e) => savePrefs({ autoCorrect: { red: e.target.checked } }));
 
   // Highlight the cited reference on the page (gold marker).
   document.getElementById('ref-highlight').addEventListener('change', (e) => {
