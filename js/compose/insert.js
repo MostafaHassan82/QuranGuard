@@ -99,14 +99,35 @@ const QuranComposeInsert = (() => {
     return best;
   }
 
+  // The user can type a single word OR a contiguous phrase (multiple words) as
+  // the end marker. Returns the verse index of the LAST word in the matching
+  // run, or -1 if no run is found.
+  //
+  // Single-word path keeps the original two-pass behavior: exact-normalized
+  // match first (so a short end word like لا doesn't bind to an earlier
+  // near-twin via soft equality), then a drift-tolerant fallback. Multi-word
+  // phrases match contiguously: each verse position N is tried as the run
+  // start, and we walk forward word-for-word using the same soft equality.
   function findEndWord(endWord, verseNorm, fromStart) {
-    const target = norm(endWord);
-    if (!target) return -1;
-    // Prefer an EXACT normalized match: soft equality alone can bind a short end
-    // word to an earlier near-twin (e.g. لا ≈ الا), truncating the passage. Only
-    // fall back to drift tolerance when no exact word exists (Uthmani drift).
-    for (let i = fromStart; i < verseNorm.length; i++) if (verseNorm[i] === target) return i;
-    for (let i = fromStart; i < verseNorm.length; i++) if (softEqualWord(verseNorm[i], target)) return i;
+    const tokens = normWords(endWord);
+    if (!tokens.length) return -1;
+    if (tokens.length === 1) {
+      const target = tokens[0];
+      for (let i = fromStart; i < verseNorm.length; i++) if (verseNorm[i] === target) return i;
+      for (let i = fromStart; i < verseNorm.length; i++) if (softEqualWord(verseNorm[i], target)) return i;
+      return -1;
+    }
+    // Phrase: walk every possible start, accept the first contiguous run that
+    // matches all tokens (drift-tolerant per word). Stops at the first hit so a
+    // later, looser run can't override an earlier exact one.
+    const last = verseNorm.length - tokens.length;
+    for (let s = fromStart; s <= last; s++) {
+      let ok = true;
+      for (let t = 0; t < tokens.length; t++) {
+        if (!softEqualWord(verseNorm[s + t], tokens[t])) { ok = false; break; }
+      }
+      if (ok) return s + tokens.length - 1;
+    }
     return -1;
   }
 
