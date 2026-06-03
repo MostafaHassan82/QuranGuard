@@ -159,6 +159,29 @@ const LEAD_IN_PATTERNS = [
   // the bare noun form was missing.
   'قول الله تعالى', 'وقول الله تعالى', 'فقول الله تعالى',
   'قول الله سبحانه', 'قول الله عز وجل', 'قول الله جل جلاله',
+  // تبارك (و)تعالى family — "Blessed and Exalted is He." Common formal
+  // introducer; verb form 'يقول تبارك وتعالى' is already above.
+  'قال تبارك وتعالى', 'وقال تبارك وتعالى',
+  'قوله تبارك وتعالى', 'وقوله تبارك وتعالى', 'فقوله تبارك وتعالى',
+  'بقوله تبارك وتعالى', 'كقوله تبارك وتعالى',
+  // عز من قائل ("How mighty a Speaker is He") — fixed divine-speech epithet.
+  'قال عز من قائل', 'وقال عز من قائل', 'يقول عز من قائل',
+  'قوله عز من قائل', 'وقوله عز من قائل',
+  // فقال / ثم قال + divine epithet (sequential linkers in tafsir prose).
+  'فقال تعالى', 'ثم قال تعالى', 'فقال سبحانه', 'ثم قال سبحانه',
+  'فقال عز وجل', 'ثم قال عز وجل', 'فقال جل وعلا', 'ثم قال جل وعلا',
+  'فقال سبحانه وتعالى', 'ثم قال سبحانه وتعالى',
+  // في محكم … ("in the firm [scripture/revelation]") — locative introducer.
+  'في محكم كتابه', 'في محكم تنزيله', 'في محكم التنزيل', 'في محكم الذكر',
+  // الحق ("The Truth," i.e. Allah) — less frequent but unambiguous.
+  'قال الحق تبارك وتعالى', 'قال الحق سبحانه وتعالى', 'قال الحق سبحانه',
+  // NOTE: bare 'قال ربك' / 'قال ربنا' / 'يقول ربنا' are NOT added — they
+  // appear inside ayat themselves (e.g. {وإذ قال ربك للملائكة…}), so a
+  // lead-in match would grab whatever {…} comes next and falsely attribute
+  // an unrelated ayah. Only 'قال ربكم' (already above) is safe.
+  // Noun-prefix variants without 'تعالى' that pair with other epithets.
+  'بقول الله سبحانه', 'بقول الله عز وجل',
+  'كقول الله سبحانه', 'لقول الله تعالى',
 ];
 // Word-boundary guard: lead-in patterns must NOT be preceded by another Arabic letter,
 // or they'd false-match substrings of unrelated words (e.g. قوله inside عقولهم — "their
