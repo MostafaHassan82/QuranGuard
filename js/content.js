@@ -1698,10 +1698,13 @@ async function maybeMountSidebar(finalState) {
     for (const e of entries) {
       const kind = e.kind || e.action || 'ref-edit';
       if (kind === 'dismissal' || kind === 'dismiss') continue;
-      correctedKeys.add(e.compositeKey);
-      if (kind === 'reference-attribution' && e.payload && e.payload.resolvedRef) {
-        lightBlueRefByKey.set(e.compositeKey, e.payload.resolvedRef);
+      if (kind === 'reference-attribution') {
+        // Reading aid, not a correction: route through lightBlueRefByKey only;
+        // don't list as a "corrected" key (no badge, no orange/yellow re-apply).
+        if (e.payload && e.payload.resolvedRef) lightBlueRefByKey.set(e.compositeKey, e.payload.resolvedRef);
+        continue;
       }
+      correctedKeys.add(e.compositeKey);
     }
   }
   const autoAll = STATE.prefs?.autoCorrect?.orange === true;
@@ -2645,69 +2648,36 @@ async function correctReferenceAttribution(findingId, options = {}) {
   const resolvedRef = options.ref || f.resolvedLightBlueRef || null;
   if (!resolvedRef) return { ok: false, error: { code: 'AMBIGUOUS', message: 'no resolved reference' } };
 
-  // Re-verify the cited text AT the resolved reference (Principle I — confirm the
-  // attribution against the index; lightBlue text is authentic, so this is green).
-  let vres = null;
-  try { vres = await sendToBackground({ type: 'verifyFragmentByRef', text: f.text, ref: resolvedRef, candidateConfidence: 'high' }); } catch (_) {}
-  const successorColor = (vres && vres.color) || 'green';
-  const displayColor = 'lightGreen';
-  const successorMatchedRef = (vres && vres.matchedRef) || resolvedRef;
-  const successorId = computeCompositeFindingId(f.text, resolvedRef, successorMatchedRef, f.domPath);
+  // lightBlue stays lightBlue. Resolving the missing reference is a reading aid,
+  // not a correction — the page wasn't wrong, just uncited. So no successor, no
+  // color flip, no markRecentlyCorrected. We stamp the chosen ref onto the
+  // existing finding (id preserved → persisted-badge lookup keeps working) and
+  // refresh the tooltip; the lightGreen flow is reserved for real corrections
+  // (yellow Fix-in-place, orange auto-correct, accepted red near-match).
+  f.resolvedLightBlueRef = resolvedRef;
+  f.candidateLightBlueRefs = null;
 
   const ayahSpan = document.querySelector(`[data-finding-id="${cssEscapeId(findingId)}"]`);
-  // FR-005 clipboard fallback is N/A here (no DOM text edit to fall back from);
-  // a missing span just means we can't recolor → report span-missing.
-  if (!ayahSpan) return { ok: false, reason: 'span-missing' };
-
-  STATE.swapInProgress = true;
-  try {
-    // NO text edit (FR-007): recolor + tooltip carries the resolved ref only.
-    for (const c of ALL_HIGHLIGHT_CLASSES) ayahSpan.classList.remove(c);
-    if (CSS_BY_COLOR[displayColor]) ayahSpan.classList.add(CSS_BY_COLOR[displayColor]);
-    const tip = buildTooltip(displayColor, { color: displayColor, correctedFromRef: tt('tip_no_ref'), matchedRef: successorMatchedRef });
-    ayahSpan.dataset.findingId = successorId;
-    ayahSpan.dataset.color = displayColor;
-    ayahSpan.dataset.claimedRef = resolvedRef;
-    ayahSpan.dataset.matchedRef = successorMatchedRef;
-    ayahSpan.dataset.tooltip = tip;
-    if (CATEGORY_LABEL_AR[displayColor]) ayahSpan.setAttribute('aria-label', tt('cat_' + displayColor) + (tip ? '. ' + tip : ''));
-  } finally {
-    setTimeout(() => { STATE.swapInProgress = false; }, 50);
+  if (ayahSpan) {
+    STATE.swapInProgress = true;
+    try {
+      const tip = `${tt('corr_suggest_ref')} ${resolvedRef}`;
+      ayahSpan.dataset.tooltip = tip;
+      ayahSpan.setAttribute('aria-label', tt('cat_lightBlue') + '. ' + tip);
+    } finally {
+      setTimeout(() => { STATE.swapInProgress = false; }, 50);
+    }
   }
 
-  const successor = {
-    ...f,
-    id: successorId,
-    category: successorColor,
-    color: displayColor,
-    correctedFromRef: null,          // lightBlue carried no cited reference
-    citedReference: resolvedRef,
-    claimedRef: resolvedRef,
-    matchedReference: successorMatchedRef,
-    matchedRef: successorMatchedRef,
-    matchedRefs: [],
-    authenticText: (vres && vres.authenticText) || f.authenticText,
-    resolvedLightBlueRef: resolvedRef,
-    candidateLightBlueRefs: null,
-    diff: null,
-    nearMatch: null,
-    priorFindingId: findingId,
-    correctionKind: 'reference-attribution',
-    persistedBadge: null,
-    priorFinding: { ...f, priorFinding: undefined },
-  };
-  const idx = STATE.findings.findIndex(x => x.id === findingId);
-  if (idx !== -1) STATE.findings.splice(idx, 1, successor); else STATE.findings.push(successor);
-
-  const perCategoryCount = { green: 0, lightBlue: 0, lightGreen: 0, yellow: 0, orange: 0, red: 0 };
-  for (const x of STATE.findings) if (perCategoryCount[x.color] !== undefined) perCategoryCount[x.color]++;
   if (!silent) {
+    const perCategoryCount = { green: 0, lightBlue: 0, lightGreen: 0, yellow: 0, orange: 0, red: 0 };
+    for (const x of STATE.findings) if (perCategoryCount[x.color] !== undefined) perCategoryCount[x.color]++;
     QuranMsg.emit('SCAN_COMPLETE', {
       scanId: STATE.scanId, totalCount: STATE.findings.length, perCategoryCount,
       finalState: computeFinalState(), languageDetected: STATE.languageDetected || 'ar',
     });
     if (typeof QuranPanelSidebar !== 'undefined' && QuranPanelSidebar.isMounted()) {
-      try { QuranPanelSidebar.ingest(successor, findingId); } catch (_) {}
+      try { QuranPanelSidebar.upsert(f); } catch (_) {}
     }
   }
   window.__quranMatches = STATE.findings.slice();
@@ -2720,7 +2690,7 @@ async function correctReferenceAttribution(findingId, options = {}) {
       });
     } catch (_) {}
   }
-  return { ok: true, result: { successorFindingId: successorId } };
+  return { ok: true, result: { findingId, resolvedRef } };
 }
 
 // Restore a corrected (lightGreen) finding to its pre-correction state: rewrite

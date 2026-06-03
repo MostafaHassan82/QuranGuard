@@ -191,9 +191,10 @@ const QuranActions = (() => {
     try { return await correctTextInPlace(findingId, candidate ? { candidate } : {}); } catch (_) { return { ok: false }; }
   }
 
-  // T032 (US2) — lightBlue reference-attribution from the CONTENT world. Recolors
-  // to a lightGreen successor + surfaces the resolved ref in the tooltip; NEVER
-  // edits page text. content.js defines correctReferenceAttribution() in US2.
+  // T032 (US2) — lightBlue reference-attribution from the CONTENT world. Stamps
+  // the resolved ref onto the finding + tooltip (color stays lightBlue: it's a
+  // reading aid, not a correction). NEVER edits page text. content.js defines
+  // correctReferenceAttribution() in US2.
   async function correctRefAttributionInContent(findingId, ref) {
     if (!findingId || typeof correctReferenceAttribution !== 'function') {
       return { ok: false, reason: 'not-implemented' };

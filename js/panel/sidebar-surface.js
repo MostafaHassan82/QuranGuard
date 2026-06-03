@@ -713,9 +713,11 @@ const QuranPanelSidebar = (() => {
       const item = document.createElement('span');
       item.className = 'quran-ext-panel-suggest-item';
       item.append(refToken(ref));
-      // T032/T035 — accept this reference: recolor the finding to a lightGreen
-      // successor carrying the ref (no page-text edit, FR-007). For the ambiguous
-      // case each candidate gets its own accept (manual choice, FR-010).
+      // T032/T035 — accept this reference: stamp it onto the finding as the
+      // resolved ref (color stays lightBlue — uncited authentic text is not a
+      // mistake; the ref is a reading aid, not a correction). No page-text edit
+      // (FR-007). For the ambiguous case each candidate gets its own accept
+      // (manual choice, FR-010).
       const accept = makeActionBtn(sug.ambiguous ? T('corr_choose_ref') : T('act_correct'),
         () => runAction('correctReferenceAttribution', finding, { ref }));
       accept.classList.add('quran-ext-panel-suggest-accept');

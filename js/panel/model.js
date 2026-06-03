@@ -84,6 +84,10 @@ const QuranPanelModel = (() => {
       // derive the YYYY-MM-DD shown in the badge from the ISO timestamp.
       const rawKind = e.kind || e.action || '';
       const isDismissal = rawKind === 'dismissal' || rawKind === 'dismiss';
+      // 'reference-attribution' is a reading aid, not a correction (lightBlue
+      // stays lightBlue); persisted entries of that kind get the ref re-stamped
+      // in content.js but must NOT carry the "Previously corrected" badge.
+      if (rawKind === 'reference-attribution') continue;
       const badgeKind = isDismissal ? 'dismissed' : 'corrected';
       const when = (e.at || e.when || '').slice(0, 10);
 
