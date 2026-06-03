@@ -934,6 +934,38 @@ const QuranPanelSidebar = (() => {
     }
   }
 
+  // T154 — visibility filter. A finding whose page-span is disconnected is
+  // out of the user's current view (typical on virtualized chat apps where
+  // rows un/mount as they scroll). Hide the row from the panel sections but
+  // keep it in the model — when the row comes back, its identity matches a
+  // memory entry, the page is re-wrapped with the preserved id, and the
+  // next render call sees it as connected again.
+  //
+  // Panel rows also stamp data-finding-id (panel/sidebar-surface.js:455), so
+  // restrict the lookup to NOT match our own UI — same reason swap.js does
+  // (see js/render/swap.js T153). Without that the panel row itself would
+  // count as "connected" and nothing would ever hide.
+  function isPageConnected(id) {
+    if (!id) return false;
+    try {
+      const sel = `[data-finding-id="${(typeof CSS !== 'undefined' && CSS.escape) ? CSS.escape(id) : String(id).replace(/[^a-zA-Z0-9_-]/g, '\\$&')}"]`;
+      const matches = document.querySelectorAll(sel);
+      for (const el of matches) {
+        if (el.closest('.quran-ext-panel, .quran-ext-panel-tab, .quran-ext-ref-tip')) continue;
+        return true;
+      }
+      return false;
+    } catch (_) { return false; }
+  }
+  function visibleOnly(arr) {
+    // Visibility applies to active + previously-dismissed sections (rows the
+    // user is browsing in their current page state). "Recently corrected"
+    // and "dismissed this session" are intentional pins from this session;
+    // we keep them even if the host scrolled the row off — losing them
+    // mid-session would erase the user's just-taken action.
+    return arr.filter(f => isPageConnected(f.id));
+  }
+
   function render() {
     if (!rootEl) return;
     renderSummary();
@@ -941,10 +973,10 @@ const QuranPanelSidebar = (() => {
     container.replaceChildren();
 
     const filter = activeFilter || {};
-    const active = QuranPanelModel.activeView(filter);
+    const active = visibleOnly(QuranPanelModel.activeView(filter));
     const recent = QuranPanelModel.recentlyCorrected();
     const dismissed = QuranPanelModel.dismissedThisSession();
-    const prior = QuranPanelModel.previouslyDismissed();
+    const prior = visibleOnly(QuranPanelModel.previouslyDismissed());
 
     if (!active.length && !recent.length && !dismissed.length && !prior.length) {
       const empty = document.createElement('div');
@@ -1171,6 +1203,13 @@ const QuranPanelSidebar = (() => {
     // Reserve gutter space on <html> so the sidebar doesn't overlap content.
     document.documentElement.classList.add('quran-ext-sidebar-mounted');
 
+    // T154 — drive visibility re-renders on a 1s tick. Scans already trigger
+    // render() via SCAN_PROGRESS/SCAN_COMPLETE, which covers active scrolling.
+    // The tick covers the "user stopped scrolling and a row scrolled out of
+    // view" case where no further scans fire but a span has disconnected.
+    // Cheap: it only calls render() when the set of connected ids changed.
+    startVisibilityTick();
+
     await loadUi();
 
     let prefs = {};
@@ -1254,7 +1293,33 @@ const QuranPanelSidebar = (() => {
     }
   }
 
+  // T154 — visibility tick + connected-set fingerprint, see comment in mount().
+  let visibilityTimer = null;
+  let lastVisibilityFingerprint = '';
+  function computeVisibilityFingerprint() {
+    const ids = [];
+    for (const f of QuranPanelModel.all()) if (isPageConnected(f.id)) ids.push(f.id);
+    ids.sort();
+    return ids.join('|');
+  }
+  function startVisibilityTick() {
+    stopVisibilityTick();
+    lastVisibilityFingerprint = computeVisibilityFingerprint();
+    visibilityTimer = setInterval(() => {
+      if (!rootEl) return;
+      const fp = computeVisibilityFingerprint();
+      if (fp === lastVisibilityFingerprint) return;
+      lastVisibilityFingerprint = fp;
+      render();
+    }, 1000);
+  }
+  function stopVisibilityTick() {
+    if (visibilityTimer) { clearInterval(visibilityTimer); visibilityTimer = null; }
+    lastVisibilityFingerprint = '';
+  }
+
   function unmount() {
+    stopVisibilityTick();
     if (detachKeyboard) { detachKeyboard(); detachKeyboard = null; }
     if (window.__quranSidebarHotkey) {
       document.removeEventListener('keydown', window.__quranSidebarHotkey);

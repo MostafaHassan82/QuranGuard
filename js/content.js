@@ -3085,6 +3085,29 @@ document.addEventListener('focusout', (e) => {
 // The tooltip is fixed-positioned; scrolling moves the anchor out from under it.
 window.addEventListener('scroll', hideRefTip, { passive: true, capture: true });
 
+// ── T155 — Scroll-stop catch-up scan ──────────────────────────────────────────
+// On virtualized hosts (WhatsApp Web, Slack, Twitter, …) a row can mount during
+// the brief window when the MutationObserver's debounce/coalesce picks the
+// wrong subtree (LCA too shallow, ayah text fragmented across batches, breaker
+// paused, etc.), so the row never gets walked and stays unhighlighted. The
+// user's workaround was to "scroll up and down again" — that flushes fresh
+// mutations and the next rescan catches it. This handler does the same thing
+// automatically: ~400 ms after scrolling stops, run one document.body subtree
+// scan. Cheap (single pass), idempotent (already-wrapped rows are filtered by
+// HIGHLIGHT_SELECTOR in the walker), and host-agnostic.
+// Capture + passive so scrollable inner containers (the chat list itself, not
+// window) trigger it too.
+let scrollStopTimer = null;
+function onAnyScroll() {
+  clearTimeout(scrollStopTimer);
+  scrollStopTimer = setTimeout(() => {
+    if (STATE.scanning) return;
+    if (STATE.swapInProgress) return;
+    scanPage({ subtreeRoot: document.body }).catch(() => {});
+  }, 400);
+}
+window.addEventListener('scroll', onAnyScroll, { passive: true, capture: true });
+
 // ── Keep the service worker warm ──────────────────────────────────────────────
 // Cold-starting the MV3 worker on a resource-starved browser (e.g. very many
 // tabs) was measured at 20–90s, which is the dominant "stall before highlights"

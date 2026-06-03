@@ -45,20 +45,24 @@
   'use strict';
 
   // ── Volatile pattern scrubber ────────────────────────────────────────────
-  // Patterns that change within a single mount lifetime and must NOT
-  // contribute to identity. Add to this list as we discover more hosts.
-  // Order matters: more-specific patterns first.
+  // Patterns that change *within a single message's lifetime* — relative
+  // time labels that tick forward, presence labels that toggle, etc. These
+  // must not contribute to identity or "2 min ago" → "3 min ago" would
+  // re-mount as a new finding.
+  //
+  // ABSOLUTE timestamps and dates ARE NOT scrubbed: a message sent at
+  // 10:28 p.m. always shows that exact timestamp, so the timestamp is the
+  // only reliable discriminator between two messages with identical body +
+  // author (e.g. someone forwarding the same ayah twice in a row). Scrubbing
+  // them collapses those two messages into one finding. Per-host UI clocks
+  // (e.g. a status-bar clock that ticks) are normally NOT inside a single
+  // message's context atom — the ancestor walk picks the smallest container
+  // with non-ayah text, which on chat apps is the message bubble.
   const VOLATILE_PATTERNS = [
     // Relative-time labels: "2 minutes ago", "just now", "yesterday"
     /\b\d+\s*(seconds?|secs?|minutes?|mins?|hours?|hrs?|days?|weeks?|months?|years?)\s*ago\b/gi,
     /\bjust\s*now\b/gi,
     /\b(yesterday|today)\b/gi,
-    // Clock times in common forms: 10:30, 10:30 AM, 22:45
-    /\b\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM|am|pm)?\b/g,
-    // ISO-ish dates: 2026-06-02, 2026/06/02
-    /\b\d{4}[-/]\d{1,2}[-/]\d{1,2}\b/g,
-    // Slash dates: 6/2/2026, 02/06/26
-    /\b\d{1,2}\/\d{1,2}\/\d{2,4}\b/g,
     // Presence labels (WhatsApp/Slack idioms — narrow enough to be safe)
     /\b(online|offline|typing\.{0,3}|last\s+seen\s+[^.\n]{0,40})\b/gi,
     // Read receipts / message counts on the side of bubbles
