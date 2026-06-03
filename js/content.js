@@ -798,13 +798,26 @@ function normalizeForId(s) {
 function computeDomPath(node) {
   if (!node) return '';
   const parts = [];
+  // For TEXT nodes, encode position among the parent's children too. Otherwise
+  // two text-node siblings inside the same parent (e.g. a {ودع أذاهم} citation
+  // and the same phrase re-quoted later in the same <p>) share an element-only
+  // chain → identical domPath → identical composite id → the second one
+  // collides with the first in dedup. The text-node index is stable under
+  // virtualization re-mounts (the row template reproduces the same node order).
+  if (node.nodeType === 3 && node.parentNode) {
+    let txtIdx = 0;
+    for (let sib = node.previousSibling; sib; sib = sib.previousSibling) {
+      if (sib.nodeType === 3) txtIdx++;
+    }
+    parts.push(`#t${txtIdx}`);
+  }
   let el = node.nodeType === 1 ? node : node.parentElement;
   // Cap = 30: WhatsApp Web (and other deeply-nested SPAs) routinely bury text
   // nodes 15-20+ levels deep. A cap of 12 collapsed two distinct message
   // bubbles to the same path because their first 12 inner ancestors were
   // identical — only the chat-list ancestor's siblingIndex distinguished them.
   // Path remains deterministic, so FR-024 persistence is unaffected.
-  while (el && el !== document.documentElement && parts.length < 30) {
+  while (el && el !== document.documentElement && parts.length < 31) {
     let idx = 0;
     let sib = el;
     while ((sib = sib.previousElementSibling) != null) if (sib.tagName === el.tagName) idx++;
@@ -989,11 +1002,15 @@ function applyHighlight(candidate, result, { hidden = false } = {}) {
     // Dedup. Virtualized lists (WhatsApp Web, Slack, etc.) re-mount scrolled-
     // out rows at a different DOM position, so the composite finding id
     // (which hashes domPath in) differs even for the same logical message.
-    // Match on sessionIdentity (T151) instead — it hashes nearby DOM text,
-    // not position, so re-mounts collapse to one entry. Fall back to the
-    // composite id when sessionIdentity isn't available (defensive: e.g.
-    // the context-atom module failed to load) so behaviour degrades to the
-    // previous dedup rather than silently breaking.
+    // Match on sessionIdentity (T151) too — it hashes nearby DOM text +
+    // occurrence index within the atom, so re-mounts collapse to one entry.
+    // Composite id covers the orthogonal axis (same content in different DOM
+    // siblings — e.g. cap_hit's 505 identical <p>s — must stay distinct).
+    // Both must distinguish for the row to be treated as new: composite-id
+    // alone is too coarse (two ayahs in one <p> share computeDomPath until we
+    // include text-node position) and sid alone is too coarse (505 identical
+    // bubbles share content + context). Fall back to composite id only when
+    // sessionIdentity isn't available (context-atom module failed to load).
     const existingIdx = STATE.findings.findIndex((f) => {
       if (sessionIdentity && f.sessionIdentity === sessionIdentity) return true;
       return f.id === findingId;

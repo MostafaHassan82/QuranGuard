@@ -160,14 +160,40 @@
     return ('00000000' + h.toString(16)).slice(-8);
   }
 
+  // Count how many times `needle` appears in the atom's text BEFORE sourceNode.
+  // Discriminates two occurrences of the same ayah inside one paragraph
+  // (lightBlue duplicates with empty claimedRef would otherwise collide on
+  // (rawText|matchedRef|atomCtx) and the second would be deduped out). Stable
+  // under virtualization: a re-mounted row reproduces the same text layout, so
+  // each ayah within the row keeps its index across mounts.
+  function occurrenceIndexBeforeNode(atom, sourceNode, needle) {
+    if (!atom || !sourceNode || !needle) return 0;
+    const target = needle.trim();
+    if (!target) return 0;
+    const doc = atom.ownerDocument || (typeof document !== 'undefined' ? document : null);
+    if (!doc) return 0;
+    const walker = doc.createTreeWalker(atom, NodeFilter.SHOW_TEXT);
+    let before = '';
+    let n;
+    while ((n = walker.nextNode())) {
+      if (n === sourceNode) break;
+      before += n.data || '';
+    }
+    let count = 0, idx = 0;
+    while ((idx = before.indexOf(target, idx)) !== -1) { count++; idx += target.length; }
+    return count;
+  }
+
   function computeSessionIdentity({ rawText, claimedRef, matchedRef, sourceNode }) {
     const atom = findContextAtomAncestor(sourceNode);
     const ctx = extractContextText(atom, rawText);
+    const occIdx = occurrenceIndexBeforeNode(atom, sourceNode, rawText);
     const composite = [
       (rawText || '').trim(),
       (claimedRef || '').trim(),
       (matchedRef || '').trim(),
       ctx,
+      'occ:' + occIdx,
     ].join('|');
     return 'ctx-' + fnv1a32(composite) + '-' + composite.length.toString(36);
   }
@@ -179,6 +205,7 @@
     _internals: {
       findContextAtomAncestor,
       extractContextText,
+      occurrenceIndexBeforeNode,
       scrubVolatile,
       fnv1a32,
       VOLATILE_PATTERNS,
