@@ -1932,8 +1932,11 @@ function setupMutationObserver() {
           // has stopped scrolling there will be no further mutations to
           // trigger a rescan — so those ayahs stay unhighlighted until the
           // next scroll. One subtree scan of document.body picks them up.
-          // Gated on !scanning so we don't collide with a fresh full scan.
-          if (!STATE.scanning) {
+          // Gated on !scanning so we don't collide with a fresh full scan,
+          // and (T156) on the page actually virtualizing — a document.body
+          // single-pass walk on a fully-wrapped static page produces ghost
+          // findings (extractor sees gappy text and mis-pairs refs).
+          if (!STATE.scanning && isPageVirtualizing()) {
             scanPage({ subtreeRoot: document.body }).catch(() => {});
           }
         }, ms);
@@ -3085,7 +3088,7 @@ document.addEventListener('focusout', (e) => {
 // The tooltip is fixed-positioned; scrolling moves the anchor out from under it.
 window.addEventListener('scroll', hideRefTip, { passive: true, capture: true });
 
-// ── T155 — Scroll-stop catch-up scan ──────────────────────────────────────────
+// ── T155 — Scroll-stop catch-up scan (virtualization-gated) ──────────────────
 // On virtualized hosts (WhatsApp Web, Slack, Twitter, …) a row can mount during
 // the brief window when the MutationObserver's debounce/coalesce picks the
 // wrong subtree (LCA too shallow, ayah text fragmented across batches, breaker
@@ -3093,16 +3096,31 @@ window.addEventListener('scroll', hideRefTip, { passive: true, capture: true });
 // user's workaround was to "scroll up and down again" — that flushes fresh
 // mutations and the next rescan catches it. This handler does the same thing
 // automatically: ~400 ms after scrolling stops, run one document.body subtree
-// scan. Cheap (single pass), idempotent (already-wrapped rows are filtered by
-// HIGHLIGHT_SELECTOR in the walker), and host-agnostic.
-// Capture + passive so scrollable inner containers (the chat list itself, not
-// window) trigger it too.
+// scan.
+//
+// T156 — gate on "at least one finding-span is disconnected". A single-pass
+// subtree scan that walks document.body is NOT idempotent on a fully-wrapped
+// static article: the walker skips already-wrapped text via HIGHLIGHT_SELECTOR,
+// the extractor sees text with gaps where ayahs were, and the extraction
+// strategies pair refs with the wrong unwrapped neighbour or mis-classify
+// fragments — producing wrong-color ghosts on previously-correct pages. The
+// disconnected-span signal is exactly "the page is virtualizing rows out and
+// in" — true on chat apps, false on stable articles, so the catch-up only
+// runs where it actually helps.
 let scrollStopTimer = null;
+function isPageVirtualizing() {
+  // Cheap O(N) check; STATE.highlightedSpans is small in practice (capped at
+  // SCAN_CAP), and a single disconnected span is enough to flip the gate.
+  if (!STATE.highlightedSpans || !STATE.highlightedSpans.length) return false;
+  for (const s of STATE.highlightedSpans) if (s && !s.isConnected) return true;
+  return false;
+}
 function onAnyScroll() {
   clearTimeout(scrollStopTimer);
   scrollStopTimer = setTimeout(() => {
     if (STATE.scanning) return;
     if (STATE.swapInProgress) return;
+    if (!isPageVirtualizing()) return;
     scanPage({ subtreeRoot: document.body }).catch(() => {});
   }, 400);
 }
