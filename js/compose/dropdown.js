@@ -134,6 +134,40 @@ const QuranComposeDropdown = (() => {
     return input;
   }
 
+  // Inline numeric prompt — used by the multiAyahs scope to ask "how many?"
+  // at insertion time. Twin of showEndWord; same focus/teardown contract.
+  function showAyahCountInput(rect, onSubmit, promptText, noteText) {
+    items = [];
+    onPick = null;
+    const node = ensureEl();
+    node.innerHTML = '';
+    if (noteText) {
+      const note = document.createElement('div');
+      note.className = 'quran-ac-note';
+      note.textContent = noteText;
+      node.appendChild(note);
+    }
+    const input = document.createElement('input');
+    input.type = 'number';
+    input.min = '2';
+    input.step = '1';
+    input.className = 'quran-ac-endword';
+    input.setAttribute('placeholder', promptText || '');
+    input.addEventListener('keydown', (e) => {
+      e.stopPropagation();
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        if (onSubmit) onSubmit(input.value.trim());
+      }
+    });
+    input.addEventListener('mousedown', (e) => e.stopPropagation());
+    node.appendChild(input);
+    node.style.display = 'block';
+    position(node, rect);
+    try { input.focus(); } catch (_) {}
+    return input;
+  }
+
   // A non-interactive message row (e.g. "no matching ayah"). Shown instead of
   // candidates so the user gets feedback WITHOUT the field ever being touched.
   function showNote(text, rect) {
@@ -223,5 +257,5 @@ const QuranComposeDropdown = (() => {
 
   function count() { return items.length; }
 
-  return { show, showScope, showEndWord, showNote, hide, setSelected, isVisible, count, contains };
+  return { show, showScope, showEndWord, showAyahCountInput, showNote, hide, setSelected, isVisible, count, contains };
 })();

@@ -138,8 +138,6 @@ async function applyPrefsToUI(prefs) {
     const mc = parseInt(acomp.maxCandidates, 10);
     acMaxCand.value = String(Number.isFinite(mc) && mc >= 0 ? mc : 8);
   }
-  const acMaCount = document.getElementById('ac-multi-ayahs-count');
-  if (acMaCount) acMaCount.value = String(Math.min(20, Math.max(2, parseInt(acomp.multiAyahsCount, 10) || 5)));
   const acMaCap = document.getElementById('ac-multi-ayahs-cap');
   if (acMaCap) acMaCap.value = String(Math.min(2000, Math.max(20, parseInt(acomp.multiAyahsWordCap, 10) || 200)));
 
@@ -255,10 +253,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   const acMaxCandEl = document.getElementById('ac-max-candidates');
   if (acMaxCandEl) acMaxCandEl.addEventListener('change', (e) => {
     savePrefs({ autocomplete: { maxCandidates: parseInt(e.target.value, 10) } });
-  });
-  const acMaCountEl = document.getElementById('ac-multi-ayahs-count');
-  if (acMaCountEl) acMaCountEl.addEventListener('change', (e) => {
-    savePrefs({ autocomplete: { multiAyahsCount: parseInt(e.target.value, 10) } });
   });
   const acMaCapEl = document.getElementById('ac-multi-ayahs-cap');
   if (acMaCapEl) acMaCapEl.addEventListener('change', (e) => {

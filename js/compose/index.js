@@ -30,7 +30,7 @@
   // into is a newly-typed citation (dropdown territory), not pre-existing content.
   const FOCUS_RENDER_MS = 60;
 
-  let settings = { enabled: true, liveRender: true, refFormat: 'arabicName', refPlacement: 'after', minWords: 2, maxCandidates: DEFAULT_LIMIT, multiAyahsCount: 5, multiAyahsWordCap: 200 };
+  let settings = { enabled: true, liveRender: true, refFormat: 'arabicName', refPlacement: 'after', minWords: 2, maxCandidates: DEFAULT_LIMIT, multiAyahsWordCap: 200 };
   // The global Quran-font choice (prefs.font, NOT under prefs.autocomplete) used
   // when rendering matched text in-editor (FR-018).
   let fontKey = 'uthmaniHafs';
@@ -41,14 +41,14 @@
   let queryToken = 0;
 
   // Live state for the active citation/dropdown.
-  //   mode: 'candidates' (US1 list) | 'scope' (US2 scope menu) | 'endword' (US2 prompt)
+  //   mode: 'candidates' | 'scope' | 'endword' | 'ayahcount'
   //   pending: the accepted candidate + frozen citation span, awaiting a scope choice.
   const STATE = { el: null, ctx: null, det: null, candidates: [], selIndex: 0, mode: 'candidates', pending: null };
 
   // Insertion scopes for the second menu (FR-015). Labels are localized at show
-  // time so a language change between loads is reflected. multiAyahs and
-  // surahEnd extend the insert across verse boundaries (subject to the word
-  // cap in settings.multiAyahsWordCap).
+  // time so a language change between loads is reflected. multiAyahs prompts
+  // for the number of ayahs at insertion time; surahEnd inserts through the
+  // surah's last ayah. Both are gated by settings.multiAyahsWordCap.
   const SCOPES = [
     { key: 'whole', i18n: 'ac_scope_whole' },
     { key: 'typedPortion', i18n: 'ac_scope_typed' },
@@ -61,10 +61,6 @@
     const s = QuranI18n.t(key);
     if (!params) return s;
     return s.replace(/\{(\w+)\}/g, (_, k) => (params[k] != null ? String(params[k]) : `{${k}}`));
-  }
-  function scopeLabel(s) {
-    if (s.key === 'multiAyahs') return tt(s.i18n, { n: settings.multiAyahsCount });
-    return tt(s.i18n);
   }
 
   // ── Opt-in trace ─────────────────────────────────────────────────────────────
@@ -94,6 +90,7 @@
     moveSelection: (delta) => moveSelection(delta),
     chooseScope: (key) => chooseScope(key),       // US2: pick an insertion scope
     submitEndWord: (word) => submitEndWord(word),  // US2: start-to-end-word scope
+    submitAyahCount: (raw) => submitAyahCount(raw),// US2: multi-ayah count prompt
     _settings: () => settings,
   };
   window.__quranCompose = hook;
@@ -239,7 +236,7 @@
     STATE.selIndex = 0;
     STATE.candidates = [];          // candidate list is replaced by the scope menu
     publishCandidates();
-    const scopes = SCOPES.map(s => ({ key: s.key, label: scopeLabel(s) }));
+    const scopes = SCOPES.map(s => ({ key: s.key, label: tt(s.i18n) }));
     setActive('scopeMenu');
     QuranComposeDropdown.showScope(scopes, 0, STATE.pending.rect, (idx) => chooseScope(SCOPES[idx].key));
   }
@@ -258,28 +255,47 @@
         tt('ac_endword_prompt'));
       return;
     }
-    if (key === 'multiAyahs' || key === 'surahEnd') {
-      await insertMultiAyahs(key);
+    if (key === 'multiAyahs') {
+      STATE.mode = 'ayahcount';
+      setActive('scopeMenu');
+      QuranComposeDropdown.showAyahCountInput(
+        STATE.pending.rect,
+        (raw) => submitAyahCount(raw),
+        tt('ac_multi_ayahs_prompt'));
+      return;
+    }
+    if (key === 'surahEnd') {
+      await insertMultiAyahs('surahEnd', 0);
       return;
     }
     doInsert(key, null);
   }
 
+  function submitAyahCount(raw) {
+    if (!STATE.pending) return;
+    const n = parseInt(String(raw || '').trim(), 10);
+    if (!Number.isFinite(n) || n < 2) {
+      // Re-prompt with a hint; don't tear down.
+      STATE.mode = 'ayahcount';
+      QuranComposeDropdown.showAyahCountInput(
+        STATE.pending.rect,
+        (r) => submitAyahCount(r),
+        tt('ac_multi_ayahs_prompt'),
+        tt('ac_multi_ayahs_min'));
+      return;
+    }
+    insertMultiAyahs('multiAyahs', n);
+  }
+
   // Fetch the (N-1) ayahs after the candidate (or to the surah's end) and
   // delegate to doInsert with them attached. The word-cap refusal is enforced
   // inside QuranComposeInsert.buildBody; the caller surfaces it as a note.
-  async function insertMultiAyahs(key) {
+  async function insertMultiAyahs(key, n) {
     const p = STATE.pending;
     if (!p) return;
     const cand = p.cand;
     const startAyah = cand.ref.ayah;
-    let toAyah;
-    if (key === 'multiAyahs') {
-      const n = Math.max(2, parseInt(settings.multiAyahsCount, 10) || 5);
-      toAyah = startAyah + (n - 1);
-    } else {
-      toAyah = -1;   // sentinel: "to end" — getAyahRange clamps to surahLastAyah
-    }
+    const toAyah = (key === 'multiAyahs') ? startAyah + (n - 1) : -1;
     let extras = [];
     let endAyah = startAyah;
     try {
@@ -287,8 +303,6 @@
         type: 'getAyahRange', surahNum: cand.ref.surah, fromAyah: startAyah, toAyah,
       });
       const texts = (resp && Array.isArray(resp.texts)) ? resp.texts : [];
-      // The first text in the response is the candidate ayah itself; the
-      // "extras" are everything after it.
       extras = texts.slice(1);
       endAyah = startAyah + Math.max(0, texts.length - 1);
       if (key === 'surahEnd' && resp && Number.isFinite(resp.surahLastAyah)) {
@@ -297,8 +311,6 @@
     } catch (_) {}
     const err = doInsert(key, null, { extraAyahs: extras, endAyah, wordCap: settings.multiAyahsWordCap });
     if (err === 'capExceeded') {
-      // Show a non-destructive note; keep the scope menu open so the user can
-      // pick a smaller scope. (Don't tear down — the citation is still pending.)
       const cap = settings.multiAyahsWordCap;
       QuranComposeDropdown.showNote(tt('ac_cap_exceeded', { cap }), p.rect);
     }
@@ -449,8 +461,8 @@
       }
     }
     if (!QuranComposeDropdown.isVisible()) return;
-    // In end-word mode the prompt input owns the keyboard — let it through.
-    if (STATE.mode === 'endword') return;
+    // In end-word / ayah-count modes the prompt input owns the keyboard.
+    if (STATE.mode === 'endword' || STATE.mode === 'ayahcount') return;
     // Keys we act on must be FULLY consumed: preventDefault stops the host's
     // default (newline / form submit), and stopImmediatePropagation stops the
     // host's own keydown handlers (e.g. WhatsApp "send on Enter") from ever
@@ -503,7 +515,7 @@
     if (e && e.relatedTarget && QuranComposeDropdown.contains(e.relatedTarget)) return;
     // While the scope/end-word menu is open the field has already yielded focus
     // by design; don't tear down the pending insertion.
-    if (STATE.mode === 'scope' || STATE.mode === 'endword') return;
+    if (STATE.mode === 'scope' || STATE.mode === 'endword' || STATE.mode === 'ayahcount') return;
     // Caret left the field with a recognized citation still unresolved → hand it
     // to the verdict classifier (FR-011a) before closing the instance.
     dismissFallthrough();
