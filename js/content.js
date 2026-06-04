@@ -2783,12 +2783,14 @@ async function revertCorrection(findingId) {
   if (idx !== -1) STATE.findings.splice(idx, 1, original); else STATE.findings.push(original);
 
   // Clear the persisted correction so the revert sticks across reloads (FR-006).
-  // Remove the entry matching this correction's kind; also clear the interim
-  // 'correction' literal so pre-migration dev entries revert cleanly too.
+  // Corrections are stored under the pre-correction finding id, which we
+  // snapshotted as priorFindingId on the successor row — not the successor's
+  // own id, which is what findingId refers to here.
+  const persistedKey = f.priorFindingId || findingId;
   const revertKind = f.correctionKind || 'ref-edit';
-  try { await QuranMsg.sendRequest('PERSIST_REMOVE', { urlKey: pageUrlKey(), compositeKey: findingId, kind: revertKind }); } catch (_) {}
+  try { await QuranMsg.sendRequest('PERSIST_REMOVE', { urlKey: pageUrlKey(), compositeKey: persistedKey, kind: revertKind }); } catch (_) {}
   if (revertKind !== 'correction') {
-    try { await QuranMsg.sendRequest('PERSIST_REMOVE', { urlKey: pageUrlKey(), compositeKey: findingId, kind: 'correction' }); } catch (_) {}
+    try { await QuranMsg.sendRequest('PERSIST_REMOVE', { urlKey: pageUrlKey(), compositeKey: persistedKey, kind: 'correction' }); } catch (_) {}
   }
 
   if (typeof QuranPanelSidebar !== 'undefined' && QuranPanelSidebar.isMounted()) {
