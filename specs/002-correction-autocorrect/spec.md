@@ -29,6 +29,36 @@ The five-verdict taxonomy and the lightGreen provenance color are **unchanged** 
 - Q: How wide is the "adjacent attributed finding" used to auto-resolve an ambiguous lightBlue reference (FR-009)? → A: Nearest in DOM order — adopt the surah of the closest attributed finding in document order, within a bounded distance, regardless of block boundaries.
 - Q: With autocorrect ON, what happens to a previously corrected finding on revisit (FR-021)? → A: Re-apply + badge — automatically re-apply the safe correction during the scan AND show the "previously corrected" badge, so the page lands in its corrected state without reader action (still revertable).
 
+## Amendments
+
+### 2026-06-03 — lightBlue stays lightBlue (supersedes part of FR-007/FR-008)
+
+**Change**: Resolving the missing reference on a **lightBlue** finding no longer flips it to a corrected (lightGreen) successor. The verifier-resolved reference is **stamped onto the existing finding** (`resolvedLightBlueRef`) and surfaced in the tooltip + panel row; the **color remains lightBlue**.
+
+**Why**: lightBlue means "authentic Quranic text, no reference cited" — a reading aid, not a defect. lightGreen is the provenance color for **real corrections** (yellow Fix-in-place, accepted-red near-match, orange ref-edit). Conflating "uncited authentic" with "corrected mistake" mis-classified findings, hid the row from the active panel view, and stamped a "Previously corrected" badge on text that was never wrong.
+
+**Affected FRs**:
+- **FR-007** remains correct (resolved ref surfaces in tooltip / panel; never inserted into page body).
+- **FR-008** is amended: "accepting" no longer produces a corrected successor; instead the resolved ref is stored on the finding and persisted as a `reference-attribution` entry (FR-024). Color stays lightBlue.
+- **FR-021** revisit path: persisted `reference-attribution` entries re-stamp the ref on the lightBlue finding but do **not** add it to the "previously corrected" set, and do not trigger orange/yellow re-apply.
+
+### 2026-06-03 — Opt-in auto-correct for yellow and red (supersedes part of FR-018/FR-019)
+
+**Change**: The autocorrect preference object grows two opt-in toggles:
+- `autoCorrect.yellow` (default **OFF**) — auto-applies Fix-in-place to yellow findings on every scan, replacing drifted user text with the authentic mushaf wording.
+- `autoCorrect.red` (default **OFF**) — auto-accepts the verifier's near-match on red findings **only when one exists** (gated on `finding.nearMatch`). Reds with no near-match still require the user.
+
+The previously-vetted re-apply path (FR-021) is **unchanged** — user-accepted yellow/red corrections still re-apply on revisit regardless of the prefs.
+
+**Why**: User requested. The original 002 design declared yellow and red "manual by rule" because both rewrite the author's words. In practice, readers who trust the verifier want a one-shot way to canonicalize a page (yellow) or accept the system's single best guess (red), and the existing single-finding fix paths already produce the same edits — opt-in toggles just batch them.
+
+**Integrity boundary**: The replacement text is always authentic mushaf wording — yellow auto-correct can never insert non-Quranic text, and red auto-correct can never apply when the verifier has no candidate. Both default OFF; opt-in is the safety gate.
+
+**Affected FRs**:
+- **FR-018** is amended: autocorrect prefs are now `{ orange, lightBlue, yellow, red }`. lightBlue still defaults ON; orange/yellow/red default OFF.
+- **FR-019** is unchanged: ambiguous matches are still never auto-corrected (red without `nearMatch` is one form of ambiguity).
+- **FR-020** legacy `autoCorrectOrange` migration is unchanged (still one-way migrate-and-delete; lightBlue still defaults ON).
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Reader fixes a near-miss quote (yellow → corrected) (Priority: P1)
@@ -124,7 +154,7 @@ A reader wants the safe corrections to happen automatically on pages they trust,
 **lightBlue (missing reference)**
 
 - **FR-007**: For a lightBlue finding, the system MUST surface the verifier-resolved reference in the highlight's **tooltip** and the panel row, and MUST NOT insert any reference text into the page body.
-- **FR-008**: When a lightBlue finding's text resolves to exactly one reference, accepting the correction MUST flip it to a corrected successor (verified verdict, lightGreen provenance) carrying that reference.
+- **FR-008**: When a lightBlue finding's text resolves to exactly one reference, accepting the correction MUST stamp the resolved reference onto the finding (visible in tooltip + panel row) and persist a `reference-attribution` entry; the finding **stays lightBlue** (a reading aid, not a correction). (Originally flipped to a lightGreen successor; superseded 2026-06-03 — see [Amendments](#amendments).)
 - **FR-009**: When a lightBlue finding's text resolves to multiple references, the system MUST attempt context disambiguation (adopt the reference of an adjacent attributed finding sharing one of the candidate surahs); only a context-resolved or single-candidate reference may be applied automatically. "Adjacent" means the **closest attributed finding in document (DOM) order within a bounded distance**, regardless of block boundaries; when no attributed finding within that distance shares a candidate surah, the finding remains ambiguous (FR-010).
 - **FR-010**: When a lightBlue finding remains ambiguous after disambiguation, the system MUST present the candidate references for manual selection and MUST NOT auto-select one.
 
@@ -143,7 +173,7 @@ A reader wants the safe corrections to happen automatically on pages they trust,
 
 **Automation & persistence**
 
-- **FR-018**: The system MUST generalize the autocorrect preference so it can independently enable automatic correction for orange and for lightBlue; yellow and red MUST always be manual and MUST NOT be auto-corrected by any preference. On a fresh install the **lightBlue autocorrect toggle defaults ON** (lightBlue never edits page text — it only surfaces a reference and recolors), while the **orange autocorrect toggle retains its existing default (off)**.
+- **FR-018**: The system MUST generalize the autocorrect preference into independent per-color toggles. On a fresh install the **lightBlue autocorrect toggle defaults ON** (lightBlue never edits page text — it only surfaces a reference); **orange**, **yellow**, and **red** default OFF. (Originally yellow/red were declared "manual by rule"; superseded 2026-06-03 — see [Amendments](#amendments).)
 - **FR-019**: Automatic correction MUST apply only to safe findings — unambiguous (single-candidate) or context-resolved matches; ambiguous matches are never auto-corrected.
 - **FR-020**: The existing orange autocorrect preference setting MUST migrate forward to the generalized preference without loss of the reader's prior choice.
 - **FR-021**: A corrected finding MUST be persisted per the existing revisit behavior so that on a later visit it surfaces with a "previously corrected" indicator and is not silently suppressed. On revisit, a persisted correction MUST be **automatically re-applied during the scan** (restoring the corrected state without reader action) **and** surfaced with the "previously corrected" badge; the re-applied correction remains revertable (FR-006). A finding whose correction was reverted (FR-006) MUST NOT be re-applied on revisit.
@@ -154,7 +184,7 @@ A reader wants the safe corrections to happen automatically on pages they trust,
 - **Correction**: an applied repair of a finding. Attributes: kind (reference-edit / reference-resolve-tooltip / text-replace), the original (reader-supplied) content needed to revert, the resulting verified reference and/or authentic wording, and a back-reference to the original finding.
 - **Aligned diff**: the per-word comparison between the cited wording and the authentic ayah, where each word carries an operation (keep / missing / extra / substitute) and its cited and authentic forms.
 - **Near-match suggestion**: a candidate ayah + reference proposed for a red finding, with a distance/confidence measure used to gate whether it is offered. When several candidates are within threshold the closest is the offered suggestion; a tie/near-tie yields a ranked candidate list for manual selection rather than a single auto-acceptable suggestion.
-- **Autocorrect preference**: per-color (orange, lightBlue) booleans controlling automatic application of safe corrections; yellow and red are excluded by design.
+- **Autocorrect preference**: per-color booleans (`orange`, `lightBlue`, `yellow`, `red`) controlling automatic application. lightBlue defaults ON; the rest default OFF (see [Amendments](#amendments) 2026-06-03).
 
 ## Success Criteria *(mandatory)*
 

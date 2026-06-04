@@ -12,9 +12,9 @@ Storage area: `chrome.storage.local` only (constitution Tech Constraints; no `ch
 | Field | Type | Status | Notes |
 |---|---|---|---|
 | `autoCorrectOrange` | `boolean` | **Removed (migrated)** | Legacy field; see migration below. |
-| `autoCorrect` | `{ orange: boolean, lightBlue: boolean }` | **NEW** | FR-018, FR-020. lightBlue defaults to `true` on fresh install (lightBlue corrections never edit page text); orange carries forward from the legacy field (or `false` on a true fresh install). |
+| `autoCorrect` | `{ orange: boolean, lightBlue: boolean, yellow: boolean, red: boolean }` | **NEW** | FR-018, FR-020. lightBlue defaults to `true` on fresh install (lightBlue corrections never edit page text); orange carries forward from the legacy field (or `false` on a true fresh install). `yellow` and `red` are opt-in toggles added 2026-06-03 (see spec.md Amendments) and default `false`. |
 
-There is no `autoCorrect.yellow` and no `autoCorrect.red`. FR-018 makes yellow and red manual by rule; adding those keys later would be a constitution-significant change and is out of scope.
+`autoCorrect.yellow` and `autoCorrect.red` were originally absent (yellow/red were "manual by rule"). Amendment 2026-06-03 opens both as opt-in toggles; defaults stay OFF. Re-applied user-vetted corrections (FR-021) are unchanged — those run regardless of the toggle.
 
 ### Migration rule (one-way, idempotent, runs on first read after upgrade)
 
@@ -27,6 +27,9 @@ if 'autoCorrectOrange' in prefs.v1:
     }
     delete prefs.v1.autoCorrectOrange
     write prefs.v1
+
+// Any keys missing from prefs.v1.autoCorrect are filled with their defaults
+// on every read (idempotent): orange=false, lightBlue=true, yellow=false, red=false.
 ```
 
 If `prefs.v1.autoCorrect` already exists, do nothing. The migration runs at most once per profile.
@@ -36,7 +39,7 @@ If `prefs.v1.autoCorrect` already exists, do nothing. The migration runs at most
 The whole shape is owned by feature 001; this feature only specifies the `autoCorrect` field:
 
 ```text
-autoCorrect: { orange: false, lightBlue: true }
+autoCorrect: { orange: false, lightBlue: true, yellow: false, red: false }
 ```
 
 ## `persisted.v1.byUrl.<urlKey>` (modified)

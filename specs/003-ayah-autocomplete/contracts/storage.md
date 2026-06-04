@@ -13,7 +13,9 @@ This feature extends the existing `prefs.v1` object in `chrome.storage.local` wi
       "liveRender": true,         // FR-018/019 — Quran-font + verdict styling in editable fields
       "refFormat": "arabicName",  // FR-014 — "arabicName" → (البقرة:255) | "number" → (2:255)
       "refPlacement": "after",    // FR-014 — "after" | "before" the inserted ayah
-      "minWords": 2               // FR-003 — Arabic-word gate before matching starts
+      "minWords": 2,              // FR-003 — Arabic-word gate before matching starts
+      "maxCandidates": 8,         // dropdown row budget; 0 = unlimited
+      "multiAyahsWordCap": 200    // FR-015/016 — refuse multi-ayah / surah-end insertions exceeding this
     }
   }
 }
@@ -28,6 +30,8 @@ This feature extends the existing `prefs.v1` object in `chrome.storage.local` wi
 | `refFormat` | `"arabicName"` | not in {`arabicName`,`number`} → `"arabicName"` |
 | `refPlacement` | `"after"` | not in {`after`,`before`} → `"after"` |
 | `minWords` | `2` | coerce int; clamp to `[1,5]` |
+| `maxCandidates` | `8` | coerce int; `0` = unlimited; otherwise clamp to `[1,50]` |
+| `multiAyahsWordCap` | `200` | coerce int; clamp to `[20,2000]` (added 2026-06-03 with the `multiAyahs` / `surahEnd` scopes) |
 
 ## Migration
 

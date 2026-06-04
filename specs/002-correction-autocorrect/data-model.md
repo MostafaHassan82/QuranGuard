@@ -59,7 +59,7 @@ CorrectionKind = 'ref-edit' | 'text-replace' | 'reference-attribution'
 
 - **`ref-edit`** — existing orange path (FR-012 from feature 001). Rewrites the on-page reference to the verifier-resolved one. Edits the page DOM.
 - **`text-replace`** — yellow Fix-in-place (FR-013) and red accepted-near-match (FR-016). Replaces the cited text with the authentic mushaf excerpt, rendered with removed wording struck through and inserted/corrected wording highlighted (FR-013). Edits the page DOM. Subject to the swap engine's eligibility gate (FR-014: boundary-spanning `*` excerpts and ambiguous matches are withheld).
-- **`reference-attribution`** — lightBlue (FR-007, FR-008). Recolors the finding to a lightGreen corrected successor and surfaces the resolved reference in the highlight tooltip and panel row. **Does NOT edit the page DOM** — no ref marker is inserted into the page body (this is the spec's explicit override of the v1.2 design predecessor's `ref-insert` proposal; see `research.md` §2).
+- **`reference-attribution`** — lightBlue (FR-007, FR-008). Stamps the verifier-resolved reference onto the finding and surfaces it in the highlight tooltip and panel row. **Does NOT edit the page DOM** — no ref marker is inserted into the page body. **The finding stays lightBlue** (it is a reading aid, not a correction). On revisit, the persisted entry re-stamps the ref but does NOT add the finding to the "previously corrected" set. (Originally this kind produced a lightGreen successor; amended 2026-06-03 — see spec.md Amendments.)
 
 ### Adjacency-context disambiguation (lightBlue, FR-009)
 
@@ -70,7 +70,9 @@ For a lightBlue finding with `matchedRefs.length > 1`, the adjacency check exami
 ```text
 AutoCorrectPrefs = {
   orange:    boolean   // default: carry forward from legacy autoCorrectOrange (or false on true fresh install)
-  lightBlue: boolean   // default: true on fresh install (FR-018, lightBlue never edits page text)
+  lightBlue: boolean   // default: true on fresh install (lightBlue never edits page text)
+  yellow:    boolean   // default: false — opt-in (amended 2026-06-03)
+  red:       boolean   // default: false — opt-in; only applies when finding.nearMatch exists (amended 2026-06-03)
 }
 ```
 
@@ -82,7 +84,7 @@ if legacy autoCorrectOrange exists:
     delete legacy autoCorrectOrange
 ```
 
-There is no `autoCorrect.yellow` and no `autoCorrect.red` field — FR-018 makes yellow and red manual by rule. Adding the keys later would be a constitution-significant change and is out of scope for this feature.
+`autoCorrect.yellow` and `autoCorrect.red` are filled with `false` on read if absent — both are opt-in toggles (see spec.md Amendments 2026-06-03 for the rationale). They were originally declared "manual by rule" and stripped on read; the strip step has been removed.
 
 ### PersistedCorrection (extends feature 001's `persisted.v1.byUrl.<urlKey>[]` entry)
 

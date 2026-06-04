@@ -43,6 +43,7 @@ Empty `candidates` (or `{ "error": "..." }` when the index is unavailable) ⇒ n
 | `PREFS_WRITE` | options/content → background | Persist autocomplete settings changes. |
 | `PREFS_CHANGED` | background → all content | Live-apply enable/liveRender/refFormat/minWords without reload. |
 | `getAyahText` / verifier RPC | content → background | Fetch authentic wording for insertion scope shaping (whole / typed-portion / start-to-end-word). |
+| `getAyahRange` / verifier RPC | content → background | Added 2026-06-03 for the `multiAyahs` / `surahEnd` scopes. Bare-shape: `{ type: 'getAyahRange', surahNum, fromAyah, toAyah }`; `toAyah === -1` means "to surah end". Returns `{ texts: string[], surahLastAyah: int }`. |
 
 ## Non-envelope note
-`MATCH_PARTIAL` follows the envelope. The existing internal verifier RPCs it leans on (e.g., `getAyahText`) remain bare-shape per the feature-001 messaging contract's "Internal (non-envelope) messages" section; this feature does not change that.
+`MATCH_PARTIAL` follows the envelope. The existing internal verifier RPCs it leans on (e.g., `getAyahText`, `getAyahRange`) remain bare-shape per the feature-001 messaging contract's "Internal (non-envelope) messages" section; this feature does not change that.

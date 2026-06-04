@@ -37,10 +37,11 @@ The chosen extent of inserted text, selected from the second menu (FR-012a/015).
 
 | Field | Type | Notes |
 |---|---|---|
-| `kind` | enum `whole` \| `typedPortion` \| `startToEndWord` | FR-015. |
-| `endWord` | string \| null | For `startToEndWord`: the verse word at which to stop; if absent from the verse after the start, insertion is refused with a message (FR-016). |
+| `kind` | enum `whole` \| `typedPortion` \| `startToEndWord` \| `multiAyahs` \| `surahEnd` | FR-015. |
+| `endWord` | string \| null | For `startToEndWord`: a single word or contiguous phrase (1+ words) at which to stop. If no run of soft-equal words is found after the start, insertion is refused with a message (FR-016). (Amended 2026-06-03 — see spec.md Amendments.) |
+| `ayahCount` | int \| null | For `multiAyahs`: how many ayahs to span (matched ayah + the next N−1 in the same surah). Asked inline at insertion time; integer ≥2. Not persisted. (Added 2026-06-03.) |
 
-Resulting inserted text is always **authentic wording** (FR-017) + a reference formatted per settings (FR-014).
+Resulting inserted text is always **authentic wording** (FR-017) + a reference formatted per settings (FR-014). For `multiAyahs` and `surahEnd`, the reference is rendered as a range (e.g. `(البقرة:255-257)`); both scopes are refused inline if the total word count would exceed `AutocompleteSettings.multiAyahsWordCap` (FR-016).
 
 ### AutocompleteSettings  *(persisted: `prefs.v1.autocomplete`)*
 
@@ -51,6 +52,8 @@ Resulting inserted text is always **authentic wording** (FR-017) + a reference f
 | `refFormat` | enum `arabicName` \| `number` | `arabicName` | unknown → `arabicName` (FR-014) |
 | `refPlacement` | enum `after` \| `before` | `after` | unknown → `after` (FR-014) |
 | `minWords` | int | `2` | clamp to [1, 5] (FR-003 performance gate) |
+| `maxCandidates` | int | `8` | dropdown row budget; 0 = unlimited; otherwise clamp to [1, 50] |
+| `multiAyahsWordCap` | int | `200` | clamp to [20, 2000]; word ceiling for `multiAyahs` / `surahEnd` scopes (FR-015 / FR-016, added 2026-06-03) |
 
 ## State machine — suggestion/insertion lifecycle
 
@@ -64,8 +67,10 @@ suggesting   (dropdown shown; candidates narrow live; Tab/Enter captured)
   ├─(type past citation / caret moves away)────────→ classified(fallthrough)  // FR-011 instance dismiss → FR-011a
   ├─(no exact/wordLevel/fuzzy match)───────────────→ classified(red)          // FR-008
   └─(Tab/Enter accept candidate)───────────────────→ scopeMenu
-scopeMenu    (second menu: whole / typedPortion / startToEndWord)
-  ├─(startToEndWord, end word not in verse)────────→ scopeMenu (message; no truncate)  // FR-016
+scopeMenu    (second menu: whole / typedPortion / startToEndWord / multiAyahs / surahEnd)
+  ├─(startToEndWord, end word/phrase not in verse)─→ scopeMenu (message; no truncate)  // FR-016
+  ├─(multiAyahs)────────────────────────────────────→ ayahCountPrompt (asks N≥2)
+  ├─(multiAyahs/surahEnd, body exceeds wordCap)────→ scopeMenu (message; no truncate)  // FR-016
   └─(scope confirmed)──────────────────────────────→ inserted
 inserted     (authentic wording + reference written; FR-014/017)
   └─→ classified(green|lightBlue|yellow|orange|red as applicable; lightGreen if a correction-style provenance applies)

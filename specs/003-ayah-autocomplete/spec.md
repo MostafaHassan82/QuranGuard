@@ -27,6 +27,23 @@ This feature does **not** depend on feature 002 (correction/autocorrect) and can
 - Q: Does the live Quran-font / red-highlight rendering persist into the author's saved content, or is it transient? → A: Persist — in rich (contenteditable) surfaces the rendering is injected as real markup that becomes part of what the author publishes. Plain inputs (which cannot hold markup) still receive clean text only.
 - Q: Without an Esc key, how does the author escape a false trigger, and what happens to an unresolved citation? → A: Typing past the citation or moving the caret away closes that dropdown instance (Tab/Enter are captured only while candidates show); the settings toggle remains the only feature-level off switch. A recognized citation the author does NOT resolve via the dropdown is handed to the main reader-side classifier and highlighted by its verdict (green / light blue / yellow / orange / red), reusing feature-001 classification — not merely "Quran font or red".
 
+## Amendments
+
+### 2026-06-03 — Multi-word "Up to…" + multi-ayah + surah-end scopes
+
+The second menu (FR-012a / FR-015) is broadened:
+
+- **(c) "Up to…" (was: "Up to an end word…")** — the user can now type a **single word OR a contiguous phrase** as the ending marker. Single-word path is unchanged (exact-normalized first, drift-tolerant fallback). Phrase path walks every possible start position in the matched verse and accepts the first contiguous run of words that softly equal the typed tokens; returns the verse index of the run's last word. Useful when a single word is ambiguous (e.g. "الكافرين" vs "الكاذبين"). FR-016 still applies: when no run is found, the user is told and no truncated passage is inserted.
+- **(d) NEW — "Multiple ayahs…"** — the user picks this scope, then is prompted for **N** (integer ≥2) at insertion time. The system inserts the matched ayah plus the next (N-1) ayahs of the same surah, joined with single spaces. The inserted reference becomes a range (e.g. `(البقرة:255-257)`).
+- **(e) NEW — "To the end of the surah"** — like (d) but spans through the surah's last ayah.
+
+Both (d) and (e) are gated by `prefs.v1.autocomplete.multiAyahsWordCap` (default **200**, range 20–2000). When the resulting body would exceed the cap, the dropdown shows an inline "exceeds cap (N words)" note and the scope menu stays open so the user can pick a smaller scope. This is the safety guard preventing accidental insertion of a long surah (al-Baqarah, etc.) into a chat field.
+
+**Affected FRs**:
+- **FR-015** is extended from three scopes to five — `(a) whole`, `(b) typedPortion`, `(c) startToEndWord` (now phrase-capable), `(d) multiAyahs` (new), `(e) surahEnd` (new).
+- **FR-016** (end-word not found refusal) is unchanged — it applies to phrases as well as single words.
+- **New refusal**: the system MUST NOT insert a multi-ayah / surah-end body whose total word count exceeds `multiAyahsWordCap`; the user MUST be informed inline and given a chance to pick a smaller scope.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Author completes a verse from memory and gets the authentic wording + reference (Priority: P1)
@@ -141,8 +158,8 @@ Unless disabled in settings, recognized-and-matched citation text the author has
 **Insertion**
 
 - **FR-014**: On resolution, the system MUST **replace the user's typed citation text** with the **authentic ayah wording** and **attach the verse reference**. The reference **format and placement MUST be user-configurable** (surah name vs. number; placement), defaulting to the **Arabic surah-name parenthetical** form placed immediately **after** the inserted ayah (e.g. `(البقرة:255)`), reusing feature-001 reference conventions.
-- **FR-015**: After a candidate is accepted, the system MUST offer three **insertion scopes** via the second menu (FR-012a): (a) the **whole ayah**; (b) **only the portion the user typed** (its authentic equivalent); (c) a passage **from the user's starting words up to an end word** the user subsequently types.
-- **FR-016**: For scope (c), when the specified end word does not occur in the matched verse after the start, the system MUST inform the user and MUST NOT insert an incorrectly truncated passage.
+- **FR-015**: After a candidate is accepted, the system MUST offer **insertion scopes** via the second menu (FR-012a): (a) the **whole ayah**; (b) **only the portion the user typed** (its authentic equivalent); (c) a passage **from the user's starting words up to** a single word or contiguous phrase the user subsequently types; (d) the matched ayah plus **N-1 following ayahs** of the same surah (N is prompted at insertion time, integer ≥2); (e) the matched ayah **through the surah's last ayah**. Scopes (d) and (e) are gated by `multiAyahsWordCap` (see [Amendments](#amendments) 2026-06-03).
+- **FR-016**: For scope (c), when the specified ending word or phrase does not occur in the matched verse after the start, the system MUST inform the user and MUST NOT insert an incorrectly truncated passage. For scopes (d) and (e), when the resulting body's word count exceeds `multiAyahsWordCap`, the system MUST inform the user and MUST NOT insert.
 - **FR-017**: Inserted text MUST always be **authentic mushaf wording** and MUST always carry the **verse reference**; the system MUST NOT insert user-typed (potentially drifted) wording as if it were authentic.
 
 **Rendering**
@@ -160,7 +177,7 @@ Unless disabled in settings, recognized-and-matched citation text the author has
 
 - **Citation-in-progress**: the span of recognized citation text currently being typed at the caret — its text, field/editor location, and the caret's position within it.
 - **Candidate ayah**: a verse proposed for the current citation-in-progress, with its authentic wording, reference, match tier (exact / word-level / fuzzy), and rank.
-- **Insertion scope**: the chosen extent of inserted text — whole ayah, typed portion, or start-to-end-word passage — plus, for the last, the user-supplied end word.
+- **Insertion scope**: the chosen extent of inserted text — `whole`, `typedPortion`, `startToEndWord` (with user-supplied word or phrase), `multiAyahs` (with user-supplied N), or `surahEnd`. Multi-ayah / surah-end are subject to `multiAyahsWordCap`.
 - **Autocomplete settings**: feature on/off, live-rendering on/off, reference format/placement, plus the minimum-word performance gate.
 
 ## Success Criteria *(mandatory)*
