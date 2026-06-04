@@ -38,7 +38,7 @@ The chosen extent of inserted text, selected from the second menu (FR-012a/015).
 | Field | Type | Notes |
 |---|---|---|
 | `kind` | enum `whole` \| `typedPortion` \| `startToEndWord` \| `multiAyahs` \| `surahEnd` | FR-015. |
-| `endWord` | string \| null | For `startToEndWord`: a single word or contiguous phrase (1+ words) at which to stop. If no run of soft-equal words is found after the start, insertion is refused with a message (FR-016). (Amended 2026-06-03 — see spec.md Amendments.) |
+| `endWord` | string \| null | For `startToEndWord`: a single word or contiguous phrase (1+ words) at which to stop. Search starts in the matched ayah from the typed start, then walks into following ayahs of the same surah until found OR the running word count exceeds `multiAyahsWordCap`. If never found, insertion is refused (FR-016). When the ending lives in a later ayah, the reference becomes a range. (Amended 2026-06-03 — see spec.md Amendments.) |
 | `ayahCount` | int \| null | For `multiAyahs`: how many ayahs to span (matched ayah + the next N−1 in the same surah). Asked inline at insertion time; integer ≥2. Not persisted. (Added 2026-06-03.) |
 
 Resulting inserted text is always **authentic wording** (FR-017) + a reference formatted per settings (FR-014). For `multiAyahs` and `surahEnd`, the reference is rendered as a range (e.g. `(البقرة:255-257)`); both scopes are refused inline if the total word count would exceed `AutocompleteSettings.multiAyahsWordCap` (FR-016).

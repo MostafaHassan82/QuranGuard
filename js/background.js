@@ -1894,7 +1894,11 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
             const n = parseInt(k, 10);
             if (Number.isFinite(n) && n > surahLastAyah) surahLastAyah = n;
           }
-          const toAyah = Math.min(Number.isFinite(toAyahRaw) ? toAyahRaw : surahLastAyah, surahLastAyah);
+          // toAyahRaw <= 0 (e.g. -1 sentinel from the surahEnd scope) or missing
+          // both mean "to surah end"; positive values are clamped to the actual
+          // last ayah so the caller can't over-request.
+          const toAyah = (Number.isFinite(toAyahRaw) && toAyahRaw > 0)
+            ? Math.min(toAyahRaw, surahLastAyah) : surahLastAyah;
           const texts = [];
           for (let a = fromAyah; a <= toAyah; a++) {
             const rec = surahRecs[a];

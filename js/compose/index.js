@@ -316,17 +316,40 @@
     }
   }
 
-  function submitEndWord(word) {
+  async function submitEndWord(word) {
     if (!STATE.pending) return;
-    const err = doInsert('startToEndWord', word);
+    // The user's ending word/phrase may live in a LATER ayah of the same surah
+    // (e.g. they typed the start of البقرة:255 and the ending is in 257). Fetch
+    // a window of following ayahs so buildBody can walk across boundaries; the
+    // multiAyahsWordCap is the safety stop (refuses if the resulting body grows
+    // past the cap before the ending word is found).
+    const p = STATE.pending;
+    const cand = p.cand;
+    let extras = [];
+    try {
+      const resp = await chrome.runtime.sendMessage({
+        type: 'getAyahRange', surahNum: cand.ref.surah, fromAyah: cand.ref.ayah, toAyah: -1,
+      });
+      const texts = (resp && Array.isArray(resp.texts)) ? resp.texts : [];
+      extras = texts.slice(1);
+    } catch (_) {}
+    const err = doInsert('startToEndWord', word, {
+      extraAyahs: extras, wordCap: settings.multiAyahsWordCap,
+    });
     if (err === 'endWordNotFound') {
-      // FR-016: don't truncate — keep the prompt open with the localized message.
       STATE.mode = 'endword';
       QuranComposeDropdown.showEndWord(
         STATE.pending.rect,
         (w) => submitEndWord(w),
         tt('ac_endword_prompt'),
         tt('ac_endword_not_found'));
+    } else if (err === 'capExceeded') {
+      STATE.mode = 'endword';
+      QuranComposeDropdown.showEndWord(
+        STATE.pending.rect,
+        (w) => submitEndWord(w),
+        tt('ac_endword_prompt'),
+        tt('ac_cap_exceeded', { cap: settings.multiAyahsWordCap }));
     }
   }
 

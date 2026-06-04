@@ -27,9 +27,16 @@ const QuranComposeInsert = (() => {
   function norm(s) {
     return (typeof QuranNormalize !== 'undefined') ? QuranNormalize.tier1(String(s || '')) : String(s || '').trim();
   }
+  // Invisible bidi / formatting marks the user can pick up via keyboard layouts
+  // or RTL inputs (LRM/RLM, ZWJ/ZWNJ, ALM, BOM, LRE/RLE/PDF/LRO/RLO/LRI/RLI/PDI/FSI).
+  // tier1Normalize doesn't strip these (it only handles tashkeel + base-letter
+  // drift), so the user's "كلمة كلمتان" can carry a U+200F between words and
+  // appear as a single token to a plain split(' ').
+  const INVISIBLE_RE = /[؜​-‏‪-‮⁦-⁩﻿]/g;
   function normWords(s) {
-    const n = norm(s);
-    return n ? n.split(' ').filter(Boolean) : [];
+    const stripped = String(s || '').replace(INVISIBLE_RE, '');
+    const n = norm(stripped);
+    return n ? n.split(/\s+/).filter(Boolean) : [];
   }
 
   // Drift-tolerant word equality — a faithful copy of the verifier's
@@ -179,9 +186,41 @@ const QuranComposeInsert = (() => {
     }
     if (scope === 'startToEndWord') {
       if (!opts.endWord) return { error: 'endWordMissing' };
-      const endIdx = findEndWord(opts.endWord, verseNorm, span.start);
-      if (endIdx < 0) return { error: 'endWordNotFound' };
-      return { body: verseWords.slice(span.start, endIdx + 1).join(' ') };
+      // Search the matched ayah first; if the ending word/phrase isn't there,
+      // walk into the following ayahs (extraAyahs[0] = candidate+1, etc.) so
+      // a user typing "إلى قوله: …" across a verse boundary still works.
+      // When the ending lives in a later ayah, the body becomes:
+      //   matched-ayah[span.start..end] + whole(extras[0..k-1]) + extras[k][0..endIdx]
+      // and the reference becomes a range (candidate.ayah .. candidate.ayah+k).
+      const cap = (typeof opts.wordCap === 'number') ? opts.wordCap : Infinity;
+      const trailing = verseWords.slice(span.start);
+      let endIdx = findEndWord(opts.endWord, verseNorm, span.start);
+      if (endIdx >= 0) {
+        const body = verseWords.slice(span.start, endIdx + 1).join(' ');
+        const wc = body.split(/\s+/).filter(Boolean).length;
+        if (wc > cap) return { error: 'capExceeded', wordCount: wc };
+        return { body };
+      }
+      const extras = Array.isArray(opts.extraAyahs) ? opts.extraAyahs : [];
+      const parts = [trailing.join(' ')];
+      let runningWC = trailing.length;
+      for (let i = 0; i < extras.length; i++) {
+        const aw = String(extras[i]).split(/\s+/).filter(Boolean);
+        const aNorm = aw.map(norm);
+        const hit = findEndWord(opts.endWord, aNorm, 0);
+        if (hit >= 0) {
+          const tail = aw.slice(0, hit + 1).join(' ');
+          parts.push(tail);
+          runningWC += hit + 1;
+          if (runningWC > cap) return { error: 'capExceeded', wordCount: runningWC };
+          return { body: parts.join(' '), endAyah: candidate.ref.ayah + (i + 1) };
+        }
+        // Ending not yet found in this ayah — append the whole ayah and keep walking.
+        parts.push(aw.join(' '));
+        runningWC += aw.length;
+        if (runningWC > cap) return { error: 'capExceeded', wordCount: runningWC };
+      }
+      return { error: 'endWordNotFound' };
     }
     return { body: verse };
   }
@@ -202,7 +241,11 @@ const QuranComposeInsert = (() => {
   function buildInsertText(candidate, scope, settings, opts) {
     const r = buildBody(candidate, scope, opts);
     if (r.error) return { error: r.error, wordCount: r.wordCount };
-    const ref = buildReference(candidate, settings, opts);
+    // buildBody can discover an endAyah dynamically (e.g. startToEndWord that
+    // walks into the next ayah); it takes precedence over any value the caller
+    // pre-set on opts.
+    const refOpts = (r.endAyah != null) ? Object.assign({}, opts, { endAyah: r.endAyah }) : opts;
+    const ref = buildReference(candidate, settings, refOpts);
     const ob = opts && opts.openBracket;
     const cb = (opts && opts.closeBracket) || (ob ? CLOSERS[ob] : null);
     const body = (ob && cb) ? `${ob}${r.body}${cb}` : r.body;
