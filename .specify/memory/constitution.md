@@ -31,7 +31,11 @@ Templates / docs updated for alignment:
 Follow-up TODOs: None
 -->
 
-# QuranAuditPlugin Constitution
+# QuranGuard Constitution
+
+> **Project codename:** QuranGuard (Arabic: صون القرآن — *Ṣawn al-Qurʾān*).
+> The on-disk directory remains `QuranAuditPlugin\` for historical reasons;
+> all human-facing names (extension, package, docs) use **QuranGuard**.
 
 ## Core Principles
 

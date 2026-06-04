@@ -1,4 +1,4 @@
-# Quran Citation Audit Extension — V1 PRD
+# QuranGuard (صون القرآن) — V1 PRD
 
 **Status:** Draft for review
 **Author:** Mostafa (product) + Claude (drafted 2026-05-15)
@@ -144,7 +144,7 @@ V1 includes a panel (popup-attached or sidebar) that lists all findings on the c
 
 **Target shape:** Manifest V3 Chrome extension with service worker background, content script per frame, popup with attached findings panel.
 
-**Reuse strategy.** The active project is the QuranAuditPlugin rebuild. The QuranChromePlugin advanced copy is treated as a read-only reference. Approach:
+**Reuse strategy.** The active project is the QuranGuard rebuild (on-disk directory still `QuranAuditPlugin\`). The QuranChromePlugin advanced copy is treated as a read-only reference. Approach:
 
 1. **Harvest principles, fixtures, and case coverage** from the advanced copy. The 11 reviewed fixtures and the documented case set (range/subrange, surah variants, Islamweb DOM quirks, etc.) become the V1 quality gate.
 2. **Do not port code verbatim.** Mostafa specifically flagged a concern that the advanced copy may contain hardcoded corner-case solutions accumulated over iteration. The size (1300 / 1883 lines) is consistent with that risk.
