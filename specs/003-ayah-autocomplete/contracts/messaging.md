@@ -46,4 +46,4 @@ Empty `candidates` (or `{ "error": "..." }` when the index is unavailable) ⇒ n
 | `getAyahRange` / verifier RPC | content → background | Added 2026-06-03 for the `multiAyahs` / `surahEnd` scopes. Bare-shape: `{ type: 'getAyahRange', surahNum, fromAyah, toAyah }`; `toAyah === -1` means "to surah end". Returns `{ texts: string[], surahLastAyah: int }`. |
 
 ## Non-envelope note
-`MATCH_PARTIAL` follows the envelope. The existing internal verifier RPCs it leans on (e.g., `getAyahText`, `getAyahRange`) remain bare-shape per the feature-001 messaging contract's "Internal (non-envelope) messages" section; this feature does not change that.
+`MATCH_PARTIAL` is bare-shape (no `{type, requestId, payload}` wrapper) — see the top of this file and the request example above. It joins the existing internal verifier RPCs (`getAyahText`, `getAyahRange`, `verifyFragment`) under the feature-001 messaging contract's "Internal (non-envelope) messages" section. This feature does not change that policy.
