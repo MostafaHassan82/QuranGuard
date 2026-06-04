@@ -1,0 +1,55 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  fixture-suite:
+    name: Fixture suite (Playwright + Chromium on Ubuntu)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Playwright (Python) and Chromium with system deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install playwright
+          # Installs Chromium AND its OS-level dependencies (libnss, libatk, etc.)
+          playwright install --with-deps chromium
+
+      - name: Install xvfb (virtual display for non-headless Chrome)
+        run: sudo apt-get install -y xvfb
+
+      - name: Point QURAN_TEST_BROWSER at the Playwright-bundled Chromium
+        # tests/run_tests.py launches Chromium via Playwright directly, so this
+        # is informational — it tells render-icons.js and any helper that probes
+        # for a system browser where to find one.
+        run: |
+          BROWSER_PATH=$(python -c "from playwright.sync_api import sync_playwright; p=sync_playwright().start(); print(p.chromium.executable_path); p.stop()")
+          echo "QURAN_TEST_BROWSER=$BROWSER_PATH" >> $GITHUB_ENV
+          echo "Browser at: $BROWSER_PATH"
+
+      - name: Run fixture suite under xvfb
+        run: xvfb-run --auto-servernum python tests/run_tests.py --all
+
+      - name: Upload logs and observed JSON on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-output
+          path: |
+            tests/*.log
+            tests/fixtures/*.observed.json
+          if-no-files-found: ignore
+          retention-days: 7

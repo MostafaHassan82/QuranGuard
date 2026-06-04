@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Question or discussion
+    url: https://github.com/MostafaHassan82/QuranGuard/discussions
+    about: For open-ended questions, ideas, or usage help, please start a discussion instead of opening an issue.

@@ -1,0 +1,70 @@
+name: Bug report
+description: A citation was mis-verified, mis-corrected, autocomplete went wrong, or the extension crashed.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. The single most useful thing you can include is **the page URL** (or a copy of the Arabic text from it) where QuranGuard got it wrong, so we can reproduce.
+
+  - type: input
+    id: page-url
+    attributes:
+      label: Page URL where it happened
+      description: The web page you were on. If it's behind a login or private, paste the citation text in the next field instead.
+      placeholder: https://example.com/article
+    validations:
+      required: false
+
+  - type: textarea
+    id: citation-text
+    attributes:
+      label: The citation text (Arabic)
+      description: Paste the exact Arabic text from the page (between braces, with reference, however it appeared).
+      render: text
+    validations:
+      required: false
+
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Which side of QuranGuard?
+      options:
+        - Reader-side — citation on a page was highlighted/corrected wrong
+        - Writer-side — autocomplete suggested or inserted the wrong text
+        - Both / not sure
+        - Other (extension crash, popup broken, etc.)
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected-vs-actual
+    attributes:
+      label: What you expected vs. what happened
+      description: |
+        E.g. "I expected green, got yellow." / "I expected سبأ:13, autocomplete inserted سبأ:14."
+    validations:
+      required: true
+
+  - type: input
+    id: chrome-version
+    attributes:
+      label: Chrome (or Chromium-based browser) version
+      placeholder: e.g. Chrome 131 on Windows 11
+    validations:
+      required: false
+
+  - type: input
+    id: extension-version
+    attributes:
+      label: QuranGuard version
+      description: From chrome://extensions — the version under the QuranGuard tile.
+      placeholder: e.g. 1.0.0
+    validations:
+      required: false
+
+  - type: textarea
+    id: extras
+    attributes:
+      label: Anything else
+      description: Screenshots, screen recording, console errors (DevTools → Console), or repro steps.
