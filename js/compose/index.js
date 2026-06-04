@@ -396,22 +396,27 @@
     return null;
   }
 
-  // ── Fall-through classification (FR-011a) ─────────────────────────────────
+  // ── Fall-through classification (FR-011a / FR-018) ────────────────────────
   // A recognized citation the author did NOT resolve via the dropdown (caret
   // moved away / typed past with candidates still showing) is recorded with the
-  // top candidate's verdict (Principle V — reuse the matcher's decision). We do
-  // NOT splice the DOM here: framework editors (Lexical/Draft/ProseMirror —
-  // WhatsApp, Slack, etc.) reconcile a foreign span mutation against their own
-  // model and drop the surrounding text, which would erase the author's typed
-  // citation on blur. Constitution non-negotiable #1 (never alter the ayah)
-  // outranks the cosmetic verdict color. The no-candidate case is already
-  // handled inline in process(); pre-existing-on-focus rendering (renderOnFocus)
-  // still applies markup once, before the editor has decided we're foreign.
+  // top candidate's verdict (Principle V — reuse the matcher's decision) AND
+  // the verdict span is applied to the citation in place so the author sees the
+  // same color treatment as reader-side. mark() is purely additive (wraps
+  // existing characters; never deletes) and bails out internally on framework
+  // editors (Lexical/Draft/ProseMirror — WhatsApp, Slack, …) that would
+  // reconcile the splice away. Constitution non-negotiable #1 still holds: the
+  // text content is verified unchanged before and after the wrap.
   function dismissFallthrough() {
     if (STATE.mode !== 'candidates') return;        // scope/end-word menus aren't dismissals
     const top = STATE.candidates[0];
     if (!top || !STATE.det || !STATE.ctx) return;
     const verdict = QuranComposeRenderEditable.verdictForTier(top.tier);
+    const det = STATE.det;
+    const end = det.citeStart + det.citationText.length;
+    try {
+      QuranComposeRenderEditable.mark(STATE.ctx, det.citeStart, end, verdict,
+        { fontFamily: QuranComposeRenderEditable.fontFamily(fontKey) });
+    } catch (_) {}
     hook.lastClassification = { ref: top.refLabel, verdict, viaFallthrough: true };
   }
 
