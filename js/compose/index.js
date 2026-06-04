@@ -166,21 +166,18 @@
 
     qc('match', `${candidates.length} candidate(s) for "${qcPreview(det.citationText)}"`);
     if (!candidates.length) {
-      // No exact/wordLevel/fuzzy match. NEVER touch the field — show a non-
-      // destructive "no matching ayah" note in the dropdown and record the fall-
-      // through verdict (FR-008/011a). US4's render-editable.js owns any in-editor
-      // verdict styling; it must likewise never delete the user's text.
+      // No exact/wordLevel/fuzzy match. Show a non-destructive "no matching
+      // ayah" note in the dropdown and record the fall-through verdict
+      // (FR-008/011a). DO NOT paint the field red while the user is still
+      // typing — a partial citation that hasn't matched yet looks "wrong"
+      // until they finish, and the red flash on every keystroke is noise.
+      // The pre-existing-on-focus path (renderOnFocus) still marks red for
+      // unmatched citations already present in the field on focus.
       STATE.candidates = [];
       STATE.mode = 'candidates';
       STATE.pending = null;
       publishCandidates();
       hook.lastClassification = { ref: null, verdict: 'red', viaFallthrough: true };
-      // FR-008/011a: a recognized-but-unmatched citation falls through to the
-      // verdict classifier — mark it red. Additive markup only (never deletes the
-      // user's text); a no-op in plain inputs and when liveRender is off.
-      if (settings.liveRender) {
-        QuranComposeRenderEditable.mark(fresh, freshDet.citeStart, fresh.caret, 'red', {});
-      }
       setActive('classified');
       QuranComposeDropdown.showNote(tt('ac_no_matches'), QuranComposeEditable.caretRect(fresh));
       return;
