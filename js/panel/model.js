@@ -107,6 +107,11 @@ const QuranPanelModel = (() => {
         continue;
       }
       finding.panelState.persistedBadge = { kind: badgeKind, when };
+      // FR-024/025: a live finding that the user dismissed in a prior session
+      // belongs in the "Previously dismissed" section, NOT in the active
+      // results — the prior verdict still stands. Mark its id so activeView
+      // can exclude it and previouslyDismissed() will pick it up.
+      if (isDismissal) previouslyDismissedKeys.add(finding.id);
     }
   }
 
@@ -213,7 +218,8 @@ const QuranPanelModel = (() => {
     return all().filter(f =>
       filter?.[f.color] === true &&
       !f.panelState.recentlyCorrected &&
-      !f.panelState.dismissedThisSession
+      !f.panelState.dismissedThisSession &&
+      !previouslyDismissedKeys.has(f.id)
     );
   }
   function recentlyCorrected() { return all().filter(f => f.panelState.recentlyCorrected); }
