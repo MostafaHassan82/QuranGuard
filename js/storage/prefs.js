@@ -158,7 +158,16 @@ const QuranPrefs = (() => {
 
   async function read() {
     const result = await chrome.storage.local.get(STORAGE_KEY);
-    return applyDefaults(result[STORAGE_KEY]);
+    const raw = result[STORAGE_KEY];
+    const normalized = applyDefaults(raw);
+    // Persist the migrated/cleaned shape so storage drains the legacy keys
+    // (autoCorrectOrange, autocomplete.multiAyahsCount) on first read instead
+    // of waiting for the next write. Cheap drift check via JSON equality; on
+    // mismatch, write back. Fire-and-forget so read() stays a quick lookup.
+    if (raw && JSON.stringify(raw) !== JSON.stringify(normalized)) {
+      try { chrome.storage.local.set({ [STORAGE_KEY]: normalized }); } catch (_) {}
+    }
+    return normalized;
   }
 
   async function write(prefs) {
