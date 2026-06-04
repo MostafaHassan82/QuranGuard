@@ -64,9 +64,7 @@
         "resources/fonts/uthmani-hafs.ttf",
         "resources/fonts/*.ttf",
         "resources/fonts/*.otf",
-        "resources/fonts/*.woff2",
-        "resources/QuranAyas/*.png",
-        "resources/QuranAyas2/*.png"
+        "resources/fonts/*.woff2"
       ],
       "matches": ["<all_urls>"]
     }

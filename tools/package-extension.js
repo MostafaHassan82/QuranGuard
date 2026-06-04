@@ -31,6 +31,12 @@ const INCLUDE_DIRS  = ['js', 'css', 'html', 'icons', 'resources', '_locales'];
 // Hard excludes inside the included dirs (defensive: log files, OS junk,
 // editor backups). The included tree is hand-curated, but a stray .log in
 // resources/ shouldn't ride along into the store package.
+//
+// resources/QuranAyas{,2}/ are excluded here because they ship ~150 MB of
+// per-ayah PNGs for a render-as-image mode that no runtime code uses today.
+// Keeping them in the repo (vs. deleting) preserves the option to add an
+// image-render feature later; the moment one ships, drop these entries and
+// re-list the dirs in manifest.json's web_accessible_resources.
 const EXCLUDE_PATTERNS = [
   /\.log$/i,
   /(^|\/)\.DS_Store$/,
@@ -38,6 +44,7 @@ const EXCLUDE_PATTERNS = [
   /~$/,
   /\.bak$/i,
   /\.swp$/i,
+  /^resources\/QuranAyas2?\//,
 ];
 
 // ── File walk ────────────────────────────────────────────────────────────────

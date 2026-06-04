@@ -4,30 +4,11 @@ End-to-end playbook for taking the `dist/quranguard-<version>.zip` produced by `
 
 ---
 
-## ⚠️ Read this first — package size
+## Package size
 
-The current package is **~131 MB compressed (12.5K files)**. ~150 MB of that is the `resources/QuranAyas/` and `resources/QuranAyas2/` image sets (PNGs per ayah). Reference points:
+Current package: **~2.6 MB, 63 files** — well within the norm for browser extensions and a fast review/install profile.
 
-- CWS hard limit: 2 GB per zip — so it fits, but…
-- Typical extensions are **< 10 MB**. Anything over ~50 MB is unusually large.
-- Install / update is over-the-wire, paid for by the user's bandwidth and disk.
-- Manual review is slower for large packages.
-- Users see the size in the Chrome Web Store listing and may bounce.
-
-**Before submitting, decide one of three:**
-1. **Ship as-is** — accept the size; expect slow installs and possibly slower review. Defensible only if the images are actively used.
-2. **Strip the ayah images** — if `resources/QuranAyas*/` aren't actually rendered at runtime (verify by grepping `js/` for `QuranAyas`), remove them from `web_accessible_resources` and from the package. This will drop the size to ~15 MB or less.
-3. **Host the images externally** — move the PNGs to a CDN (GitHub Releases assets, R2, etc.) and lazy-load on demand. Most code stays unchanged; only the URL resolver shifts.
-
-The packager `tools/package-extension.js` lets you adjust the `INCLUDE_DIRS` allowlist to do (2). For (3), drop the dirs from both the manifest's `web_accessible_resources` and `INCLUDE_DIRS`.
-
-I'd recommend grepping for `QuranAyas` first to see if they're load-bearing:
-
-```bash
-grep -r "QuranAyas" js/ css/ html/
-```
-
-If there are no hits, option 2 is safe.
+The `resources/QuranAyas/` and `resources/QuranAyas2/` PNG sets (~150 MB combined) are deliberately **excluded** from the package and from `manifest.json` → `web_accessible_resources`. They're staged in the repo for a possible future "render ayahs as images" mode, but no runtime code references them today. If a future feature needs them, drop the `resources/QuranAyas2?/` line from `EXCLUDE_PATTERNS` in `tools/package-extension.js` and add them back to `web_accessible_resources`.
 
 ---
 
