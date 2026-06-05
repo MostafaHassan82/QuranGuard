@@ -15,225 +15,281 @@
     </header>
 
     <main id="options-main">
-      <!-- ── Language ─────────────────────────────────────────────────── -->
-      <section class="opt-section">
-        <h2 class="opt-section-title" data-i18n="sec_language">اللغة</h2>
-        <div class="opt-card">
-          <label class="opt-field">
-            <span class="opt-field-label" data-i18n="lang_label">اللغة:</span>
-            <select id="lang-select">
-              <option value="ar">العربية</option>
-              <option value="en">English</option>
-            </select>
-          </label>
-        </div>
-      </section>
 
-      <!-- ── Quran text display (authentic-text swap) ─────────────────── -->
-      <section class="opt-section">
-        <h2 class="opt-section-title" data-i18n="sec_text">عرض النص القرآني</h2>
-        <div class="opt-card">
-          <h3 class="opt-card-title" data-i18n="swap_heading">النص القرآني الأصلي (الإعدادات الافتراضية)</h3>
-          <label class="opt-row">
-            <input type="checkbox" id="swap-master"><span data-i18n="swap_master">تفعيل (رئيسي)</span>
-          </label>
-          <div class="opt-per-color">
-            <label class="opt-row"><input type="checkbox" data-swap-color="green"><span data-i18n="swap_green">تطابق تام</span></label>
-            <label class="opt-row"><input type="checkbox" data-swap-color="lightBlue"><span data-i18n="swap_lightBlue">تطابق بدون مرجع</span></label>
-            <label class="opt-row"><input type="checkbox" data-swap-color="yellow"><span data-i18n="swap_yellow">اختلاف لفظي</span></label>
-            <label class="opt-row"><input type="checkbox" data-swap-color="orange"><span data-i18n="swap_orange">مرجع غير مطابق</span></label>
-            <label class="opt-row opt-row-disabled" data-i18n-title="swap_red_title" title="الأحمر دائمًا معطّل">
-              <input type="checkbox" data-swap-color="red" disabled><span data-i18n="swap_red">لم يُتحقَّق — دائمًا معطّل</span>
+      <!-- Sticky TOC rail (jumps to each section by id). -->
+      <nav class="opt-toc" aria-label="Sections">
+        <ol>
+          <li><a href="#sec-language"     data-i18n="sec_language">اللغة</a></li>
+          <li><a href="#sec-text"         data-i18n="sec_text">عرض النص القرآني</a></li>
+          <li><a href="#sec-highlight"    data-i18n="sec_highlight">تمييز الفئات</a></li>
+          <li><a href="#sec-behavior"     data-i18n="sec_behavior">سلوك القراءة</a></li>
+          <li><a href="#sec-autocomplete" data-i18n="ac_section">الإكمال التلقائي للآيات</a></li>
+          <li><a href="#sec-panel"        data-i18n="sec_panel">لوحة النتائج</a></li>
+          <li><a href="#sec-data"         data-i18n="sec_data">البيانات</a></li>
+        </ol>
+      </nav>
+
+      <div class="opt-sections">
+
+        <!-- ── Language ─────────────────────────────────────────────────── -->
+        <section class="opt-section" id="sec-language">
+          <div class="opt-sec-head">
+            <h2 class="opt-section-title" data-i18n="sec_language">اللغة</h2>
+          </div>
+          <div class="opt-card">
+            <label class="opt-field">
+              <span class="opt-field-label" data-i18n="lang_label">اللغة:</span>
+              <select id="lang-select">
+                <option value="ar">العربية</option>
+                <option value="en">English</option>
+              </select>
             </label>
           </div>
-          <label class="opt-field">
-            <span class="opt-field-label" data-i18n="font_label">الخط:</span>
-            <select id="font-select">
-              <option value="uthmaniHafs" data-i18n="font_uthmani">عثماني — حفص</option>
-              <option value="qpcHafs" data-i18n="font_qpcHafs">QPC حفص (عثماني رسمي)</option>
-              <option value="qpcV2" data-i18n="font_qpcV2">QPC إصدار 2</option>
-              <option value="qpcV4Tajweed" data-i18n="font_qpcV4Tajweed">QPC إصدار 4 — تجويد</option>
-              <option value="digitalKhattIndopak" data-i18n="font_digitalKhattIndopak">Digital Khatt — هندي/باكستاني</option>
-              <option value="digitalKhattV1" data-i18n="font_digitalKhattV1">Digital Khatt إصدار 1</option>
-              <option value="digitalKhattV2" data-i18n="font_digitalKhattV2">Digital Khatt إصدار 2</option>
-              <option value="indopakNastaleeq" data-i18n="font_indopakNastaleeq">هندي/باكستاني — نستعليق</option>
-              <option value="kfgqpcNastaleeq" data-i18n="font_kfgqpcNastaleeq">KFGQPC نستعليق</option>
-            </select>
-          </label>
-        </div>
-      </section>
+        </section>
 
-      <!-- ── Category highlighting (per-category style) ───────────────── -->
-      <section class="opt-section">
-        <h2 class="opt-section-title" data-i18n="sec_highlight">تمييز الفئات</h2>
-        <div class="opt-card">
+        <!-- ── Quran text display (authentic-text swap) ─────────────────── -->
+        <section class="opt-section" id="sec-text">
+          <div class="opt-sec-head">
+            <h2 class="opt-section-title" data-i18n="sec_text">عرض النص القرآني</h2>
+          </div>
+          <div class="opt-card">
+            <h3 class="opt-card-title" data-i18n="swap_heading">النص القرآني الأصلي (الإعدادات الافتراضية)</h3>
+            <label class="opt-row">
+              <input type="checkbox" id="swap-master"><span data-i18n="swap_master">تفعيل (رئيسي)</span>
+            </label>
+            <div class="opt-per-color">
+              <label class="opt-row"><input type="checkbox" data-swap-color="green"><span data-i18n="swap_green">تطابق تام</span></label>
+              <label class="opt-row"><input type="checkbox" data-swap-color="lightBlue"><span data-i18n="swap_lightBlue">تطابق بدون مرجع</span></label>
+              <label class="opt-row"><input type="checkbox" data-swap-color="yellow"><span data-i18n="swap_yellow">اختلاف لفظي</span></label>
+              <label class="opt-row"><input type="checkbox" data-swap-color="orange"><span data-i18n="swap_orange">مرجع غير مطابق</span></label>
+              <label class="opt-row opt-row-disabled" data-i18n-title="swap_red_title" title="الأحمر دائمًا معطّل">
+                <input type="checkbox" data-swap-color="red" disabled><span data-i18n="swap_red">لم يُتحقَّق — دائمًا معطّل</span>
+              </label>
+            </div>
+            <label class="opt-field">
+              <span class="opt-field-label" data-i18n="font_label">الخط:</span>
+              <select id="font-select">
+                <option value="uthmaniHafs" data-i18n="font_uthmani">عثماني — حفص</option>
+                <option value="qpcHafs" data-i18n="font_qpcHafs">QPC حفص (عثماني رسمي)</option>
+                <option value="qpcV2" data-i18n="font_qpcV2">QPC إصدار 2</option>
+                <option value="qpcV4Tajweed" data-i18n="font_qpcV4Tajweed">QPC إصدار 4 — تجويد</option>
+                <option value="digitalKhattIndopak" data-i18n="font_digitalKhattIndopak">Digital Khatt — هندي/باكستاني</option>
+                <option value="digitalKhattV1" data-i18n="font_digitalKhattV1">Digital Khatt إصدار 1</option>
+                <option value="digitalKhattV2" data-i18n="font_digitalKhattV2">Digital Khatt إصدار 2</option>
+                <option value="indopakNastaleeq" data-i18n="font_indopakNastaleeq">هندي/باكستاني — نستعليق</option>
+                <option value="kfgqpcNastaleeq" data-i18n="font_kfgqpcNastaleeq">KFGQPC نستعليق</option>
+              </select>
+            </label>
+          </div>
+        </section>
+
+        <!-- ── Category highlighting — Mihrab verdict tile grid ───────── -->
+        <section class="opt-section" id="sec-highlight">
+          <div class="opt-sec-head">
+            <h2 class="opt-section-title" data-i18n="sec_highlight">تمييز الفئات</h2>
+          </div>
           <div class="opt-hint" data-i18n="highlight_style_hint">كيف تُعلَّم كل فئة على الصفحة. التلميح يظهر دائمًا عند المرور مهما كان الاختيار.</div>
-          <label class="opt-field">
-            <span class="opt-field-label" data-i18n="cat_green">مطابق للقرآن مع المرجع</span>
-            <select class="hl-style-select" data-hl-color="green"></select>
-          </label>
-          <label class="opt-field">
-            <span class="opt-field-label" data-i18n="cat_lightBlue">مطابق للقرآن — لم يُذكر المرجع</span>
-            <select class="hl-style-select" data-hl-color="lightBlue"></select>
-          </label>
-          <label class="opt-field">
-            <span class="opt-field-label" data-i18n="cat_lightGreen">صُحِّح المرجع</span>
-            <select class="hl-style-select" data-hl-color="lightGreen"></select>
-          </label>
-          <label class="opt-field">
-            <span class="opt-field-label" data-i18n="cat_yellow">اختلاف لفظي</span>
-            <select class="hl-style-select" data-hl-color="yellow"></select>
-            <span class="opt-locked-note" data-i18n="hl_yellow_locked">الأصفر يبقى ظاهرًا دائمًا</span>
-          </label>
-          <label class="opt-field">
-            <span class="opt-field-label" data-i18n="cat_orange">مرجع غير مطابق</span>
-            <select class="hl-style-select" data-hl-color="orange"></select>
-          </label>
-          <label class="opt-field">
-            <span class="opt-field-label" data-i18n="cat_red">لم يُعثر عليه في القرآن</span>
-            <select class="hl-style-select" data-hl-color="red"></select>
-            <span class="opt-locked-note" data-i18n="hl_red_locked">الأحمر يبقى ظاهرًا دائمًا</span>
-          </label>
-        </div>
-      </section>
 
-      <!-- ── Reading behavior ─────────────────────────────────────────── -->
-      <section class="opt-section">
-        <h2 class="opt-section-title" data-i18n="sec_behavior">سلوك القراءة</h2>
-        <div class="opt-card">
-          <label class="opt-row">
-            <input type="checkbox" id="autocorrect-orange"><span data-i18n="autocorrect_orange">تصحيح كل المراجع الخاطئة (البرتقالي) تلقائيًا</span>
-          </label>
-          <div class="opt-hint" data-i18n="autocorrect_orange_hint">يستبدل المرجع الخاطئ بالمرجع الصحيح في الصفحة عند كل فحص.</div>
-          <label class="opt-row">
-            <input type="checkbox" id="autocorrect-lightblue"><span data-i18n="autocorrect_lightblue">اقتراح المرجع الناقص تلقائيًا (الأزرق الفاتح)</span>
-          </label>
-          <div class="opt-hint" data-i18n="autocorrect_lightblue_hint">يعرض المرجع المقترح في اللوحة دون تعديل الصفحة.</div>
-          <label class="opt-row">
-            <input type="checkbox" id="autocorrect-yellow"><span data-i18n="autocorrect_yellow">تصحيح الاختلاف اللفظي تلقائيًا بالنص الأصلي (الأصفر)</span>
-          </label>
-          <div class="opt-hint" data-i18n="autocorrect_yellow_hint">يستبدل النص المكتوب بنص المصحف الأصلي في الصفحة عند كل فحص.</div>
-          <label class="opt-row">
-            <input type="checkbox" id="autocorrect-red"><span data-i18n="autocorrect_red">قبول أقرب آية للنصوص غير الموجودة (الأحمر) تلقائيًا</span>
-          </label>
-          <div class="opt-hint" data-i18n="autocorrect_red_hint">يستبدل النص الذي لم يُعثر عليه بأقرب آية يقترحها المحقّق — فقط حين يوجد اقتراح وحيد. خيار عالي المخاطرة.</div>
-          <label class="opt-row">
-            <input type="checkbox" id="ref-highlight"><span data-i18n="ref_highlight">تمييز مرجع الآية على الصفحة (لون ذهبي)</span>
-          </label>
-          <div class="opt-hint" data-i18n="ref_highlight_hint">يُبرز مرجع كل آية بخلفية ذهبية. عند الإيقاف يبقى التلميح عند المرور والرابط يعملان.</div>
-          <label class="opt-row">
-            <input type="checkbox" id="ref-links"><span data-i18n="ref_links">جعل المراجع روابط قابلة للنقر (quran.com)</span>
-          </label>
-          <div class="opt-hint" data-i18n="ref_links_hint">يعرض نصّ الآية الكامل عند المرور، والنقر يفتح quran.com في تبويب جديد.</div>
-        </div>
-      </section>
-
-      <!-- ── Ayah autocomplete (writer-side, feature 003) ─────────────── -->
-      <section class="opt-section">
-        <h2 class="opt-section-title" data-i18n="ac_section">الإكمال التلقائي للآيات</h2>
-        <div class="opt-card">
-          <label class="opt-row">
-            <input type="checkbox" id="ac-enable"><span data-i18n="ac_enable">تفعيل الإكمال التلقائي أثناء الكتابة</span>
-          </label>
-          <div class="opt-hint" data-i18n="ac_enable_hint">يقترح الآية الصحيحة ومرجعها عندما تكتب اقتباسًا قرآنيًا. لإيقافه استخدم هذا الخيار (لا يوجد مفتاح إلغاء مؤقت).</div>
-          <label class="opt-row">
-            <input type="checkbox" id="ac-live-render"><span data-i18n="ac_live_render">تمييز الآيات في حقول الكتابة بألوان التحقق وخط المصحف</span>
-          </label>
-          <label class="opt-field">
-            <span class="opt-field-label" data-i18n="ac_ref_format">صيغة المرجع المُدرَج:</span>
-            <select id="ac-ref-format">
-              <option value="arabicName" data-i18n="ac_ref_format_name">اسم السورة (البقرة:٢٥٥)</option>
-              <option value="number" data-i18n="ac_ref_format_number">رقم السورة (٢:٢٥٥)</option>
-            </select>
-          </label>
-          <label class="opt-field">
-            <span class="opt-field-label" data-i18n="ac_ref_placement">موضع المرجع:</span>
-            <select id="ac-ref-placement">
-              <option value="after" data-i18n="ac_ref_placement_after">بعد الآية</option>
-              <option value="before" data-i18n="ac_ref_placement_before">قبل الآية</option>
-            </select>
-          </label>
-          <label class="opt-field">
-            <span class="opt-field-label" data-i18n="ac_min_words">أقل عدد كلمات قبل بدء الاقتراح:</span>
-            <select id="ac-min-words">
-              <option value="1">1</option>
-              <option value="2">2</option>
-              <option value="3">3</option>
-              <option value="4">4</option>
-              <option value="5">5</option>
-            </select>
-          </label>
-          <label class="opt-field">
-            <span class="opt-field-label" data-i18n="ac_max_candidates">أقصى عدد للاقتراحات المعروضة:</span>
-            <select id="ac-max-candidates">
-              <option value="5">5</option>
-              <option value="8">8</option>
-              <option value="12">12</option>
-              <option value="20">20</option>
-              <option value="50">50</option>
-              <option value="0" data-i18n="ac_max_candidates_unlimited">بدون حد</option>
-            </select>
-          </label>
-          <label class="opt-field">
-            <span class="opt-field-label" data-i18n="ac_multi_ayahs_cap">الحد الأقصى لكلمات الإدراج متعدد الآيات:</span>
-            <select id="ac-multi-ayahs-cap">
-              <option value="50">50</option>
-              <option value="100">100</option>
-              <option value="200">200</option>
-              <option value="400">400</option>
-              <option value="800">800</option>
-              <option value="2000">2000</option>
-            </select>
-          </label>
-          <div class="opt-hint" data-i18n="ac_multi_ayahs_hint">يرفض الإدراج إذا تجاوز عدد الكلمات هذا الحد (لمنع إدراج سور طويلة كالبقرة).</div>
-        </div>
-      </section>
-
-      <!-- ── Results panel ────────────────────────────────────────────── -->
-      <section class="opt-section">
-        <h2 class="opt-section-title" data-i18n="sec_panel">لوحة النتائج</h2>
-        <div class="opt-card">
-          <label class="opt-field">
-            <span class="opt-field-label" data-i18n="panel_position_label">موضع اللوحة:</span>
-            <select id="panel-position-select">
-              <option value="auto" data-i18n="pos_auto">تلقائي (حسب اتجاه اللغة)</option>
-              <option value="right" data-i18n="pos_right">يمين</option>
-              <option value="left" data-i18n="pos_left">يسار</option>
-              <option value="float" data-i18n="pos_float">عائمة</option>
-            </select>
-          </label>
-          <div class="opt-hint" data-i18n="panel_position_hint">التلقائي يجعل اللوحة على اليمين للعربية وعلى اليسار للإنجليزية.</div>
-          <label class="opt-field">
-            <span class="opt-field-label" data-i18n="float_anchor_label">ارتساء اللوحة العائمة:</span>
-            <select id="float-anchor-select">
-              <option value="auto" data-i18n="anchor_auto">تلقائي (حسب اتجاه اللغة)</option>
-              <option value="right" data-i18n="anchor_right">يمين</option>
-              <option value="left" data-i18n="anchor_left">يسار</option>
-            </select>
-          </label>
-          <div class="opt-hint" data-i18n="float_anchor_hint">يحدّد الجهة التي ترتسي إليها اللوحة العائمة، ويمكن سحبها لتلتصق بأي حافة.</div>
-          <div class="opt-field">
-            <span class="opt-field-label" data-i18n="panel_start">لوحة النتائج تبدأ:</span>
-            <label class="opt-radio">
-              <input type="radio" name="panelInitialState" value="expanded" id="state-expanded" checked>
-              <span data-i18n="expanded">مفتوحة</span>
+          <div class="verdict-grid">
+            <label class="verdict-tile" style="--c: #2d7a2d">
+              <div class="verdict-head">
+                <span class="verdict-glyph">✓</span>
+              </div>
+              <div class="verdict-name" data-i18n="cat_green">مطابق للقرآن مع المرجع</div>
+              <select class="hl-style-select" data-hl-color="green"></select>
             </label>
-            <label class="opt-radio">
-              <input type="radio" name="panelInitialState" value="collapsed" id="state-collapsed">
-              <span data-i18n="collapsed">مطوية</span>
+
+            <label class="verdict-tile" style="--c: #4a9ad6">
+              <div class="verdict-head">
+                <span class="verdict-glyph">✓</span>
+              </div>
+              <div class="verdict-name" data-i18n="cat_lightBlue">مطابق للقرآن — لم يُذكر المرجع</div>
+              <select class="hl-style-select" data-hl-color="lightBlue"></select>
+            </label>
+
+            <label class="verdict-tile" style="--c: #7cb342">
+              <div class="verdict-head">
+                <span class="verdict-glyph">✎</span>
+              </div>
+              <div class="verdict-name" data-i18n="cat_lightGreen">صُحِّح المرجع</div>
+              <select class="hl-style-select" data-hl-color="lightGreen"></select>
+            </label>
+
+            <label class="verdict-tile is-locked" style="--c: #d4a017">
+              <div class="verdict-head">
+                <span class="verdict-glyph">~</span>
+                <span class="verdict-lock" data-i18n="hl_yellow_locked">دائمًا ظاهر</span>
+              </div>
+              <div class="verdict-name" data-i18n="cat_yellow">اختلاف لفظي</div>
+              <select class="hl-style-select" data-hl-color="yellow"></select>
+            </label>
+
+            <label class="verdict-tile" style="--c: #ff8c00">
+              <div class="verdict-head">
+                <span class="verdict-glyph">⚠</span>
+              </div>
+              <div class="verdict-name" data-i18n="cat_orange">مرجع غير مطابق</div>
+              <select class="hl-style-select" data-hl-color="orange"></select>
+            </label>
+
+            <label class="verdict-tile is-locked" style="--c: #b00020">
+              <div class="verdict-head">
+                <span class="verdict-glyph">✗</span>
+                <span class="verdict-lock" data-i18n="hl_red_locked">دائمًا ظاهر</span>
+              </div>
+              <div class="verdict-name" data-i18n="cat_red">لم يُعثر عليه في القرآن</div>
+              <select class="hl-style-select" data-hl-color="red"></select>
             </label>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <!-- ── Data ─────────────────────────────────────────────────────── -->
-      <section class="opt-section">
-        <h2 class="opt-section-title" data-i18n="sec_data">البيانات</h2>
-        <div class="opt-card">
-          <button type="button" id="btn-clear-persisted" data-i18n="clear_persisted">مسح التصحيحات والتجاهلات المحفوظة</button>
-          <div id="persist-status" role="status" aria-live="polite"></div>
-        </div>
-      </section>
+        <!-- ── Reading behavior ─────────────────────────────────────────── -->
+        <section class="opt-section" id="sec-behavior">
+          <div class="opt-sec-head">
+            <h2 class="opt-section-title" data-i18n="sec_behavior">سلوك القراءة</h2>
+          </div>
+          <div class="opt-card">
+            <label class="opt-row">
+              <input type="checkbox" id="autocorrect-orange"><span data-i18n="autocorrect_orange">تصحيح كل المراجع الخاطئة (البرتقالي) تلقائيًا</span>
+            </label>
+            <div class="opt-hint" data-i18n="autocorrect_orange_hint">يستبدل المرجع الخاطئ بالمرجع الصحيح في الصفحة عند كل فحص.</div>
+            <label class="opt-row">
+              <input type="checkbox" id="autocorrect-lightblue"><span data-i18n="autocorrect_lightblue">اقتراح المرجع الناقص تلقائيًا (الأزرق الفاتح)</span>
+            </label>
+            <div class="opt-hint" data-i18n="autocorrect_lightblue_hint">يعرض المرجع المقترح في اللوحة دون تعديل الصفحة.</div>
+            <label class="opt-row">
+              <input type="checkbox" id="autocorrect-yellow"><span data-i18n="autocorrect_yellow">تصحيح الاختلاف اللفظي تلقائيًا بالنص الأصلي (الأصفر)</span>
+            </label>
+            <div class="opt-hint" data-i18n="autocorrect_yellow_hint">يستبدل النص المكتوب بنص المصحف الأصلي في الصفحة عند كل فحص.</div>
+            <label class="opt-row">
+              <input type="checkbox" id="autocorrect-red"><span data-i18n="autocorrect_red">قبول أقرب آية للنصوص غير الموجودة (الأحمر) تلقائيًا</span>
+            </label>
+            <div class="opt-hint" data-i18n="autocorrect_red_hint">يستبدل النص الذي لم يُعثر عليه بأقرب آية يقترحها المحقّق — فقط حين يوجد اقتراح وحيد. خيار عالي المخاطرة.</div>
+            <label class="opt-row">
+              <input type="checkbox" id="ref-highlight"><span data-i18n="ref_highlight">تمييز مرجع الآية على الصفحة (لون ذهبي)</span>
+            </label>
+            <div class="opt-hint" data-i18n="ref_highlight_hint">يُبرز مرجع كل آية بخلفية ذهبية. عند الإيقاف يبقى التلميح عند المرور والرابط يعملان.</div>
+            <label class="opt-row">
+              <input type="checkbox" id="ref-links"><span data-i18n="ref_links">جعل المراجع روابط قابلة للنقر (quran.com)</span>
+            </label>
+            <div class="opt-hint" data-i18n="ref_links_hint">يعرض نصّ الآية الكامل عند المرور، والنقر يفتح quran.com في تبويب جديد.</div>
+          </div>
+        </section>
+
+        <!-- ── Ayah autocomplete (writer-side, feature 003) ─────────────── -->
+        <section class="opt-section" id="sec-autocomplete">
+          <div class="opt-sec-head">
+            <h2 class="opt-section-title" data-i18n="ac_section">الإكمال التلقائي للآيات</h2>
+          </div>
+          <div class="opt-card">
+            <label class="opt-row">
+              <input type="checkbox" id="ac-enable"><span data-i18n="ac_enable">تفعيل الإكمال التلقائي أثناء الكتابة</span>
+            </label>
+            <div class="opt-hint" data-i18n="ac_enable_hint">يقترح الآية الصحيحة ومرجعها عندما تكتب اقتباسًا قرآنيًا. لإيقافه استخدم هذا الخيار (لا يوجد مفتاح إلغاء مؤقت).</div>
+            <label class="opt-row">
+              <input type="checkbox" id="ac-live-render"><span data-i18n="ac_live_render">تمييز الآيات في حقول الكتابة بألوان التحقق وخط المصحف</span>
+            </label>
+            <label class="opt-field">
+              <span class="opt-field-label" data-i18n="ac_ref_format">صيغة المرجع المُدرَج:</span>
+              <select id="ac-ref-format">
+                <option value="arabicName" data-i18n="ac_ref_format_name">اسم السورة (البقرة:٢٥٥)</option>
+                <option value="number" data-i18n="ac_ref_format_number">رقم السورة (٢:٢٥٥)</option>
+              </select>
+            </label>
+            <label class="opt-field">
+              <span class="opt-field-label" data-i18n="ac_ref_placement">موضع المرجع:</span>
+              <select id="ac-ref-placement">
+                <option value="after" data-i18n="ac_ref_placement_after">بعد الآية</option>
+                <option value="before" data-i18n="ac_ref_placement_before">قبل الآية</option>
+              </select>
+            </label>
+            <label class="opt-field">
+              <span class="opt-field-label" data-i18n="ac_min_words">أقل عدد كلمات قبل بدء الاقتراح:</span>
+              <select id="ac-min-words">
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+                <option value="5">5</option>
+              </select>
+            </label>
+            <label class="opt-field">
+              <span class="opt-field-label" data-i18n="ac_max_candidates">أقصى عدد للاقتراحات المعروضة:</span>
+              <select id="ac-max-candidates">
+                <option value="5">5</option>
+                <option value="8">8</option>
+                <option value="12">12</option>
+                <option value="20">20</option>
+                <option value="50">50</option>
+                <option value="0" data-i18n="ac_max_candidates_unlimited">بدون حد</option>
+              </select>
+            </label>
+            <label class="opt-field">
+              <span class="opt-field-label" data-i18n="ac_multi_ayahs_cap">الحد الأقصى لكلمات الإدراج متعدد الآيات:</span>
+              <select id="ac-multi-ayahs-cap">
+                <option value="50">50</option>
+                <option value="100">100</option>
+                <option value="200">200</option>
+                <option value="400">400</option>
+                <option value="800">800</option>
+                <option value="2000">2000</option>
+              </select>
+            </label>
+            <div class="opt-hint" data-i18n="ac_multi_ayahs_hint">يرفض الإدراج إذا تجاوز عدد الكلمات هذا الحد (لمنع إدراج سور طويلة كالبقرة).</div>
+          </div>
+        </section>
+
+        <!-- ── Results panel ────────────────────────────────────────────── -->
+        <section class="opt-section" id="sec-panel">
+          <div class="opt-sec-head">
+            <h2 class="opt-section-title" data-i18n="sec_panel">لوحة النتائج</h2>
+          </div>
+          <div class="opt-card">
+            <label class="opt-field">
+              <span class="opt-field-label" data-i18n="panel_position_label">موضع اللوحة:</span>
+              <select id="panel-position-select">
+                <option value="auto" data-i18n="pos_auto">تلقائي (حسب اتجاه اللغة)</option>
+                <option value="right" data-i18n="pos_right">يمين</option>
+                <option value="left" data-i18n="pos_left">يسار</option>
+                <option value="float" data-i18n="pos_float">عائمة</option>
+              </select>
+            </label>
+            <div class="opt-hint" data-i18n="panel_position_hint">التلقائي يجعل اللوحة على اليمين للعربية وعلى اليسار للإنجليزية.</div>
+            <label class="opt-field">
+              <span class="opt-field-label" data-i18n="float_anchor_label">ارتساء اللوحة العائمة:</span>
+              <select id="float-anchor-select">
+                <option value="auto" data-i18n="anchor_auto">تلقائي (حسب اتجاه اللغة)</option>
+                <option value="right" data-i18n="anchor_right">يمين</option>
+                <option value="left" data-i18n="anchor_left">يسار</option>
+              </select>
+            </label>
+            <div class="opt-hint" data-i18n="float_anchor_hint">يحدّد الجهة التي ترتسي إليها اللوحة العائمة، ويمكن سحبها لتلتصق بأي حافة.</div>
+            <div class="opt-field">
+              <span class="opt-field-label" data-i18n="panel_start">لوحة النتائج تبدأ:</span>
+              <label class="opt-radio">
+                <input type="radio" name="panelInitialState" value="expanded" id="state-expanded" checked>
+                <span data-i18n="expanded">مفتوحة</span>
+              </label>
+              <label class="opt-radio">
+                <input type="radio" name="panelInitialState" value="collapsed" id="state-collapsed">
+                <span data-i18n="collapsed">مطوية</span>
+              </label>
+            </div>
+          </div>
+        </section>
+
+        <!-- ── Data ─────────────────────────────────────────────────────── -->
+        <section class="opt-section" id="sec-data">
+          <div class="opt-sec-head">
+            <h2 class="opt-section-title" data-i18n="sec_data">البيانات</h2>
+          </div>
+          <div class="opt-card">
+            <button type="button" id="btn-clear-persisted" data-i18n="clear_persisted">مسح التصحيحات والتجاهلات المحفوظة</button>
+            <div id="persist-status" role="status" aria-live="polite"></div>
+          </div>
+        </section>
+
+      </div>
     </main>
   </div>
 
