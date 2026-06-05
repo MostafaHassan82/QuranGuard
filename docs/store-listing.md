@@ -9,7 +9,15 @@ Each section below maps to a field in the CWS dashboard's **Store listing** tab.
 > The CWS "Detailed description" field accepts plain text + line breaks (no markdown is rendered). The block below is ~3,700 characters, well under the 16,000 limit, and structured so the first ~200 chars (visible before "Read more") sell the value.
 
 ```
-QuranGuard (صون القرآن) keeps Quran citations on the web honest. As you read, it verifies that every quoted ayah matches the authentic mushaf — and as you write, it autocompletes correct citations so mistakes never enter circulation.
+Allah's words are noble. Their wording must be preserved — whether an alteration is a careless typo or a deliberate change. QuranGuard (صون القرآن) was built to protect Quran citations on the web from drifting away from the authentic mushaf.
+
+It pursues that goal in two directions, on the same page, at the same time:
+
+  • Reader side — when a citation is already on the page, QuranGuard verifies it against the authentic mushaf and shows you exactly what is right, what is off, and what is missing. Where the wording or the reference has drifted, one click corrects it in place.
+
+  • Writer side — when you are the one writing, QuranGuard offers inline autocomplete for Quran citations drawn from the authentic mushaf, so the citation never leaves your keyboard wrong in the first place.
+
+This is the entire purpose of the extension. Everything below is how it delivers on it.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 READER SIDE — see at a glance whether a citation is right
@@ -71,7 +79,7 @@ Full source code, specs, and test fixtures are public on GitHub. Issues and sugg
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-QuranGuard is built on a single principle: the Quran is noble; no citation should be altered, intentionally or not. صون القرآن.
+QuranGuard exists for one reason: the Quran is noble; no citation should be altered, intentionally or not. صون القرآن.
 ```
 
 ---
@@ -95,7 +103,15 @@ The "Language" field in CWS controls which translated listing copy is shown to w
 > Short Arabic version you can use later for the Arabic listing's description, if you want to do that pass at the same time — drop into the Arabic listing's Description field:
 
 ```
-صون القرآن (QuranGuard) إضافة لمتصفح كروم تتحقق من الاقتباسات القرآنية على صفحات الويب وتساعد الكاتب على إدراج الآيات الصحيحة أثناء الكتابة.
+كلام الله تعالى مُنزَّه عن التحريف، ولا يجوز أن يتبدّل لفظه — سواء أكان ذلك عن سهوٍ أم عن قصد. ومن هنا جاءت إضافة "صون القرآن" (QuranGuard) لحفظ الاقتباسات القرآنية على صفحات الويب من الانحراف عن المصحف الشريف.
+
+تعمل الإضافة في اتجاهين، على الصفحة ذاتها، في الوقت نفسه:
+
+  • القارئ — حين يوجد الاقتباس في الصفحة، تتحقق الإضافة من مطابقته للمصحف، وتُظهر بوضوح ما الصحيح وما المُختلف وما الناقص، وتعرض تصحيحه في مكانه بنقرة واحدة عند انحراف اللفظ أو المرجع.
+
+  • الكاتب — حين تكون أنت من يكتب، تقترح الإضافة الآيات الصحيحة من المصحف فور البدء في كتابة الاقتباس، فلا يخرج الاقتباس من لوحة المفاتيح مُحرَّفًا أصلًا.
+
+هذا هو هدف الإضافة كاملًا. كل ما يلي تفصيل لكيفية تحقيقه.
 
 عند التصفح، تقوم الإضافة بفحص نص الصفحة، ومطابقة كل آية مع المصحف الشريف، وتمييز كل اقتباس بأحد ألوان التحقق الخمسة:
   • أخضر — تحقق تام، النص والمرجع متطابقان
@@ -111,7 +127,7 @@ The "Language" field in CWS controls which translated listing copy is shown to w
 المصدر مفتوح:
 https://github.com/MostafaHassan82/QuranGuard
 
-الهدف واحد: القرآن نبيل، لا ينبغي أن يُحرَّف ولو سهوًا. صون القرآن.
+الهدف واحد: القرآن مُنزَّه، لا ينبغي أن يُحرَّف لفظُه ولو سهوًا. صون القرآن.
 ```
 
 ---
