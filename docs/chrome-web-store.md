@@ -69,7 +69,7 @@ Use a structured block; CWS supports plain text + line breaks (no markdown).
 > Open source: github.com/MostafaHassan82/QuranGuard
 
 ### Category
-**Productivity** (closest fit; "Accessibility" is a defensible alternative).
+**Tools** (the selectable leaf under the Productivity domain). `Education` is a defensible alternative under the same domain; `Religion & spirituality` (Lifestyle) is thematically precise but reaches the wrong audience — see `docs/store-listing.md` for the full rationale.
 
 ### Language
 Add at least **Arabic** and **English**. CWS lets you ship the same listing copy for both unless you write localized strings.

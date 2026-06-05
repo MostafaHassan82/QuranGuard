@@ -86,9 +86,14 @@ QuranGuard exists for one reason: the Quran is noble; no citation should be alte
 
 ## 2. Category
 
-**Primary category:** `Productivity`
+**Selected:** `Tools` (under the Productivity domain).
 
-Why: "Accessibility" and "Communication" are alternatives, but Productivity is the broadest match for a tool that improves the accuracy of what you read and write on the web. There's no "Religious / Reference" category in CWS, so don't search for one.
+Note on terminology: in the current CWS dashboard, **Productivity** is a top-level *domain*, not a selectable category — the picker forces a leaf category underneath. `Tools` is the best functional match for a utility that improves the accuracy of what you read and write on the web; CWS reviewers see grammar checkers, citation assistants, and similar text utilities under this leaf, so the framing is familiar to them.
+
+Alternatives considered:
+
+  • `Education` (Productivity domain) — defensible; many users are students, teachers, researchers, da'wah writers. Slightly narrower discoverability than Tools.
+  • `Religion & spirituality` (Lifestyle domain) — most thematically precise, but the wrong audience: browsers of that category expect devotional apps (prayer times, dhikr counters), not a text-verification tool. Worse discoverability for the people who'd actually use it.
 
 ---
 
@@ -203,7 +208,7 @@ https://github.com/MostafaHassan82/QuranGuard/issues
 |---|---|
 | Item name | `QuranGuard (صون القرآن)` |
 | Summary | `Verifies Quran citations on the web and helps you insert correct ayahs as you type. صون القرآن.` |
-| Category | `Productivity` |
+| Category | `Tools` (under the Productivity domain) |
 | Language (primary) | `English (United States)` |
 | Mature content | `No` |
 | Homepage URL | `https://github.com/MostafaHassan82/QuranGuard` |
