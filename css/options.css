@@ -136,29 +136,168 @@ body {
 }
 #options-header h1 span + span { margin-inline-start: 4px; }
 
+/* Page widens to allow a sticky TOC rail. */
+#options-shell { max-width: 920px; }
 #options-main {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-  padding: 28px 24px 24px;
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  gap: 40px;
+  padding: 32px 28px 32px;
+  counter-reset: section;
 }
 
-/* ── Sections (item 6 — categorized, not loose islands) ─────────────────── */
-.opt-section {
+/* ── Sticky TOC rail (Mihrab) ──────────────────────────────────────────── */
+.opt-toc {
+  position: sticky;
+  top: 24px;
+  align-self: start;
+  padding-inline-start: 16px;
+  border-inline-start: 1px solid var(--q-border);
+}
+.opt-toc ol {
+  list-style: none;
+  margin: 0; padding: 0;
+  counter-reset: toc;
+}
+.opt-toc li { counter-increment: toc; }
+.opt-toc a {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 0;
+  border-bottom: 1px solid transparent;
+  font-family: 'El Messiri', sans-serif;
+  font-size: 13.5px;
+  color: var(--q-muted);
+  text-decoration: none;
+  transition: color 0.15s, border-color 0.15s;
+}
+.opt-toc a::after {
+  content: counter(toc, decimal-leading-zero);
+  font-family: 'Reem Kufi', sans-serif;
+  font-size: 10px;
+  color: var(--q-border);
+  letter-spacing: 0.06em;
+  direction: ltr;
+}
+.opt-toc a:hover { color: var(--q-primary); }
+.opt-toc a:hover::after { color: var(--q-gold-strong); }
+
+/* Right column holds the sections. */
+.opt-sections {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 36px;
+  min-width: 0;
+}
+
+/* ── Sections ──────────────────────────────────────────────────────────── */
+.opt-section {
+  counter-increment: section;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  scroll-margin-top: 24px;
+}
+/* Section head: Roman numeral + title + ruled bottom border. */
+.opt-sec-head {
+  display: grid;
+  grid-template-columns: 36px 1fr;
+  align-items: baseline;
+  gap: 14px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--q-border);
+}
+.opt-sec-head::before {
+  content: counter(section, upper-roman) ".";
+  font-family: 'Reem Kufi', serif;
+  font-size: 24px;
+  font-weight: 400;
+  color: var(--q-gold-strong);
+  line-height: 1;
+  direction: ltr;
+  text-align: left;
 }
 .opt-section-title {
   font-family: 'Reem Kufi', "Segoe UI", sans-serif;
-  font-size: 13px;
+  font-size: 20px;
   font-weight: 600;
-  letter-spacing: 0.4px;
-  text-transform: uppercase;
+  letter-spacing: 0;
+  text-transform: none;
   color: var(--q-primary);
-  margin: 0 2px;
-  padding-bottom: 4px;
-  border-bottom: 2px solid var(--q-gold-soft);
+  margin: 0;
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+/* ── Verdict tile grid (Mihrab) ────────────────────────────────────────── */
+.verdict-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+.verdict-tile {
+  position: relative;
+  background: var(--q-card);
+  border: 1px solid var(--q-border);
+  border-top: 4px solid var(--c, var(--q-border));
+  border-radius: 6px 6px 4px 4px;
+  padding: 14px 14px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  cursor: default;
+  transition: transform 0.18s, box-shadow 0.18s;
+}
+.verdict-tile:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 24px -16px rgba(11, 93, 59, 0.22);
+}
+.verdict-tile.is-locked {
+  background: linear-gradient(180deg, var(--q-gold-soft), var(--q-card));
+}
+.verdict-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.verdict-glyph {
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  background: var(--c);
+  color: white;
+  font-family: 'Reem Kufi', sans-serif;
+  font-size: 15px;
+  font-weight: 600;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.10);
+}
+.verdict-lock {
+  font-family: 'Reem Kufi', sans-serif;
+  font-size: 9.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--q-gold-strong);
+  background: rgba(200, 162, 74, 0.16);
+  border: 1px solid rgba(200, 162, 74, 0.4);
+  padding: 2px 7px;
+  border-radius: 999px;
+  direction: ltr;
+}
+.verdict-name {
+  font-family: 'El Messiri', sans-serif;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--q-text);
+  line-height: 1.35;
+}
+.verdict-tile select.hl-style-select {
+  margin: 0;
+  min-width: 0;
+  width: 100%;
+  font-size: 12.5px;
+  padding: 7px 26px 7px 10px;
 }
 
 /* ── Cards ──────────────────────────────────────────────────────────────── */
@@ -341,6 +480,17 @@ select:disabled {
 
 #font-select { flex: 1; }
 .hl-style-select { min-width: 150px; }
+
+/* Responsive — stack TOC above sections on narrow screens. */
+@media (max-width: 820px) {
+  #options-main { grid-template-columns: 1fr; gap: 20px; }
+  .opt-toc { position: static; border-inline-start: none; padding-inline-start: 0; }
+  .opt-toc ol { display: grid; grid-template-columns: repeat(2, 1fr); gap: 4px 16px; }
+  .verdict-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 520px) {
+  .verdict-grid { grid-template-columns: 1fr; }
+}
 
 /* ── Buttons ────────────────────────────────────────────────────────────── */
 button {
