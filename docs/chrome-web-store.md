@@ -49,7 +49,15 @@ The paste-ready copy for every field on the dashboard's **Store listing** tab �
 Keep that file and the dashboard in sync; do not duplicate the description here. This playbook covers the *process* (setup, permissions, privacy, submission); `store-listing.md` covers the *content*.
 
 ### Single-purpose statement (required by CWS policy)
-> QuranGuard has a single purpose: to verify Quran citations on web pages and to assist authors in inserting correct citations while typing. Every permission and content script exists to serve that purpose.
+The "Single purpose" field on the Privacy tab allows up to 1000 characters. Use the version below — it sketches the mechanism just enough for a reviewer to map each permission back to the purpose, and ends by tying every permission to it explicitly:
+
+> QuranGuard has a single purpose: to protect the wording and references of Quran citations on web pages, in two complementary directions.
+>
+> 1. Reader-side verification. When a Quran citation already appears on a page the user is reading, QuranGuard compares its text and its reference against the authentic mushaf bundled with the extension, marks each citation with a verdict color, and — at the user's choice — rewrites an inaccurate citation in place to match the authentic wording.
+>
+> 2. Writer-side assistance. When the user is composing text in any web editor or input and begins typing a Quran citation, QuranGuard offers inline suggestions drawn from the same authentic mushaf so the citation is correct before it is sent.
+>
+> Both directions share the same data, the same matching logic, and the same goal: the citation a user sees or writes should match the authentic Quran. Every permission the extension requests (storage, activeTab, scripting, and the `<all_urls>` content-script match) exists to serve this purpose and nothing else.
 
 ---
 

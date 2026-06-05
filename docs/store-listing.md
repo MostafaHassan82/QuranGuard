@@ -193,9 +193,7 @@ https://github.com/MostafaHassan82/QuranGuard/issues
 > **No** — QuranGuard does not contain mature content.
 
 ### Single purpose
-> See the "Single-purpose statement" section in `docs/chrome-web-store.md`. Paste verbatim:
->
-> "QuranGuard has a single purpose: to verify Quran citations on web pages and to assist authors in inserting correct citations while typing. Every permission and content script exists to serve that purpose."
+> The full single-purpose statement (Privacy tab → "Single purpose", 1000-char limit) lives in `docs/chrome-web-store.md` under "Single-purpose statement". Paste from there.
 
 ### YouTube video URL (optional)
 > Skip for v1 — only worth doing if you record a 30-90s demo screencast. Has measurable effect on conversion on the listing page, but not blocking.
