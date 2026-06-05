@@ -81,7 +81,17 @@ CWS asks for a one-paragraph justification per permission. Copy these into the d
 
 ## Privacy practices
 
-CWS now requires an explicit data-handling declaration. QuranGuard's answers:
+### Remote code
+**Answer: `No, I am not using Remote code`.**
+
+All JavaScript and data are bundled in the extension package. There is no `fetch()` of remote scripts, no dynamic `import()` of off-device modules, no `eval` of network-sourced strings, no WebAssembly fetched at runtime, no iframes loading third-party JS. The Quran data (`resources/quran-uthmani_*.json`) is a bundled local file.
+
+If the dashboard prompts for a justification line, use:
+
+> All JavaScript and data are bundled in the extension package. The extension does not fetch, import, evaluate, or otherwise execute any code from outside the package at runtime.
+
+### Data use
+CWS requires an explicit data-handling declaration. QuranGuard's answers:
 
 | Question | Answer |
 |---|---|
