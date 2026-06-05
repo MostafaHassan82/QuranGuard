@@ -11,10 +11,29 @@
    The five highlight swatch colors are fixed (Principle II) and intentionally
    NOT themed. */
 
+/* Bundled UI fonts — loaded from web-accessible resources so the sidebar font
+   stays consistent regardless of the host page's CSP. */
+@font-face {
+  font-family: "El Messiri";
+  src: url("../resources/fonts/el-messiri-arabic-400.woff2") format("woff2");
+  font-weight: 400; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: "El Messiri";
+  src: url("../resources/fonts/el-messiri-arabic-600.woff2") format("woff2");
+  font-weight: 600; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: "Reem Kufi";
+  src: url("../resources/fonts/reem-kufi-arabic-600.woff2") format("woff2");
+  font-weight: 600; font-style: normal; font-display: swap;
+}
+
 .quran-ext-panel,
 .quran-ext-panel-tab {
   --q-primary: #0b5d3b;
   --q-primary-strong: #08482e;
+  --q-primary-mute: #1f7a52;
   --q-on-primary: #f7f5ef;
   --q-gold: #c8a24a;
   --q-gold-soft: #ece0bf;
@@ -32,6 +51,7 @@
   .quran-ext-panel-tab {
     --q-primary: #1f7a52;
     --q-primary-strong: #166041;
+    --q-primary-mute: #2a8f63;
     --q-on-primary: #f3f7f4;
     --q-gold: #d4b262;
     --q-gold-soft: #3a3526;
@@ -55,15 +75,31 @@
   overflow: hidden;          /* the findings list scrolls, not the whole panel */
   background: var(--q-bg);
   color: var(--q-text);
-  font-family: "Segoe UI", Tahoma, Arial, sans-serif;
+  font-family: "El Messiri", "Segoe UI", Tahoma, Arial, sans-serif;
   font-size: 14px;
-  line-height: 1.5;
+  line-height: 1.55;
   direction: rtl;
   z-index: 2147483647; /* sit above host overlays */
-  box-shadow: -2px 0 12px rgba(0, 0, 0, 0.18);
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
+  /* The panel itself is shaped as a pointed mihrab arch at the top edge —
+     no rectangle, no cream surround. Box-shadow on a clipped element is
+     also clipped, so the drop-shadow comes from filter: instead. */
+  clip-path: polygon(
+    0% 100%,
+    0% 28px,
+    8% 18px,
+    18% 10px,
+    32% 4px,
+    50% 0%,
+    68% 4px,
+    82% 10px,
+    92% 18px,
+    100% 28px,
+    100% 100%
+  );
+  filter: drop-shadow(-2px 4px 10px rgba(0, 0, 0, 0.22));
 }
 
 .quran-ext-panel * { box-sizing: border-box; }
@@ -103,57 +139,79 @@
 /* In-header collapse/expand button (free-floating only; toggled inline by JS). */
 .quran-ext-panel-float-toggle {
   all: unset;
+  width: 30px; height: 30px;
   display: none;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  color: var(--q-on-primary);
-  padding: 2px 4px;
-  border-radius: 4px;
-  opacity: 0.9;
+  color: #f3e9d2;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(236, 224, 191, 0.20);
+  border-radius: 6px;
+  transition: background 0.15s, border-color 0.15s;
 }
-.quran-ext-panel-float-toggle:hover { opacity: 1; background: rgba(255, 255, 255, 0.12); }
+.quran-ext-panel-float-toggle:hover { background: rgba(236, 224, 191, 0.14); border-color: rgba(236, 224, 191, 0.35); }
 .quran-ext-panel-float-toggle:focus-visible { outline: 2px solid var(--q-focus); }
 .quran-ext-panel-float-toggle svg { display: block; }
 
-/* Pin toggle (always visible): pressed = docked, unpressed = floating. */
+/* Pin toggle (always visible): pressed = docked, unpressed = floating.
+   Mihrab-style — a rounded square chip with cream icon, gold-filled when active. */
 .quran-ext-panel-pin {
   all: unset;
+  width: 30px; height: 30px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  color: var(--q-on-primary);
-  padding: 2px 4px;
-  border-radius: 4px;
-  opacity: 0.7;
+  color: #f3e9d2;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(236, 224, 191, 0.20);
+  border-radius: 6px;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
 }
-.quran-ext-panel-pin:hover { opacity: 1; background: rgba(255, 255, 255, 0.12); }
+.quran-ext-panel-pin:hover { background: rgba(236, 224, 191, 0.14); border-color: rgba(236, 224, 191, 0.35); }
 .quran-ext-panel-pin:focus-visible { outline: 2px solid var(--q-focus); }
 .quran-ext-panel-pin svg { display: block; }
-/* Pressed = pinned/docked: full opacity + a gold wash so the active state reads. */
-.quran-ext-panel-pin[aria-pressed="true"] { opacity: 1; color: var(--q-gold); }
+/* Pressed = pinned/docked: gold chip. */
+.quran-ext-panel-pin[aria-pressed="true"] {
+  background: var(--q-gold);
+  color: #0a3a26;
+  border-color: var(--q-gold);
+}
 /* Resize handle rides the page-facing edge: left when on the right (base),
    right when on the left or floating free. */
 .quran-ext-panel.quran-ext-pos-left .quran-ext-panel-resize,
 .quran-ext-panel.quran-ext-pos-float-free .quran-ext-panel-resize { left: auto; right: 0; }
 
+/* Header — deep emerald plate with star motif. The panel's clip-path shapes
+   the visible top edge (arch); header padding clears the arch shoulders so
+   the title + buttons sit in the rectangular base. */
 .quran-ext-panel-header {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: var(--q-primary);
-  background-image: var(--q-motif);
-  background-repeat: repeat;
+  background-color: #0a3a26;
+  background-image:
+    radial-gradient(ellipse 120% 80% at 50% 0%, rgba(200, 162, 74, 0.10), transparent 60%),
+    var(--q-motif);
+  background-repeat: no-repeat, repeat;
   border-bottom: 2px solid var(--q-gold);
-  padding: 10px 12px;
+  padding: 34px 14px 14px;
 }
 
 .quran-ext-panel-title {
   margin: 0;
-  font-size: 16px;
+  font-family: "Reem Kufi", "Segoe UI", sans-serif;
+  font-size: 19px;
+  font-weight: 600;
+  color: #f3e9d2;            /* warm cream matching popup/options titles */
+  letter-spacing: 0;
+}
+.quran-ext-panel-title span + span { margin-inline-start: 8px; }
+.quran-ext-panel-title .gold {
+  color: var(--q-gold);
   font-weight: 700;
-  color: var(--q-on-primary);
 }
 
 .quran-ext-panel-header-btns {
@@ -192,16 +250,18 @@
 .quran-ext-panel-tab {
   all: initial;
   position: fixed;
-  top: 12px;
+  top: 28px;
   right: 0;
   width: 26px;
-  min-height: 64px;
+  min-height: 33px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--q-primary);
+  background-color: #0a3a26;
+  background-image: var(--q-motif);
+  background-repeat: repeat;
   color: var(--q-on-primary);
-  font-family: "Segoe UI", Tahoma, Arial, sans-serif;
+  font-family: "El Messiri", "Segoe UI", Tahoma, Arial, sans-serif;
   font-size: 14px;
   cursor: pointer;
   border: 1px solid var(--q-gold);
@@ -212,7 +272,7 @@
   padding: 8px 4px;
   user-select: none;
 }
-.quran-ext-panel-tab:hover { background: var(--q-primary-strong); }
+.quran-ext-panel-tab:hover { background-color: #072e1d; }
 .quran-ext-panel-tab svg { display: block; }
 
 /* Left-docked / left-floating: mirror the tab to the left screen edge. */
@@ -617,16 +677,23 @@
 }
 .quran-ext-panel-action-btn {
   flex: 0 0 auto;
-  padding: 4px 10px;
+  padding: 5px 11px;
+  font-family: inherit;
   font-size: 12px;
+  font-weight: 500;
   border: 1px solid var(--q-border);
-  border-radius: 4px;
+  border-radius: 6px;
   background: var(--q-card);
   color: var(--q-text);
   cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, transform 0.1s;
 }
-.quran-ext-panel-action-btn:hover { background: var(--q-gold-soft); }
+.quran-ext-panel-action-btn:hover {
+  background: var(--q-gold-soft);
+  border-color: var(--q-primary-mute);
+}
 .quran-ext-panel-action-btn:focus { outline: 2px solid var(--q-focus); outline-offset: 1px; }
+.quran-ext-panel-action-btn:active { transform: translateY(1px); }
 
 /* FR-020 — data-unavailable error surface (T101 sidebar half). Reuses the panel
    theme tokens; shown by QuranPanelSidebar.showError() when the Quran data fails
@@ -651,18 +718,30 @@
 .quran-ext-error-retry {
   all: unset;
   align-self: flex-start;
-  background: var(--q-primary);
+  background: linear-gradient(180deg, var(--q-primary-mute), var(--q-primary));
   color: var(--q-on-primary);
   border: 1px solid var(--q-primary-strong);
-  border-radius: 6px;
-  padding: 8px 18px;
+  border-radius: 8px;
+  padding: 9px 20px;
+  font-family: inherit;
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 4px 12px -6px rgba(11, 93, 59, 0.5);
+  transition: background 0.15s, transform 0.1s, box-shadow 0.15s;
 }
-.quran-ext-error-retry:hover { background: var(--q-primary-strong); }
+.quran-ext-error-retry:hover {
+  background: linear-gradient(180deg, var(--q-primary), var(--q-primary-strong));
+  transform: translateY(-1px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 8px 16px -8px rgba(11, 93, 59, 0.55);
+}
+.quran-ext-error-retry:active { transform: translateY(0); }
 .quran-ext-error-retry:focus-visible { outline: 2px solid var(--q-focus); outline-offset: 2px; }
-.quran-ext-error-retry:disabled { opacity: 0.5; cursor: not-allowed; }
+.quran-ext-error-retry:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
 
 /* ── T201 P1 — yellow aligned diff + red near-match (panel, info-only) ──────── */
 .quran-ext-panel-diff,
