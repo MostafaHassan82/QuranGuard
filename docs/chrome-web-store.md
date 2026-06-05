@@ -42,37 +42,11 @@ The version string in `manifest.json` is the *only* knob CWS reads. Every upload
 
 ## Store listing fields
 
-### Item name
-**QuranGuard (صون القرآن)**
+The paste-ready copy for every field on the dashboard's **Store listing** tab — item name, summary, long description (English + Arabic), category, language, graphic assets, additional URLs — lives in a single source of truth:
 
-### Summary (≤ 132 chars)
-> Verifies Quran citations on the web and helps you insert correct ayahs as you type. صون القرآن.
+➡ **[`docs/store-listing.md`](./store-listing.md)**
 
-### Description (long)
-Use a structured block; CWS supports plain text + line breaks (no markdown).
-
-> **QuranGuard** keeps Quran citations on the web honest.
->
-> Reader-side: as you browse, QuranGuard scans the page for Quran citations, compares each one against the authentic mushaf, and shows a verdict color directly on the text:
-> • green — verified exact (text + reference agree)
-> • light blue — verified exact, no reference written
-> • yellow — word-level deviation from the authentic wording
-> • orange — reference mismatch (real Quran, wrong ref)
-> • red — citation signal but text not in the Quran
->
-> When you want to fix something, one click rewrites the page text (or the reference) to match the mushaf, marked light green so you can see what was corrected.
->
-> Writer-side: in any web editor or input, QuranGuard offers inline autocomplete for Quran citations drawn from the authentic mushaf. Single ayah, multi-ayah ranges, or "to end of surah." Mistakes are prevented at the source.
->
-> Privacy: QuranGuard reads page text locally and stores your settings and per-page corrections in chrome.storage.local. No data is sent to a server.
->
-> Open source: github.com/MostafaHassan82/QuranGuard
-
-### Category
-**Tools** (the selectable leaf under the Productivity domain). `Education` is a defensible alternative under the same domain; `Religion & spirituality` (Lifestyle) is thematically precise but reaches the wrong audience — see `docs/store-listing.md` for the full rationale.
-
-### Language
-Add at least **Arabic** and **English**. CWS lets you ship the same listing copy for both unless you write localized strings.
+Keep that file and the dashboard in sync; do not duplicate the description here. This playbook covers the *process* (setup, permissions, privacy, submission); `store-listing.md` covers the *content*.
 
 ### Single-purpose statement (required by CWS policy)
 > QuranGuard has a single purpose: to verify Quran citations on web pages and to assist authors in inserting correct citations while typing. Every permission and content script exists to serve that purpose.
