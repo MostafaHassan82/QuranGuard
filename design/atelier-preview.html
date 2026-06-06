@@ -1,0 +1,1485 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<title>QuranGuard — Manuscript Atelier (Design Preview)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400&family=Noto+Naskh+Arabic:wght@400;500;700&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  /* ──────────────────────────────────────────────────────────────────
+     Manuscript Atelier — design language tokens
+     ────────────────────────────────────────────────────────────────── */
+  :root {
+    /* Parchment & ink */
+    --ink:          #1a1410;
+    --ink-soft:     #3a302a;
+    --ink-mute:     #6b5d51;
+    --rule:         #c8b9a3;
+    --rule-soft:    #e2d6bf;
+    --parchment:    #f5efe3;
+    --parchment-2:  #efe7d6;
+    --parchment-3:  #e7dcc6;
+    --vellum:       #faf6ec;
+
+    /* Gold leaf — used sparingly */
+    --gold:         #b8860b;
+    --gold-deep:    #8a6508;
+    --gold-soft:    #d9b85a;
+
+    /* Verdict jewel tones (re-tuned from the extension's existing palette
+       to sit harmoniously on parchment instead of fighting it) */
+    --v-green:      #4a7a3d;   /* exact match  */
+    --v-lightBlue:  #4a6b88;   /* match, no ref */
+    --v-lightGreen: #7a9a4a;   /* corrected     */
+    --v-yellow:     #b8860b;   /* wording diff  */
+    --v-orange:     #c2541a;   /* wrong ref     */
+    --v-red:        #8a2a1a;   /* not found     */
+
+    /* Type */
+    --f-display-ar: 'Amiri', serif;
+    --f-body-ar:    'Noto Naskh Arabic', serif;
+    --f-display:    'Fraunces', serif;
+    --f-mono:       'DM Mono', monospace;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0; padding: 0;
+    background:
+      radial-gradient(1200px 600px at 20% 0%, #fff8e9 0%, transparent 60%),
+      radial-gradient(900px 500px at 90% 100%, #e7dcc6 0%, transparent 60%),
+      var(--parchment);
+    color: var(--ink);
+    font-family: var(--f-display);
+    font-weight: 400;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+  }
+
+  /* Faint paper grain overlay */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    pointer-events: none;
+    background-image:
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.1  0 0 0 0 0.08  0 0 0 0 0.06  0 0 0 0.08 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+    opacity: 0.6;
+    mix-blend-mode: multiply;
+    z-index: 1;
+  }
+
+  .atelier {
+    position: relative;
+    z-index: 2;
+    max-width: 1480px;
+    margin: 0 auto;
+    padding: 72px 64px 120px;
+  }
+
+  /* ── Masthead ─────────────────────────────────────────────────────── */
+  .masthead {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: end;
+    gap: 32px;
+    padding-bottom: 28px;
+    border-bottom: 1px solid var(--rule);
+    margin-bottom: 56px;
+  }
+  .mast-meta-l, .mast-meta-r {
+    font-family: var(--f-mono);
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+  }
+  .mast-meta-r { text-align: right; }
+  .masthead h1 {
+    margin: 0;
+    font-family: var(--f-display);
+    font-weight: 300;
+    font-style: italic;
+    font-size: 64px;
+    letter-spacing: -0.02em;
+    line-height: 1;
+    text-align: center;
+  }
+  .masthead h1 .amp {
+    color: var(--gold-deep);
+    font-style: italic;
+    font-weight: 400;
+  }
+  .masthead .ar-mark {
+    display: block;
+    margin-top: 12px;
+    font-family: var(--f-display-ar);
+    font-weight: 400;
+    font-size: 22px;
+    color: var(--ink-soft);
+    letter-spacing: 0;
+    direction: rtl;
+  }
+  .colophon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    margin-top: 22px;
+  }
+  .colophon .dot { width: 5px; height: 5px; background: var(--gold-deep); border-radius: 50%; }
+  .colophon .rule { flex: 0 0 80px; height: 1px; background: var(--rule); }
+  .colophon .label {
+    font-family: var(--f-mono);
+    font-size: 10px;
+    letter-spacing: 0.32em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+  }
+
+  /* ── Exhibit grid ─────────────────────────────────────────────────── */
+  .exhibit {
+    display: grid;
+    grid-template-columns: 360px 1fr 380px;
+    grid-template-rows: auto auto;
+    gap: 56px 48px;
+    align-items: start;
+  }
+
+  /* Plate frame */
+  .plate {
+    position: relative;
+    background: var(--vellum);
+    border: 1px solid var(--rule);
+    box-shadow:
+      0 1px 0 var(--parchment-2),
+      0 30px 60px -28px rgba(26, 20, 16, 0.28),
+      0 12px 24px -16px rgba(26, 20, 16, 0.18);
+    border-radius: 2px;
+  }
+  .plate::before {
+    /* corner registration marks */
+    content: '';
+    position: absolute;
+    inset: -1px;
+    background:
+      linear-gradient(var(--ink-soft), var(--ink-soft)) top left/14px 1px no-repeat,
+      linear-gradient(var(--ink-soft), var(--ink-soft)) top left/1px 14px no-repeat,
+      linear-gradient(var(--ink-soft), var(--ink-soft)) top right/14px 1px no-repeat,
+      linear-gradient(var(--ink-soft), var(--ink-soft)) top right/1px 14px no-repeat,
+      linear-gradient(var(--ink-soft), var(--ink-soft)) bottom left/14px 1px no-repeat,
+      linear-gradient(var(--ink-soft), var(--ink-soft)) bottom left/1px 14px no-repeat,
+      linear-gradient(var(--ink-soft), var(--ink-soft)) bottom right/14px 1px no-repeat,
+      linear-gradient(var(--ink-soft), var(--ink-soft)) bottom right/1px 14px no-repeat;
+    pointer-events: none;
+  }
+
+  .plate-caption {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: baseline;
+    gap: 14px;
+    margin-top: 18px;
+    padding: 0 2px;
+  }
+  .plate-num {
+    font-family: var(--f-display);
+    font-style: italic;
+    font-weight: 400;
+    font-size: 38px;
+    color: var(--gold-deep);
+    line-height: 1;
+  }
+  .plate-title {
+    font-family: var(--f-display);
+    font-weight: 400;
+    font-size: 18px;
+    letter-spacing: 0.01em;
+    color: var(--ink);
+  }
+  .plate-title em {
+    font-style: italic;
+    color: var(--ink-mute);
+    font-weight: 300;
+  }
+  .plate-tag {
+    font-family: var(--f-mono);
+    font-size: 10px;
+    letter-spacing: 0.26em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    border: 1px solid var(--rule);
+    padding: 4px 8px;
+    border-radius: 999px;
+    background: var(--parchment);
+  }
+
+  /* ════════════════════════════════════════════════════════════════════
+     PLATE I — Browser-action POPUP (340 × 480)
+     ════════════════════════════════════════════════════════════════════ */
+  .popup {
+    width: 340px;
+    direction: rtl;
+    font-family: var(--f-body-ar);
+    color: var(--ink);
+    padding: 22px 22px 18px;
+  }
+  .popup-eyebrow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-family: var(--f-mono);
+    font-size: 9px;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    margin-bottom: 14px;
+    direction: ltr;
+  }
+  .popup-eyebrow .seal {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .popup-eyebrow .seal::before {
+    content: '';
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    background:
+      radial-gradient(circle at 30% 30%, #f5d97a, var(--gold-deep) 70%);
+    box-shadow: inset 0 0 0 1px rgba(0,0,0,0.15);
+  }
+  .popup h1 {
+    margin: 0 0 4px;
+    font-family: var(--f-display-ar);
+    font-weight: 700;
+    font-size: 30px;
+    line-height: 1.1;
+    letter-spacing: 0;
+  }
+  .popup h1 .first {
+    color: var(--gold-deep);
+  }
+  .popup .sub {
+    margin: 0 0 22px;
+    font-family: var(--f-display);
+    font-style: italic;
+    font-weight: 300;
+    font-size: 13px;
+    color: var(--ink-mute);
+    direction: ltr;
+    text-align: right;
+  }
+  .popup .rule-h {
+    height: 1px;
+    background:
+      linear-gradient(to left, transparent, var(--rule) 20%, var(--rule) 80%, transparent);
+    margin: 16px 0;
+  }
+
+  .mode-segmented {
+    position: relative;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    border: 1px solid var(--ink);
+    border-radius: 2px;
+    background: var(--parchment);
+    overflow: hidden;
+    margin-bottom: 18px;
+  }
+  .mode-segmented label {
+    position: relative;
+    padding: 11px 10px;
+    text-align: center;
+    font-family: var(--f-body-ar);
+    font-size: 14px;
+    cursor: pointer;
+    color: var(--ink-soft);
+    transition: color 0.2s;
+  }
+  .mode-segmented label.is-active {
+    color: var(--vellum);
+    background: var(--ink);
+  }
+  .mode-segmented label .kbd {
+    display: block;
+    font-family: var(--f-mono);
+    font-size: 8.5px;
+    letter-spacing: 0.18em;
+    margin-top: 3px;
+    opacity: 0.7;
+    direction: ltr;
+  }
+
+  .popup-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+  .btn-primary {
+    appearance: none; border: none; cursor: pointer;
+    padding: 14px 18px;
+    font-family: var(--f-body-ar);
+    font-size: 16px;
+    font-weight: 500;
+    color: var(--vellum);
+    background: var(--ink);
+    border-radius: 2px;
+    display: flex; align-items: center; justify-content: space-between;
+    transition: transform 0.15s, background 0.2s;
+  }
+  .btn-primary:hover { background: #000; }
+  .btn-primary .arrow {
+    font-family: var(--f-display);
+    font-style: italic;
+    color: var(--gold-soft);
+    font-size: 18px;
+    transform: scaleX(-1); /* RTL arrow */
+  }
+  .btn-ghost {
+    appearance: none; cursor: pointer;
+    padding: 11px 16px;
+    font-family: var(--f-body-ar);
+    font-size: 14px;
+    color: var(--ink-soft);
+    background: transparent;
+    border: 1px solid var(--rule);
+    border-radius: 2px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .btn-ghost:hover { border-color: var(--ink); color: var(--ink); }
+  .btn-ghost .glyph {
+    font-family: var(--f-display);
+    font-style: italic;
+    color: var(--ink-mute);
+  }
+
+  /* Progress reveal — annotated like a margin note */
+  .progress-note {
+    margin: 14px -22px -2px;
+    padding: 14px 22px;
+    background: var(--parchment-2);
+    border-top: 1px solid var(--rule-soft);
+    border-bottom: 1px solid var(--rule-soft);
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 10px;
+    align-items: center;
+  }
+  .progress-note .label {
+    font-family: var(--f-body-ar);
+    font-size: 13px;
+    color: var(--ink-soft);
+  }
+  .progress-note .count {
+    font-family: var(--f-display);
+    font-style: italic;
+    font-weight: 400;
+    font-size: 28px;
+    color: var(--gold-deep);
+    line-height: 1;
+  }
+  .progress-bar {
+    grid-column: 1 / -1;
+    height: 2px;
+    background: var(--parchment-3);
+    overflow: hidden;
+    position: relative;
+  }
+  .progress-bar::after {
+    content: '';
+    position: absolute; inset: 0 30% 0 0;
+    background: linear-gradient(to right, var(--gold-deep), var(--gold-soft));
+  }
+
+  .popup-foot {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 18px;
+    padding-top: 14px;
+    border-top: 1px solid var(--rule-soft);
+    font-family: var(--f-mono);
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    direction: ltr;
+  }
+  .popup-foot button {
+    appearance: none; background: none; border: none; cursor: pointer;
+    font: inherit; color: var(--ink); padding: 4px 0;
+    border-bottom: 1px solid var(--ink);
+  }
+
+  /* ════════════════════════════════════════════════════════════════════
+     PLATE II — OPTIONS PAGE
+     ════════════════════════════════════════════════════════════════════ */
+  .options {
+    direction: rtl;
+    font-family: var(--f-body-ar);
+    color: var(--ink);
+    padding: 40px 48px 48px;
+  }
+  .opt-header {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: end;
+    border-bottom: 1px solid var(--ink);
+    padding-bottom: 22px;
+    margin-bottom: 36px;
+    gap: 24px;
+  }
+  .opt-header h1 {
+    margin: 0;
+    font-family: var(--f-display-ar);
+    font-weight: 700;
+    font-size: 44px;
+    line-height: 1;
+  }
+  .opt-header h1 .first { color: var(--gold-deep); }
+  .opt-header .latin {
+    font-family: var(--f-display);
+    font-style: italic;
+    font-weight: 300;
+    font-size: 16px;
+    color: var(--ink-mute);
+    direction: ltr;
+    text-align: right;
+    margin-top: 8px;
+  }
+  .opt-nav {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    font-family: var(--f-mono);
+    font-size: 10px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    direction: ltr;
+  }
+  .opt-nav .stat { color: var(--ink); }
+  .opt-nav .stat b { color: var(--gold-deep); font-family: var(--f-display); font-style: italic; font-size: 14px; font-weight: 500; letter-spacing: 0; margin-right: 3px;}
+
+  .opt-grid {
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    gap: 48px;
+  }
+  .opt-toc {
+    position: sticky;
+    top: 24px;
+    align-self: start;
+  }
+  .opt-toc ol {
+    list-style: none;
+    margin: 0; padding: 0;
+    counter-reset: section;
+  }
+  .opt-toc li {
+    counter-increment: section;
+    padding: 9px 0;
+    border-top: 1px solid var(--rule-soft);
+    font-family: var(--f-body-ar);
+    font-size: 14px;
+    color: var(--ink-soft);
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 10px;
+    cursor: pointer;
+  }
+  .opt-toc li::before {
+    content: counter(section, decimal-leading-zero);
+    font-family: var(--f-mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    color: var(--ink-mute);
+    align-self: center;
+    grid-column: 2;
+    direction: ltr;
+  }
+  .opt-toc li.is-active {
+    color: var(--ink);
+    border-top-color: var(--ink);
+  }
+  .opt-toc li.is-active::before { color: var(--gold-deep); }
+  .opt-toc li:last-child { border-bottom: 1px solid var(--rule-soft); }
+
+  .opt-sections {
+    display: flex;
+    flex-direction: column;
+    gap: 44px;
+  }
+  .opt-section {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 18px;
+  }
+  .opt-section-head {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: baseline;
+    gap: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .opt-section-head .num {
+    font-family: var(--f-display);
+    font-style: italic;
+    font-size: 28px;
+    color: var(--gold-deep);
+    line-height: 1;
+  }
+  .opt-section-head h2 {
+    margin: 0;
+    font-family: var(--f-display-ar);
+    font-weight: 700;
+    font-size: 22px;
+  }
+  .opt-section-head .latin {
+    font-family: var(--f-display);
+    font-style: italic;
+    font-weight: 300;
+    font-size: 14px;
+    color: var(--ink-mute);
+    direction: ltr;
+  }
+  .opt-lede {
+    font-family: var(--f-body-ar);
+    font-size: 14px;
+    color: var(--ink-soft);
+    line-height: 1.7;
+    max-width: 62ch;
+  }
+  .opt-lede::first-letter {
+    font-family: var(--f-display-ar);
+    font-weight: 700;
+    font-size: 38px;
+    float: right;
+    line-height: 0.9;
+    margin-left: 6px;
+    margin-top: 4px;
+    color: var(--gold-deep);
+  }
+
+  /* Verdict taxonomy table — six rows of jewel tones */
+  .verdict-table {
+    border: 1px solid var(--rule);
+    background: var(--parchment);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .verdict-row {
+    display: grid;
+    grid-template-columns: 56px 1fr 200px auto;
+    align-items: center;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--rule-soft);
+    gap: 18px;
+  }
+  .verdict-row:last-child { border-bottom: none; }
+  .verdict-swatch {
+    width: 32px; height: 32px;
+    border-radius: 2px;
+    position: relative;
+    box-shadow: inset 0 0 0 1px rgba(0,0,0,0.1);
+  }
+  .verdict-swatch::after {
+    /* paint-stroke effect */
+    content: '';
+    position: absolute; inset: 4px;
+    background-image:
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='40' height='40'><filter id='r'><feTurbulence baseFrequency='0.8' numOctaves='2'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.25 0'/></filter><rect width='100%' height='100%' filter='url(%23r)'/></svg>");
+    mix-blend-mode: overlay;
+  }
+  .verdict-label {
+    font-family: var(--f-body-ar);
+    font-size: 15px;
+    color: var(--ink);
+  }
+  .verdict-label .latin {
+    display: block;
+    font-family: var(--f-display);
+    font-style: italic;
+    font-size: 11px;
+    color: var(--ink-mute);
+    direction: ltr;
+    margin-top: 1px;
+    letter-spacing: 0.04em;
+  }
+  .verdict-select {
+    appearance: none;
+    border: 1px solid var(--rule);
+    background: var(--vellum);
+    padding: 8px 12px;
+    font-family: var(--f-body-ar);
+    font-size: 13px;
+    color: var(--ink);
+    border-radius: 2px;
+    cursor: pointer;
+    background-image:
+      linear-gradient(45deg, transparent 50%, var(--ink-mute) 50%),
+      linear-gradient(135deg, var(--ink-mute) 50%, transparent 50%);
+    background-position:
+      calc(100% - 16px) 14px,
+      calc(100% - 12px) 14px;
+    background-size: 4px 4px;
+    background-repeat: no-repeat;
+    padding-left: 28px;
+    direction: rtl;
+  }
+  .verdict-lock {
+    font-family: var(--f-mono);
+    font-size: 9px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    border: 1px solid var(--rule);
+    padding: 3px 8px;
+    border-radius: 999px;
+    background: var(--vellum);
+    direction: ltr;
+  }
+  .verdict-row.is-locked .verdict-swatch {
+    box-shadow:
+      inset 0 0 0 1px rgba(0,0,0,0.1),
+      0 0 0 2px var(--gold-soft);
+  }
+
+  /* Behavior toggles — switch list */
+  .toggle-list {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0;
+    border-top: 1px solid var(--rule-soft);
+  }
+  .toggle-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 18px;
+    align-items: start;
+    padding: 16px 0;
+    border-bottom: 1px solid var(--rule-soft);
+  }
+  .toggle-row .label {
+    font-family: var(--f-body-ar);
+    font-size: 15px;
+    color: var(--ink);
+  }
+  .toggle-row .hint {
+    font-family: var(--f-body-ar);
+    font-size: 12.5px;
+    color: var(--ink-mute);
+    margin-top: 4px;
+    line-height: 1.6;
+  }
+  .toggle-row .hint .latin {
+    font-family: var(--f-display);
+    font-style: italic;
+  }
+  .toggle-row .risk {
+    display: inline-block;
+    font-family: var(--f-mono);
+    font-size: 9px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--v-red);
+    border: 1px solid var(--v-red);
+    padding: 2px 6px;
+    margin-right: 8px;
+    direction: ltr;
+    border-radius: 2px;
+  }
+
+  /* Switch */
+  .switch {
+    width: 46px; height: 26px;
+    background: var(--parchment-3);
+    border: 1px solid var(--ink);
+    border-radius: 999px;
+    position: relative;
+    cursor: pointer;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+  .switch::after {
+    content: '';
+    position: absolute;
+    top: 2px; right: 2px;   /* RTL: thumb starts on the right (off) */
+    width: 20px; height: 20px;
+    border-radius: 50%;
+    background: var(--ink);
+    transition: all 0.25s cubic-bezier(0.7, 0, 0.3, 1);
+  }
+  .switch.is-on {
+    background: var(--ink);
+  }
+  .switch.is-on::after {
+    right: calc(100% - 22px);
+    background:
+      radial-gradient(circle at 30% 30%, #f5d97a, var(--gold-deep) 70%);
+  }
+
+  /* ════════════════════════════════════════════════════════════════════
+     PLATE III — PAGE-INJECTED PANEL (sidebar)
+     ════════════════════════════════════════════════════════════════════ */
+  .panel {
+    width: 380px;
+    direction: rtl;
+    font-family: var(--f-body-ar);
+    color: var(--ink);
+    background: var(--vellum);
+    display: flex;
+    flex-direction: column;
+    max-height: 720px;
+  }
+  .panel-header {
+    padding: 18px 20px 14px;
+    border-bottom: 1px solid var(--rule);
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    gap: 10px;
+    align-items: center;
+  }
+  .panel-header h2 {
+    margin: 0;
+    font-family: var(--f-display-ar);
+    font-weight: 700;
+    font-size: 22px;
+    line-height: 1;
+  }
+  .panel-icon-btn {
+    width: 30px; height: 30px;
+    border: 1px solid var(--rule);
+    background: transparent;
+    border-radius: 2px;
+    font-family: var(--f-display);
+    font-style: italic;
+    color: var(--ink-soft);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.15s;
+  }
+  .panel-icon-btn:hover { border-color: var(--ink); color: var(--ink); }
+  .panel-icon-btn.is-pinned {
+    background: var(--ink);
+    color: var(--gold-soft);
+    border-color: var(--ink);
+  }
+  .panel-shortcut {
+    grid-column: 1 / -1;
+    margin-top: 6px;
+    font-family: var(--f-mono);
+    font-size: 9.5px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    direction: ltr;
+  }
+  .panel-shortcut kbd {
+    font-family: var(--f-mono);
+    background: var(--parchment-2);
+    border: 1px solid var(--rule);
+    padding: 1px 6px;
+    border-radius: 2px;
+    color: var(--ink);
+    margin: 0 1px;
+  }
+
+  /* Summary as an illuminated tally */
+  .tally {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--rule-soft);
+    background: var(--parchment);
+  }
+  .tally-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 12px;
+  }
+  .tally-head .title {
+    font-family: var(--f-body-ar);
+    font-size: 13px;
+    color: var(--ink-mute);
+  }
+  .tally-head .total {
+    font-family: var(--f-display);
+    font-style: italic;
+    font-size: 28px;
+    color: var(--ink);
+    line-height: 1;
+    direction: ltr;
+  }
+  .tally-head .total small {
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    margin-left: 6px;
+    font-family: var(--f-mono);
+    font-style: normal;
+  }
+  .tally-bars {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+  .tally-bar {
+    display: grid;
+    grid-template-columns: 14px 1fr 32px;
+    align-items: center;
+    gap: 10px;
+  }
+  .tally-bar .swatch {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    box-shadow: inset 0 0 0 1px rgba(0,0,0,0.15);
+  }
+  .tally-bar .track {
+    height: 6px;
+    background: var(--parchment-3);
+    position: relative;
+    border-radius: 0;
+  }
+  .tally-bar .track::after {
+    content: '';
+    position: absolute; inset: 0;
+    background: var(--bar);
+    transform-origin: right; /* RTL */
+    transform: scaleX(var(--w, 0));
+  }
+  .tally-bar .n {
+    font-family: var(--f-display);
+    font-style: italic;
+    font-size: 16px;
+    color: var(--ink);
+    text-align: left;
+    direction: ltr;
+  }
+
+  /* Filter chips */
+  .chips {
+    padding: 14px 20px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    border-bottom: 1px solid var(--rule-soft);
+  }
+  .chip {
+    font-family: var(--f-body-ar);
+    font-size: 12px;
+    padding: 5px 10px;
+    border: 1px solid var(--rule);
+    background: var(--vellum);
+    border-radius: 999px;
+    cursor: pointer;
+    color: var(--ink-soft);
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .chip::before {
+    content: '';
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--c, var(--ink-mute));
+  }
+  .chip.is-on {
+    background: var(--ink);
+    border-color: var(--ink);
+    color: var(--vellum);
+  }
+
+  /* Findings list */
+  .findings {
+    flex: 1;
+    overflow: auto;
+    padding: 8px 0;
+  }
+  .finding {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--rule-soft);
+    display: grid;
+    grid-template-columns: 4px 1fr;
+    gap: 14px;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .finding:hover { background: var(--parchment); }
+  .finding .stripe {
+    background: var(--c, var(--ink-mute));
+    border-radius: 1px;
+  }
+  .finding .meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 6px;
+  }
+  .finding .ref {
+    font-family: var(--f-display-ar);
+    font-weight: 700;
+    font-size: 15px;
+    color: var(--ink);
+  }
+  .finding .ref .num {
+    font-family: var(--f-display);
+    font-style: italic;
+    color: var(--gold-deep);
+    margin-right: 4px;
+    font-weight: 400;
+    direction: ltr;
+    display: inline-block;
+  }
+  .finding .verdict-pill {
+    font-family: var(--f-mono);
+    font-size: 9px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--c, var(--ink-mute));
+    direction: ltr;
+  }
+  .finding .ayah {
+    font-family: var(--f-display-ar);
+    font-size: 18px;
+    line-height: 1.85;
+    color: var(--ink);
+  }
+  .finding .ayah .ins {
+    background: rgba(122, 154, 74, 0.18);
+    border-bottom: 1px solid var(--v-lightGreen);
+    padding: 0 2px;
+  }
+  .finding .ayah .del {
+    color: var(--v-red);
+    text-decoration: line-through;
+    opacity: 0.6;
+    padding: 0 2px;
+  }
+  .finding .ayah .ornament {
+    color: var(--gold-deep);
+    margin: 0 4px;
+    font-size: 14px;
+  }
+  .finding .actions {
+    margin-top: 10px;
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .finding .act {
+    appearance: none;
+    border: 1px solid var(--rule);
+    background: var(--vellum);
+    padding: 5px 10px;
+    font-family: var(--f-body-ar);
+    font-size: 12px;
+    color: var(--ink-soft);
+    cursor: pointer;
+    border-radius: 2px;
+  }
+  .finding .act:hover { border-color: var(--ink); color: var(--ink); }
+  .finding .act.is-primary {
+    background: var(--ink);
+    color: var(--vellum);
+    border-color: var(--ink);
+  }
+  .finding .note {
+    font-family: var(--f-body-ar);
+    font-size: 11.5px;
+    color: var(--ink-mute);
+    margin-top: 6px;
+    line-height: 1.5;
+    border-right: 2px solid var(--rule);
+    padding-right: 8px;
+  }
+
+  /* ── Legend block at bottom of exhibit ────────────────────────────── */
+  .legend {
+    grid-column: 1 / -1;
+    margin-top: 40px;
+    padding-top: 32px;
+    border-top: 1px solid var(--rule);
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    gap: 48px;
+  }
+  .legend h3 {
+    margin: 0 0 8px;
+    font-family: var(--f-display);
+    font-weight: 400;
+    font-style: italic;
+    font-size: 26px;
+  }
+  .legend p {
+    font-family: var(--f-display);
+    font-weight: 300;
+    font-size: 14px;
+    line-height: 1.7;
+    color: var(--ink-soft);
+    margin: 0;
+  }
+  .legend-keys {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px 32px;
+  }
+  .legend-key {
+    display: grid;
+    grid-template-columns: 28px 1fr;
+    gap: 12px;
+    align-items: center;
+    font-family: var(--f-display);
+    font-size: 13px;
+    color: var(--ink-soft);
+  }
+  .legend-key .sw {
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    box-shadow: inset 0 0 0 1px rgba(0,0,0,0.1);
+  }
+  .legend-key b {
+    font-weight: 500;
+    color: var(--ink);
+    margin-right: 6px;
+    font-style: italic;
+  }
+  .legend-key .ar {
+    font-family: var(--f-body-ar);
+    color: var(--ink-mute);
+    direction: rtl;
+    display: block;
+    font-size: 12px;
+    margin-top: 1px;
+  }
+
+  /* Footer colophon */
+  .footer {
+    margin-top: 96px;
+    padding-top: 28px;
+    border-top: 1px solid var(--rule);
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    font-family: var(--f-mono);
+    font-size: 10px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+  }
+  .footer .mark {
+    font-family: var(--f-display);
+    font-style: italic;
+    font-size: 14px;
+    letter-spacing: 0;
+    text-transform: none;
+    color: var(--ink);
+  }
+
+  /* Responsive: stack on narrow */
+  @media (max-width: 1200px) {
+    .exhibit { grid-template-columns: 1fr; }
+    .opt-grid { grid-template-columns: 1fr; }
+    .opt-toc { position: static; }
+    .legend { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="atelier">
+
+  <!-- ═════════ MASTHEAD ═════════ -->
+  <div class="masthead">
+    <div class="mast-meta-l">No. 002 — Vol. I</div>
+    <div>
+      <h1>QuranGuard <span class="amp">&amp;</span> the integrity of citation</h1>
+      <div class="colophon">
+        <span class="rule"></span>
+        <span class="dot"></span>
+        <span class="label">Manuscript Atelier · Design Preview</span>
+        <span class="dot"></span>
+        <span class="rule"></span>
+      </div>
+      <span class="ar-mark">صَوْنُ القُرآن — أُطْرُوحَةُ التَّصْمِيم</span>
+    </div>
+    <div class="mast-meta-r">MMXXVI · Plate i–iii</div>
+  </div>
+
+  <!-- ═════════ EXHIBIT GRID ═════════ -->
+  <div class="exhibit">
+
+    <!-- ───── PLATE I — POPUP ───── -->
+    <div>
+      <div class="plate popup">
+        <div class="popup-eyebrow">
+          <span class="seal">QuranGuard</span>
+          <span>v 1.0.0</span>
+        </div>
+        <h1><span class="first">صَ</span>وْنُ القُرآن</h1>
+        <p class="sub">QuranGuard — guard against misquotation.</p>
+
+        <div class="mode-segmented">
+          <label class="is-active">
+            يدوي
+            <span class="kbd">Manual</span>
+          </label>
+          <label>
+            تلقائي
+            <span class="kbd">Auto-scan</span>
+          </label>
+        </div>
+
+        <div class="popup-actions">
+          <button class="btn-primary">
+            <span>فحص الصفحة</span>
+            <span class="arrow">→</span>
+          </button>
+          <button class="btn-ghost">
+            <span>مسح التمييز</span>
+            <span class="glyph">×</span>
+          </button>
+        </div>
+
+        <div class="progress-note">
+          <div class="label">نتيجة حتى الآن</div>
+          <div class="count">17</div>
+          <div class="progress-bar"></div>
+        </div>
+
+        <div class="popup-foot">
+          <span>Alt + Shift + Q</span>
+          <button>⚙ Settings</button>
+        </div>
+      </div>
+      <div class="plate-caption">
+        <span class="plate-num">i.</span>
+        <span class="plate-title">Toolbar popup <em>— browser action</em></span>
+        <span class="plate-tag">340 × auto</span>
+      </div>
+    </div>
+
+    <!-- ───── PLATE II — OPTIONS ───── -->
+    <div>
+      <div class="plate options">
+        <div class="opt-header">
+          <div>
+            <h1><span class="first">الإ</span>عدادات</h1>
+            <div class="latin">Preferences <em>·</em> Verdicts, fonts, behavior, autocomplete</div>
+          </div>
+          <div class="opt-nav">
+            <div class="stat">7 <b>sections</b></div>
+            <div class="stat">prefs · v1</div>
+          </div>
+        </div>
+
+        <div class="opt-grid">
+
+          <nav class="opt-toc">
+            <ol>
+              <li>اللغة</li>
+              <li class="is-active">النص القرآني وألوان التحقق</li>
+              <li>سلوك القراءة</li>
+              <li>الإكمال التلقائي</li>
+              <li>لوحة النتائج</li>
+              <li>البيانات</li>
+            </ol>
+          </nav>
+
+          <div class="opt-sections">
+
+            <!-- Section II — verdict taxonomy -->
+            <section class="opt-section">
+              <div class="opt-section-head">
+                <span class="num">ii.</span>
+                <h2>تمييز الفئات</h2>
+                <span class="latin">Verdict highlighting</span>
+              </div>
+              <p class="opt-lede">
+                ستّ فئاتٍ تَصدُر عن المحقّق، تتدرّج في خطورتها من الأخضر (تطابق تام) إلى الأحمر (لم يُتحقَّق). الأصفر والأحمر مُقفلان دائمًا — حفاظًا على سلامة النص لا يجوز إخفاؤهما.
+              </p>
+
+              <div class="verdict-table">
+                <div class="verdict-row">
+                  <div class="verdict-swatch" style="background: var(--v-green)"></div>
+                  <div class="verdict-label">مطابق للقرآن مع المرجع <span class="latin">Exact match · with reference</span></div>
+                  <select class="verdict-select"><option>تسطير خفيف</option></select>
+                  <span></span>
+                </div>
+                <div class="verdict-row">
+                  <div class="verdict-swatch" style="background: var(--v-lightBlue)"></div>
+                  <div class="verdict-label">مطابق — بدون مرجع <span class="latin">Match · reference omitted</span></div>
+                  <select class="verdict-select"><option>تسطير</option></select>
+                  <span></span>
+                </div>
+                <div class="verdict-row">
+                  <div class="verdict-swatch" style="background: var(--v-lightGreen)"></div>
+                  <div class="verdict-label">صُحِّح المرجع <span class="latin">Corrected · provenance</span></div>
+                  <select class="verdict-select"><option>تسطير منقّط</option></select>
+                  <span></span>
+                </div>
+                <div class="verdict-row is-locked">
+                  <div class="verdict-swatch" style="background: var(--v-yellow)"></div>
+                  <div class="verdict-label">اختلاف لفظي <span class="latin">Wording divergence</span></div>
+                  <select class="verdict-select"><option>خلفية</option></select>
+                  <span class="verdict-lock">Locked · always shown</span>
+                </div>
+                <div class="verdict-row">
+                  <div class="verdict-swatch" style="background: var(--v-orange)"></div>
+                  <div class="verdict-label">مرجع غير مطابق <span class="latin">Wrong reference</span></div>
+                  <select class="verdict-select"><option>خلفية + تسطير</option></select>
+                  <span></span>
+                </div>
+                <div class="verdict-row is-locked">
+                  <div class="verdict-swatch" style="background: var(--v-red)"></div>
+                  <div class="verdict-label">لم يُعثر عليه في القرآن <span class="latin">Not found in the Mushaf</span></div>
+                  <select class="verdict-select"><option>تأشير</option></select>
+                  <span class="verdict-lock">Locked · always shown</span>
+                </div>
+              </div>
+            </section>
+
+            <!-- Section III — behavior -->
+            <section class="opt-section">
+              <div class="opt-section-head">
+                <span class="num">iii.</span>
+                <h2>سلوك القراءة</h2>
+                <span class="latin">Reading behavior</span>
+              </div>
+
+              <div class="toggle-list">
+                <div class="toggle-row">
+                  <div>
+                    <div class="label">تصحيح كل المراجع الخاطئة (البرتقالي) تلقائيًا</div>
+                    <div class="hint">يستبدل المرجع الخاطئ بالمرجع الصحيح في الصفحة عند كل فحص. <span class="latin">— wrong-reference autocorrect</span></div>
+                  </div>
+                  <div class="switch is-on" aria-checked="true"></div>
+                </div>
+
+                <div class="toggle-row">
+                  <div>
+                    <div class="label">تصحيح الاختلاف اللفظي بالنص الأصلي (الأصفر)</div>
+                    <div class="hint">يستبدل النص المكتوب بنص المصحف الأصلي في الصفحة عند كل فحص.</div>
+                  </div>
+                  <div class="switch is-on" aria-checked="true"></div>
+                </div>
+
+                <div class="toggle-row">
+                  <div>
+                    <div class="label"><span class="risk">High risk</span> قبول أقرب آية للنصوص غير الموجودة (الأحمر)</div>
+                    <div class="hint">يستبدل النص الذي لم يُعثر عليه بأقرب آية يقترحها المحقّق — فقط حين يوجد اقتراحٌ وحيد.</div>
+                  </div>
+                  <div class="switch" aria-checked="false"></div>
+                </div>
+
+                <div class="toggle-row">
+                  <div>
+                    <div class="label">جعل المراجع روابط قابلة للنقر (quran.com)</div>
+                    <div class="hint">يعرض نصّ الآية الكامل عند المرور، والنقر يفتح quran.com في تبويب جديد.</div>
+                  </div>
+                  <div class="switch is-on" aria-checked="true"></div>
+                </div>
+              </div>
+            </section>
+
+          </div>
+        </div>
+      </div>
+      <div class="plate-caption">
+        <span class="plate-num">ii.</span>
+        <span class="plate-title">Options page <em>— dedicated tab</em></span>
+        <span class="plate-tag">prefs · v1</span>
+      </div>
+    </div>
+
+    <!-- ───── PLATE III — PANEL ───── -->
+    <div>
+      <div class="plate panel">
+        <header class="panel-header">
+          <h2>نتائج التحقق</h2>
+          <button class="panel-icon-btn is-pinned" title="مثبّتة">⬓</button>
+          <button class="panel-icon-btn" title="طيّ">‹</button>
+          <div class="panel-shortcut">
+            Shortcut · <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>Q</kbd> to toggle
+          </div>
+        </header>
+
+        <!-- Illuminated tally -->
+        <section class="tally">
+          <div class="tally-head">
+            <span class="title">ملخّص النتائج</span>
+            <span class="total">42<small>findings</small></span>
+          </div>
+          <div class="tally-bars">
+            <div class="tally-bar" style="--bar: var(--v-green); --w: 0.55">
+              <span class="swatch" style="background: var(--v-green)"></span>
+              <span class="track"></span>
+              <span class="n">23</span>
+            </div>
+            <div class="tally-bar" style="--bar: var(--v-lightBlue); --w: 0.18">
+              <span class="swatch" style="background: var(--v-lightBlue)"></span>
+              <span class="track"></span>
+              <span class="n">8</span>
+            </div>
+            <div class="tally-bar" style="--bar: var(--v-yellow); --w: 0.12">
+              <span class="swatch" style="background: var(--v-yellow)"></span>
+              <span class="track"></span>
+              <span class="n">5</span>
+            </div>
+            <div class="tally-bar" style="--bar: var(--v-orange); --w: 0.09">
+              <span class="swatch" style="background: var(--v-orange)"></span>
+              <span class="track"></span>
+              <span class="n">4</span>
+            </div>
+            <div class="tally-bar" style="--bar: var(--v-red); --w: 0.05">
+              <span class="swatch" style="background: var(--v-red)"></span>
+              <span class="track"></span>
+              <span class="n">2</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- Filter chips -->
+        <div class="chips">
+          <span class="chip is-on" style="--c: var(--vellum)">الكل</span>
+          <span class="chip" style="--c: var(--v-orange)">⚠ مرجع خاطئ</span>
+          <span class="chip" style="--c: var(--v-yellow)">~ اختلاف</span>
+          <span class="chip" style="--c: var(--v-red)">✗ لم يُتحقَّق</span>
+          <span class="chip" style="--c: var(--v-lightBlue)">بدون مرجع</span>
+        </div>
+
+        <!-- Findings -->
+        <div class="findings">
+
+          <article class="finding" style="--c: var(--v-orange)">
+            <div class="stripe"></div>
+            <div>
+              <div class="meta">
+                <div class="ref">سُورَة البَقَرَة <span class="num">2:255</span></div>
+                <div class="verdict-pill">Wrong ref</div>
+              </div>
+              <div class="ayah">
+                اللَّهُ لَا إِلَٰهَ إِلَّا هُوَ الْحَيُّ الْقَيُّومُ <span class="ornament">۝</span>
+              </div>
+              <div class="note">المرجع في الصفحة: <b>3:18</b> — صحّحته إلى <b>2:255</b>.</div>
+              <div class="actions">
+                <button class="act is-primary">قبول التصحيح</button>
+                <button class="act">تجاهل</button>
+                <button class="act">فتح quran.com</button>
+              </div>
+            </div>
+          </article>
+
+          <article class="finding" style="--c: var(--v-yellow)">
+            <div class="stripe"></div>
+            <div>
+              <div class="meta">
+                <div class="ref">سُورَة الفاتِحَة <span class="num">1:2</span></div>
+                <div class="verdict-pill">Wording diff</div>
+              </div>
+              <div class="ayah">
+                الْحَمْدُ <span class="del">ل</span><span class="ins">لِلَّهِ</span> رَبِّ الْعَالَمِينَ <span class="ornament">۝</span>
+              </div>
+              <div class="actions">
+                <button class="act is-primary">استبدال بالنص الأصلي</button>
+                <button class="act">إبقاء</button>
+              </div>
+            </div>
+          </article>
+
+          <article class="finding" style="--c: var(--v-green)">
+            <div class="stripe"></div>
+            <div>
+              <div class="meta">
+                <div class="ref">سُورَة الإخلاص <span class="num">112:1</span></div>
+                <div class="verdict-pill">Exact match</div>
+              </div>
+              <div class="ayah">
+                قُلْ هُوَ اللَّهُ أَحَدٌ <span class="ornament">۝</span>
+              </div>
+            </div>
+          </article>
+
+          <article class="finding" style="--c: var(--v-lightBlue)">
+            <div class="stripe"></div>
+            <div>
+              <div class="meta">
+                <div class="ref">— <span class="num">no ref</span></div>
+                <div class="verdict-pill">Ref missing</div>
+              </div>
+              <div class="ayah">
+                وَمَا خَلَقْتُ الْجِنَّ وَالْإِنسَ إِلَّا لِيَعْبُدُونِ <span class="ornament">۝</span>
+              </div>
+              <div class="note">اقتراح المرجع: <b>الذاريات 51:56</b></div>
+              <div class="actions">
+                <button class="act is-primary">إدراج المرجع</button>
+                <button class="act">تجاهل</button>
+              </div>
+            </div>
+          </article>
+
+        </div>
+      </div>
+      <div class="plate-caption">
+        <span class="plate-num">iii.</span>
+        <span class="plate-title">In-page panel <em>— injected sidebar</em></span>
+        <span class="plate-tag">380 px · draggable</span>
+      </div>
+    </div>
+
+    <!-- ───── Verdict legend ───── -->
+    <div class="legend">
+      <div>
+        <h3>The six verdicts &amp; one provenance.</h3>
+        <p>
+          QuranGuard never silently alters a quotation. Severity reads right-to-left in the manuscript and high-to-low in the index: red &gt; yellow &gt; orange. Orange is <em>not</em> the flagship — wrong words are graver than a wrong reference. Light green is reserved for corrections actually applied; it is never inferred.
+        </p>
+      </div>
+      <div class="legend-keys">
+        <div class="legend-key"><span class="sw" style="background: var(--v-green)"></span><span><b>Exact</b> match with cited reference<span class="ar">مطابق مع المرجع</span></span></div>
+        <div class="legend-key"><span class="sw" style="background: var(--v-lightBlue)"></span><span><b>Match</b>, reference omitted<span class="ar">مطابق بدون مرجع</span></span></div>
+        <div class="legend-key"><span class="sw" style="background: var(--v-lightGreen)"></span><span><b>Corrected</b> in place (provenance)<span class="ar">صُحِّح المرجع</span></span></div>
+        <div class="legend-key"><span class="sw" style="background: var(--v-yellow)"></span><span><b>Wording</b> divergence<span class="ar">اختلاف لفظي</span></span></div>
+        <div class="legend-key"><span class="sw" style="background: var(--v-orange)"></span><span><b>Reference</b> does not match text<span class="ar">مرجع غير مطابق</span></span></div>
+        <div class="legend-key"><span class="sw" style="background: var(--v-red)"></span><span><b>Not found</b> in the Mushaf<span class="ar">لم يُعثر عليه</span></span></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ═════════ FOOTER ═════════ -->
+  <div class="footer">
+    <span>Plates i — iii · drawn for design review</span>
+    <span class="mark">QuranGuard · صون القرآن</span>
+    <span>Set in Amiri, Noto Naskh, Fraunces &amp; DM Mono</span>
+  </div>
+
+</div>
+
+<script>
+  // Tiny interactive flourishes — switches & chips toggle on click
+  document.querySelectorAll('.switch').forEach(s => {
+    s.addEventListener('click', () => s.classList.toggle('is-on'));
+  });
+  document.querySelectorAll('.chip').forEach(c => {
+    c.addEventListener('click', () => c.classList.toggle('is-on'));
+  });
+  document.querySelectorAll('.mode-segmented label').forEach(l => {
+    l.addEventListener('click', () => {
+      l.parentElement.querySelectorAll('label').forEach(x => x.classList.remove('is-active'));
+      l.classList.add('is-active');
+    });
+  });
+  document.querySelectorAll('.opt-toc li').forEach(li => {
+    li.addEventListener('click', () => {
+      li.parentElement.querySelectorAll('li').forEach(x => x.classList.remove('is-active'));
+      li.classList.add('is-active');
+    });
+  });
+</script>
+
+</body>
+</html>

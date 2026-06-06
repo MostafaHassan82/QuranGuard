@@ -1,0 +1,1076 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<title>QuranGuard — Diwan (Variant V)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Instrument+Serif:ital@0;1&family=El+Messiri:wght@400;500;600;700&family=Amiri:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  /* "Diwan" — soft modern reader. Calm, rounded, mint pastels.
+     Greens/gold preserved but lifted to a softer, more contemporary register. */
+  :root {
+    --q-primary:        #0b5d3b;
+    --q-primary-soft:   #1f7a52;
+    --q-primary-pale:   #5ba87a;
+    --q-on-primary:     #ffffff;
+    --q-gold:           #c8a24a;
+    --q-gold-soft:      #f0e6cd;
+
+    --mint-50:          #f4faf6;
+    --mint-100:         #e8f4ec;
+    --mint-200:         #d4ead9;
+    --sand-50:          #fbf8f1;
+    --paper:            #ffffff;
+    --ink:              #0e2419;
+    --ink-2:            #2f4a3c;
+    --mute:             #6b8076;
+    --line:             #dee9e2;
+
+    --v-green:      #4d8a5a;
+    --v-lightBlue:  #5b8db3;
+    --v-lightGreen: #8bbb6e;
+    --v-yellow:     #d4a017;
+    --v-orange:     #de7d3a;
+    --v-red:        #c25555;
+
+    --f-ui:      'Hanken Grotesk', sans-serif;
+    --f-display: 'Instrument Serif', serif;
+    --f-ar:      'El Messiri', sans-serif;
+    --f-ayah:    'Amiri', serif;
+
+    --r-sm: 10px;
+    --r-md: 16px;
+    --r-lg: 22px;
+    --r-xl: 28px;
+
+    --shadow-sm: 0 1px 2px rgba(11, 93, 59, 0.06), 0 1px 1px rgba(11, 93, 59, 0.04);
+    --shadow-md: 0 10px 30px -16px rgba(11, 93, 59, 0.16), 0 4px 10px -8px rgba(11, 93, 59, 0.08);
+    --shadow-lg: 0 30px 60px -30px rgba(11, 93, 59, 0.2), 0 12px 30px -16px rgba(11, 93, 59, 0.12);
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background:
+      radial-gradient(900px 500px at 20% -10%, rgba(91, 168, 122, 0.12), transparent 60%),
+      radial-gradient(700px 500px at 100% 110%, rgba(200, 162, 74, 0.08), transparent 60%),
+      var(--mint-50);
+    color: var(--ink);
+    font-family: var(--f-ui);
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+  }
+
+  .canvas {
+    max-width: 1380px;
+    margin: 0 auto;
+    padding: 56px 48px 96px;
+  }
+
+  /* Hero */
+  .hero {
+    text-align: center;
+    margin-bottom: 64px;
+  }
+  .hero .badge {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: white;
+    border: 1px solid var(--line);
+    padding: 6px 14px 6px 8px;
+    border-radius: 999px;
+    box-shadow: var(--shadow-sm);
+    font-size: 12.5px;
+    color: var(--ink-2);
+    font-weight: 500;
+    margin-bottom: 22px;
+  }
+  .hero .badge::before {
+    content: '';
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--q-primary-pale), var(--q-primary));
+  }
+  .hero .badge .v {
+    color: var(--mute);
+    font-weight: 400;
+    margin-left: 4px;
+  }
+  .hero h1 {
+    margin: 0;
+    font-family: var(--f-display);
+    font-weight: 400;
+    font-size: 62px;
+    line-height: 1.05;
+    letter-spacing: -0.015em;
+    color: var(--ink);
+  }
+  .hero h1 .ital { font-style: italic; color: var(--q-primary); }
+  .hero h1 .gold { color: var(--q-gold); }
+  .hero p {
+    margin: 18px auto 0;
+    max-width: 56ch;
+    font-size: 17px;
+    color: var(--ink-2);
+    line-height: 1.6;
+    font-weight: 300;
+  }
+
+  /* Surface grid */
+  .grid {
+    display: grid;
+    grid-template-columns: 340px 1fr 380px;
+    gap: 24px;
+    align-items: start;
+  }
+  .surface {
+    background: var(--paper);
+    border-radius: var(--r-xl);
+    box-shadow: var(--shadow-lg);
+    overflow: hidden;
+    border: 1px solid var(--line);
+  }
+  .label {
+    margin-top: 14px;
+    display: flex; justify-content: space-between; align-items: baseline;
+    padding: 0 8px;
+    font-size: 12px;
+    color: var(--mute);
+    font-weight: 500;
+    letter-spacing: 0.04em;
+  }
+  .label b {
+    font-family: var(--f-display);
+    font-style: italic;
+    font-weight: 400;
+    font-size: 18px;
+    color: var(--q-primary);
+    letter-spacing: 0;
+  }
+  .label .pill {
+    background: var(--mint-100);
+    color: var(--q-primary);
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 500;
+  }
+
+  /* ─── POPUP ─── */
+  .popup {
+    direction: rtl;
+    font-family: var(--f-ar);
+    padding: 24px 22px 20px;
+    color: var(--ink);
+  }
+  .popup .top {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 18px;
+  }
+  .popup .avatar {
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--q-primary-pale), var(--q-primary));
+    box-shadow: var(--shadow-md);
+    display: grid; place-items: center;
+    color: white;
+    font-family: var(--f-ayah);
+    font-size: 18px;
+    font-weight: 700;
+  }
+  .popup .pinger {
+    background: var(--mint-100);
+    color: var(--q-primary);
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 11.5px;
+    font-weight: 500;
+    direction: ltr;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .popup .pinger::before {
+    content: ''; width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--q-primary-pale);
+    animation: ping 2s ease-in-out infinite;
+  }
+  @keyframes ping {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.4); opacity: 0.5; }
+  }
+  .popup h1 {
+    margin: 0 0 4px;
+    font-family: var(--f-ayah);
+    font-weight: 700;
+    font-size: 30px;
+    line-height: 1.1;
+  }
+  .popup h1 .gold { color: var(--q-gold); }
+  .popup .sub {
+    margin: 0 0 18px;
+    font-family: var(--f-display);
+    font-style: italic;
+    font-size: 14px;
+    color: var(--mute);
+    direction: ltr;
+    text-align: right;
+  }
+
+  .seg {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    background: var(--mint-100);
+    border-radius: 999px;
+    padding: 4px;
+    margin-bottom: 14px;
+    gap: 0;
+  }
+  .seg label {
+    padding: 9px 12px;
+    text-align: center;
+    border-radius: 999px;
+    font-family: var(--f-ar);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    color: var(--ink-2);
+    transition: all 0.25s;
+  }
+  .seg label.is-active {
+    background: var(--paper);
+    color: var(--q-primary);
+    box-shadow: var(--shadow-sm);
+  }
+
+  .btn-primary {
+    appearance: none; border: none; cursor: pointer; width: 100%;
+    padding: 13px 18px;
+    font-family: var(--f-ar);
+    font-size: 15px;
+    font-weight: 600;
+    color: white;
+    background: linear-gradient(180deg, var(--q-primary-soft), var(--q-primary));
+    border-radius: var(--r-md);
+    box-shadow: 0 8px 20px -10px rgba(11, 93, 59, 0.5), inset 0 1px 0 rgba(255,255,255,0.15);
+    margin-bottom: 8px;
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+  .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 12px 28px -10px rgba(11, 93, 59, 0.5); }
+
+  .btn-soft {
+    appearance: none; cursor: pointer; width: 100%;
+    padding: 11px 16px;
+    font-family: var(--f-ar);
+    font-size: 13px;
+    color: var(--ink-2);
+    background: var(--mint-50);
+    border: 1px solid var(--line);
+    border-radius: var(--r-md);
+    transition: all 0.15s;
+  }
+  .btn-soft:hover { background: var(--mint-100); color: var(--q-primary); }
+
+  .stat-card {
+    margin-top: 16px;
+    padding: 18px;
+    background: linear-gradient(160deg, var(--mint-50) 0%, var(--mint-100) 100%);
+    border: 1px solid var(--line);
+    border-radius: var(--r-md);
+    text-align: center;
+  }
+  .stat-card .n {
+    font-family: var(--f-display);
+    font-style: italic;
+    font-size: 50px;
+    line-height: 1;
+    color: var(--q-primary);
+    direction: ltr;
+  }
+  .stat-card .label {
+    margin-top: 4px;
+    padding: 0;
+    font-family: var(--f-ar);
+    font-size: 13px;
+    color: var(--mute);
+    justify-content: center;
+  }
+  .stat-card .progress {
+    margin-top: 12px;
+    height: 4px;
+    background: white;
+    border-radius: 999px;
+    overflow: hidden;
+  }
+  .stat-card .progress::after {
+    content: '';
+    display: block;
+    height: 100%;
+    width: 68%;
+    background: linear-gradient(90deg, var(--q-primary-pale), var(--q-primary));
+    border-radius: 999px;
+  }
+
+  .popup .foot {
+    margin-top: 14px;
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 11px;
+    color: var(--mute);
+    direction: ltr;
+  }
+  .popup .foot kbd {
+    background: var(--mint-100);
+    border: 1px solid var(--line);
+    padding: 1px 5px;
+    border-radius: 4px;
+    font-family: var(--f-ui);
+    font-size: 10px;
+    color: var(--ink-2);
+    margin: 0 1px;
+  }
+  .popup .foot button {
+    background: none; border: none; cursor: pointer;
+    color: var(--q-primary);
+    font: inherit; font-weight: 500;
+  }
+
+  /* ─── OPTIONS ─── */
+  .options {
+    direction: rtl;
+    font-family: var(--f-ar);
+    padding: 32px 36px 36px;
+    color: var(--ink);
+  }
+  .opt-hero {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 16px;
+    align-items: end;
+    margin-bottom: 28px;
+    padding-bottom: 22px;
+    border-bottom: 1px solid var(--line);
+  }
+  .opt-hero h1 {
+    margin: 0;
+    font-family: var(--f-ayah);
+    font-weight: 700;
+    font-size: 40px;
+    line-height: 1;
+  }
+  .opt-hero h1 .gold { color: var(--q-gold); }
+  .opt-hero .sub {
+    margin-top: 6px;
+    font-family: var(--f-display);
+    font-style: italic;
+    font-size: 15px;
+    color: var(--mute);
+    direction: ltr;
+    text-align: right;
+  }
+  .opt-hero .pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--mint-100);
+    color: var(--q-primary);
+    padding: 6px 12px;
+    border-radius: 999px;
+    font-size: 11.5px;
+    font-weight: 500;
+  }
+  .opt-hero .pill::before {
+    content: '';
+    width: 6px; height: 6px;
+    background: var(--q-primary);
+    border-radius: 50%;
+  }
+
+  .opt-section {
+    margin-bottom: 32px;
+  }
+  .opt-section-head {
+    display: flex; align-items: baseline; gap: 12px;
+    margin-bottom: 14px;
+  }
+  .opt-section-head h2 {
+    margin: 0;
+    font-family: var(--f-ayah);
+    font-weight: 600;
+    font-size: 22px;
+    color: var(--ink);
+  }
+  .opt-section-head .latin {
+    font-family: var(--f-display);
+    font-style: italic;
+    font-size: 14px;
+    color: var(--mute);
+    direction: ltr;
+  }
+  .opt-section-head .count {
+    margin-right: auto;
+    font-size: 11px;
+    color: var(--mute);
+    background: var(--mint-100);
+    padding: 3px 10px;
+    border-radius: 999px;
+    direction: ltr;
+    font-weight: 500;
+  }
+
+  /* Verdict cards — soft tiles */
+  .v-cards {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+  }
+  .v-card {
+    padding: 16px;
+    background: var(--mint-50);
+    border: 1px solid var(--line);
+    border-radius: var(--r-md);
+    transition: all 0.2s;
+    cursor: pointer;
+  }
+  .v-card:hover {
+    background: white;
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+    border-color: var(--c);
+  }
+  .v-card .row1 {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 10px;
+  }
+  .v-card .swatch {
+    width: 36px; height: 36px;
+    border-radius: 12px;
+    background: var(--c);
+    display: grid; place-items: center;
+    color: white;
+    font-family: var(--f-ayah);
+    font-size: 16px;
+    font-weight: 700;
+    box-shadow: var(--shadow-sm);
+  }
+  .v-card.is-locked .swatch {
+    box-shadow: 0 0 0 3px var(--q-gold-soft);
+  }
+  .v-card .lock {
+    font-size: 10px;
+    color: var(--q-gold);
+    background: var(--q-gold-soft);
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-weight: 500;
+    direction: ltr;
+  }
+  .v-card .name {
+    font-family: var(--f-ayah);
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--ink);
+  }
+  .v-card .latin {
+    font-family: var(--f-display);
+    font-style: italic;
+    font-size: 12px;
+    color: var(--mute);
+    direction: ltr;
+    margin-top: 1px;
+  }
+  .v-card select {
+    margin-top: 10px;
+    width: 100%;
+    appearance: none;
+    border: none;
+    background: white;
+    padding: 7px 28px 7px 12px;
+    font-family: var(--f-ar);
+    font-size: 12px;
+    color: var(--ink-2);
+    border-radius: 8px;
+    cursor: pointer;
+    direction: rtl;
+    background-image:
+      linear-gradient(45deg, transparent 50%, var(--mute) 50%),
+      linear-gradient(135deg, var(--mute) 50%, transparent 50%);
+    background-position: calc(100% - 14px) 13px, calc(100% - 10px) 13px;
+    background-size: 4px 4px;
+    background-repeat: no-repeat;
+  }
+
+  /* Toggle rows */
+  .toggle-card {
+    background: var(--mint-50);
+    border: 1px solid var(--line);
+    border-radius: var(--r-md);
+    overflow: hidden;
+  }
+  .toggle {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 16px;
+    align-items: center;
+    padding: 16px 18px;
+    border-bottom: 1px solid var(--line);
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .toggle:last-child { border-bottom: none; }
+  .toggle:hover { background: var(--mint-100); }
+  .toggle .name {
+    font-family: var(--f-ar);
+    font-size: 14.5px;
+    font-weight: 500;
+    color: var(--ink);
+  }
+  .toggle .hint {
+    font-family: var(--f-ar);
+    font-size: 12.5px;
+    color: var(--mute);
+    margin-top: 3px;
+    line-height: 1.5;
+  }
+  .toggle .risk {
+    display: inline-block;
+    font-size: 10px;
+    color: white;
+    background: var(--v-red);
+    padding: 2px 8px;
+    border-radius: 999px;
+    margin-right: 6px;
+    font-weight: 500;
+    direction: ltr;
+  }
+
+  .switch {
+    width: 44px; height: 26px;
+    background: var(--line);
+    border-radius: 999px;
+    position: relative; flex-shrink: 0;
+    transition: background 0.25s;
+  }
+  .switch::after {
+    content: '';
+    position: absolute; top: 3px; right: 3px;
+    width: 20px; height: 20px;
+    border-radius: 50%;
+    background: white;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+    transition: all 0.25s cubic-bezier(0.7, 0, 0.3, 1);
+  }
+  .switch.is-on { background: var(--q-primary); }
+  .switch.is-on::after { right: calc(100% - 23px); }
+
+  /* ─── PANEL ─── */
+  .panel {
+    direction: rtl;
+    font-family: var(--f-ar);
+    display: flex; flex-direction: column;
+    max-height: 720px;
+    color: var(--ink);
+  }
+  .panel-top {
+    padding: 20px 22px 14px;
+    background: linear-gradient(160deg, var(--mint-100), var(--mint-50));
+    border-bottom: 1px solid var(--line);
+  }
+  .panel-top .row {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 12px;
+  }
+  .panel-top h2 {
+    margin: 0;
+    font-family: var(--f-ayah);
+    font-weight: 700;
+    font-size: 22px;
+  }
+  .panel-top h2 .gold { color: var(--q-gold); }
+  .panel-top .icons { display: flex; gap: 6px; }
+  .panel-top .ic {
+    width: 30px; height: 30px;
+    background: white;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    color: var(--ink-2);
+    cursor: pointer;
+    display: grid; place-items: center;
+    font-size: 14px;
+    transition: all 0.15s;
+  }
+  .panel-top .ic:hover { background: var(--mint-100); color: var(--q-primary); }
+  .panel-top .ic.is-on {
+    background: var(--q-primary);
+    color: var(--q-gold);
+    border-color: var(--q-primary);
+  }
+
+  /* Ring summary */
+  .ring-row {
+    display: grid;
+    grid-template-columns: 88px 1fr;
+    gap: 16px;
+    align-items: center;
+  }
+  .ring {
+    width: 88px; height: 88px;
+    border-radius: 50%;
+    background: conic-gradient(
+      var(--v-green) 0 55%,
+      var(--v-lightBlue) 55% 73%,
+      var(--v-yellow) 73% 85%,
+      var(--v-orange) 85% 94%,
+      var(--v-red) 94% 100%
+    );
+    position: relative;
+    box-shadow: 0 0 0 6px white, 0 0 0 7px var(--line);
+  }
+  .ring::after {
+    content: ''; position: absolute; inset: 14px;
+    background: white; border-radius: 50%;
+  }
+  .ring .center {
+    position: absolute; inset: 0;
+    display: grid; place-items: center;
+    z-index: 1; text-align: center;
+  }
+  .ring .n {
+    font-family: var(--f-display);
+    font-style: italic;
+    font-size: 26px;
+    color: var(--q-primary);
+    line-height: 1;
+  }
+  .ring .lbl {
+    font-size: 9px;
+    color: var(--mute);
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    margin-top: 2px;
+    direction: ltr;
+    font-weight: 500;
+  }
+  .ring-row .info .head {
+    font-family: var(--f-ayah);
+    font-weight: 600;
+    font-size: 16px;
+    color: var(--q-primary);
+    margin-bottom: 4px;
+  }
+  .ring-row .info .sub {
+    font-size: 12px;
+    color: var(--mute);
+    line-height: 1.5;
+  }
+
+  /* Chips */
+  .chips {
+    padding: 12px 22px;
+    background: white;
+    display: flex; flex-wrap: wrap; gap: 6px;
+    border-bottom: 1px solid var(--line);
+  }
+  .chip {
+    font-family: var(--f-ar);
+    font-size: 12px;
+    padding: 5px 11px;
+    background: var(--mint-50);
+    border-radius: 999px;
+    cursor: pointer;
+    color: var(--ink-2);
+    display: inline-flex; align-items: center; gap: 6px;
+    border: 1px solid transparent;
+    transition: all 0.15s;
+  }
+  .chip::before {
+    content: '';
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--c, var(--mute));
+  }
+  .chip:hover { background: var(--mint-100); }
+  .chip.is-on {
+    background: var(--q-primary);
+    color: white;
+  }
+  .chip.is-on::before { background: var(--q-gold); }
+
+  /* Findings */
+  .findings {
+    flex: 1; overflow: auto;
+    background: white;
+    padding: 8px;
+  }
+  .card {
+    padding: 16px;
+    border-radius: var(--r-md);
+    cursor: pointer;
+    transition: all 0.15s;
+    margin-bottom: 8px;
+    border: 1px solid transparent;
+  }
+  .card:hover {
+    background: var(--mint-50);
+    border-color: var(--line);
+  }
+  .card .meta {
+    display: flex; justify-content: space-between; align-items: baseline;
+    margin-bottom: 6px;
+    gap: 12px;
+  }
+  .card .ref {
+    font-family: var(--f-ayah);
+    font-weight: 700;
+    font-size: 15px;
+    color: var(--q-primary);
+  }
+  .card .ref .num {
+    font-family: var(--f-display);
+    font-style: italic;
+    color: var(--q-gold);
+    margin-right: 6px;
+    font-size: 14px;
+    direction: ltr; display: inline-block;
+  }
+  .card .pill {
+    font-size: 10px;
+    color: white;
+    background: var(--c, var(--mute));
+    padding: 3px 9px;
+    border-radius: 999px;
+    direction: ltr;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+  }
+  .card .ayah {
+    font-family: var(--f-ayah);
+    font-size: 18px;
+    line-height: 1.9;
+    color: var(--ink);
+  }
+  .card .ayah .ins { background: rgba(91, 168, 122, 0.18); border-bottom: 1px solid var(--q-primary-pale); padding: 0 2px; border-radius: 2px;}
+  .card .ayah .del { color: var(--v-red); text-decoration: line-through; opacity: 0.65; padding: 0 2px; }
+  .card .ayah .o { color: var(--q-gold); margin: 0 3px; }
+  .card .note {
+    margin-top: 6px;
+    font-size: 12px;
+    color: var(--mute);
+    background: var(--mint-50);
+    padding: 8px 12px;
+    border-radius: 8px;
+    border-right: 3px solid var(--q-gold);
+  }
+  .card .note b { color: var(--q-primary); font-weight: 600; }
+  .card .acts {
+    margin-top: 10px;
+    display: flex; gap: 6px; flex-wrap: wrap;
+  }
+  .card .act {
+    appearance: none;
+    background: var(--mint-100);
+    border: none;
+    padding: 6px 12px;
+    font-family: var(--f-ar);
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--q-primary);
+    cursor: pointer;
+    border-radius: 999px;
+    transition: all 0.15s;
+  }
+  .card .act:hover { background: var(--mint-200); }
+  .card .act.is-primary {
+    background: var(--q-primary);
+    color: white;
+  }
+  .card .act.is-primary:hover { background: var(--q-primary-soft); }
+
+  /* Footer */
+  .foot {
+    margin-top: 56px;
+    padding: 18px 22px;
+    background: white;
+    border: 1px solid var(--line);
+    border-radius: var(--r-md);
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 12px;
+    color: var(--mute);
+    box-shadow: var(--shadow-sm);
+  }
+  .foot a {
+    color: var(--q-primary);
+    text-decoration: none;
+    font-weight: 500;
+  }
+  .foot .center {
+    font-family: var(--f-display);
+    font-style: italic;
+    color: var(--q-primary);
+    font-size: 14px;
+  }
+
+  @media (max-width: 1200px) {
+    .grid { grid-template-columns: 1fr; }
+    .v-cards { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+</head>
+<body>
+<div class="canvas">
+
+  <header class="hero">
+    <span class="badge">QuranGuard <span class="v">· variant V</span></span>
+    <h1>Calm by <span class="ital">design</span>, <span class="gold">faithful</span> by default.</h1>
+    <p>A softer take. Rounded surfaces, mint pastels, a single gold accent. The 6-colour verdict palette stays intact — the panel just feels lighter to live in.</p>
+  </header>
+
+  <div class="grid">
+
+    <!-- POPUP -->
+    <div>
+      <div class="surface popup">
+        <div class="top">
+          <div class="avatar">ص</div>
+          <span class="pinger">Ready</span>
+        </div>
+        <h1>صَوْنُ <span class="gold">القُرآن</span></h1>
+        <div class="sub">QuranGuard — your reader's helper.</div>
+
+        <div class="seg">
+          <label class="is-active">يدوي</label>
+          <label>تلقائي</label>
+        </div>
+
+        <button class="btn-primary">فحص الصفحة</button>
+        <button class="btn-soft">مسح التمييز</button>
+
+        <div class="stat-card">
+          <div class="n">17</div>
+          <div class="label">نتيجة حتى الآن</div>
+          <div class="progress"></div>
+        </div>
+
+        <div class="foot">
+          <span><kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>Q</kbd></span>
+          <button>⚙ Settings</button>
+        </div>
+      </div>
+      <div class="label"><b>Popup</b><span class="pill">340</span></div>
+    </div>
+
+    <!-- OPTIONS -->
+    <div>
+      <div class="surface options">
+        <div class="opt-hero">
+          <div>
+            <h1>الإ<span class="gold">عدادات</span></h1>
+            <div class="sub">Preferences — saved automatically</div>
+          </div>
+          <span class="pill">All synced</span>
+        </div>
+
+        <section class="opt-section">
+          <div class="opt-section-head">
+            <h2>تمييز الفئات</h2>
+            <span class="latin">Verdicts</span>
+            <span class="count">6 categories</span>
+          </div>
+
+          <div class="v-cards">
+            <div class="v-card" style="--c: var(--v-green)">
+              <div class="row1">
+                <div class="swatch">✓</div>
+              </div>
+              <div class="name">مطابق مع المرجع</div>
+              <div class="latin">Exact match</div>
+              <select><option>تسطير خفيف</option></select>
+            </div>
+            <div class="v-card" style="--c: var(--v-lightBlue)">
+              <div class="row1">
+                <div class="swatch">✓</div>
+              </div>
+              <div class="name">بدون مرجع</div>
+              <div class="latin">Match · no ref</div>
+              <select><option>تسطير</option></select>
+            </div>
+            <div class="v-card" style="--c: var(--v-lightGreen)">
+              <div class="row1">
+                <div class="swatch">✎</div>
+              </div>
+              <div class="name">صُحِّح المرجع</div>
+              <div class="latin">Corrected</div>
+              <select><option>تسطير منقّط</option></select>
+            </div>
+            <div class="v-card is-locked" style="--c: var(--v-yellow)">
+              <div class="row1">
+                <div class="swatch">~</div>
+                <span class="lock">Always shown</span>
+              </div>
+              <div class="name">اختلاف لفظي</div>
+              <div class="latin">Wording divergence</div>
+              <select><option>خلفية</option></select>
+            </div>
+            <div class="v-card" style="--c: var(--v-orange)">
+              <div class="row1">
+                <div class="swatch">⚠</div>
+              </div>
+              <div class="name">مرجع غير مطابق</div>
+              <div class="latin">Wrong reference</div>
+              <select><option>خلفية + تسطير</option></select>
+            </div>
+            <div class="v-card is-locked" style="--c: var(--v-red)">
+              <div class="row1">
+                <div class="swatch">✗</div>
+                <span class="lock">Always shown</span>
+              </div>
+              <div class="name">لم يُتحقَّق</div>
+              <div class="latin">Not found</div>
+              <select><option>تأشير</option></select>
+            </div>
+          </div>
+        </section>
+
+        <section class="opt-section">
+          <div class="opt-section-head">
+            <h2>سلوك القراءة</h2>
+            <span class="latin">Reading behaviour</span>
+            <span class="count">4 toggles</span>
+          </div>
+
+          <div class="toggle-card">
+            <div class="toggle">
+              <div>
+                <div class="name">تصحيح المراجع الخاطئة تلقائيًا</div>
+                <div class="hint">يستبدل المرجع الخاطئ بالمرجع الصحيح في الصفحة عند كل فحص.</div>
+              </div>
+              <div class="switch is-on"></div>
+            </div>
+            <div class="toggle">
+              <div>
+                <div class="name">استبدال الاختلاف اللفظي بالأصل</div>
+                <div class="hint">يستبدل النص المكتوب بنص المصحف الأصلي.</div>
+              </div>
+              <div class="switch is-on"></div>
+            </div>
+            <div class="toggle">
+              <div>
+                <div class="name"><span class="risk">High risk</span> قبول أقرب آية للأحمر</div>
+                <div class="hint">يقبل أقرب آية حين يوجد اقتراحٌ وحيد فقط.</div>
+              </div>
+              <div class="switch"></div>
+            </div>
+            <div class="toggle">
+              <div>
+                <div class="name">جعل المراجع روابط (quran.com)</div>
+                <div class="hint">النقر يفتح quran.com في تبويب جديد.</div>
+              </div>
+              <div class="switch is-on"></div>
+            </div>
+          </div>
+        </section>
+      </div>
+      <div class="label"><b>Options</b><span class="pill">prefs · v1</span></div>
+    </div>
+
+    <!-- PANEL -->
+    <div>
+      <div class="surface panel">
+        <div class="panel-top">
+          <div class="row">
+            <h2>نتائج <span class="gold">التحقق</span></h2>
+            <div class="icons">
+              <button class="ic is-on" title="مثبّتة">⬓</button>
+              <button class="ic" title="طيّ">‹</button>
+            </div>
+          </div>
+          <div class="ring-row">
+            <div class="ring">
+              <div class="center">
+                <div class="n">42</div>
+                <div class="lbl">found</div>
+              </div>
+            </div>
+            <div class="info">
+              <div class="head">23 آية مطابقة</div>
+              <div class="sub">5 اختلافات لفظية، 4 مراجع خاطئة، 2 لم يُعثر عليها. اكتمل الفحص في 1.4 ث.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="chips">
+          <span class="chip is-on">الكل</span>
+          <span class="chip" style="--c: var(--v-orange)">⚠ خاطئ</span>
+          <span class="chip" style="--c: var(--v-yellow)">~ اختلاف</span>
+          <span class="chip" style="--c: var(--v-red)">✗ غير موجود</span>
+          <span class="chip" style="--c: var(--v-lightBlue)">بدون مرجع</span>
+        </div>
+
+        <div class="findings">
+
+          <article class="card" style="--c: var(--v-orange)">
+            <div class="meta">
+              <div class="ref">سُورَة البَقَرَة <span class="num">2:255</span></div>
+              <div class="pill">Wrong ref</div>
+            </div>
+            <div class="ayah">اللَّهُ لَا إِلَٰهَ إِلَّا هُوَ الْحَيُّ الْقَيُّومُ <span class="o">۝</span></div>
+            <div class="note">المرجع في الصفحة: <b>3:18</b> — صحّحته إلى <b>2:255</b>.</div>
+            <div class="acts">
+              <button class="act is-primary">قبول التصحيح</button>
+              <button class="act">تجاهل</button>
+              <button class="act">quran.com</button>
+            </div>
+          </article>
+
+          <article class="card" style="--c: var(--v-yellow)">
+            <div class="meta">
+              <div class="ref">سُورَة الفاتِحَة <span class="num">1:2</span></div>
+              <div class="pill">Wording</div>
+            </div>
+            <div class="ayah">الْحَمْدُ <span class="del">ل</span><span class="ins">لِلَّهِ</span> رَبِّ الْعَالَمِينَ <span class="o">۝</span></div>
+            <div class="acts">
+              <button class="act is-primary">استبدال</button>
+              <button class="act">إبقاء</button>
+            </div>
+          </article>
+
+          <article class="card" style="--c: var(--v-green)">
+            <div class="meta">
+              <div class="ref">سُورَة الإخلاص <span class="num">112:1</span></div>
+              <div class="pill">Exact</div>
+            </div>
+            <div class="ayah">قُلْ هُوَ اللَّهُ أَحَدٌ <span class="o">۝</span></div>
+          </article>
+
+          <article class="card" style="--c: var(--v-lightBlue)">
+            <div class="meta">
+              <div class="ref">— <span class="num">no ref</span></div>
+              <div class="pill">No ref</div>
+            </div>
+            <div class="ayah">وَمَا خَلَقْتُ الْجِنَّ وَالْإِنسَ إِلَّا لِيَعْبُدُونِ <span class="o">۝</span></div>
+            <div class="note">اقتراح المرجع: <b>الذاريات 51:56</b></div>
+            <div class="acts">
+              <button class="act is-primary">إدراج المرجع</button>
+              <button class="act">تجاهل</button>
+            </div>
+          </article>
+
+        </div>
+      </div>
+      <div class="label"><b>Panel</b><span class="pill">380</span></div>
+    </div>
+
+  </div>
+
+  <div class="foot">
+    <a href="index.html">← back to gallery</a>
+    <span class="center">QuranGuard · صون القرآن</span>
+    <span>Hanken Grotesk · Instrument Serif · El Messiri · Amiri</span>
+  </div>
+
+</div>
+<script>
+  document.querySelectorAll('.switch').forEach(s => s.addEventListener('click', () => s.classList.toggle('is-on')));
+  document.querySelectorAll('.chip').forEach(c => c.addEventListener('click', () => c.classList.toggle('is-on')));
+  document.querySelectorAll('.seg label').forEach(l => l.addEventListener('click', () => {
+    l.parentElement.querySelectorAll('label').forEach(x => x.classList.remove('is-active'));
+    l.classList.add('is-active');
+  }));
+</script>
+</body>
+</html>

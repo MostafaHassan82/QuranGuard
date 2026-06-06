@@ -1,0 +1,940 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<title>QuranGuard — Tahrir (Variant III)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400;1,700&family=Tajawal:wght@400;500;700;800&family=Bodoni+Moda:ital,opsz,wght@0,6..96,400;0,6..96,700;1,6..96,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  /* "Tahrir" — Arabic broadsheet / editorial masthead.
+     Keeps the live --q-* palette but pushes ink near-black for journalistic contrast. */
+  :root {
+    --ink:          #0e0e0e;
+    --ink-soft:     #2a2a2a;
+    --mute:         #6b6b6b;
+    --rule:         #1a1a1a;
+    --rule-soft:    #d8d2c2;
+    --paper:        #f4f0e6;
+    --paper-2:      #ebe4d2;
+    --white:        #ffffff;
+    --q-primary:    #0b5d3b;
+    --q-gold:       #c8a24a;
+    --q-gold-soft:  #ece0bf;
+
+    --v-green:      #0b5d3b;
+    --v-lightBlue:  #1d4e6b;
+    --v-lightGreen: #4d7a2a;
+    --v-yellow:     #a47800;
+    --v-orange:     #b54a08;
+    --v-red:        #8a1a1a;
+
+    --f-mast:    'Amiri', serif;       /* Arabic display — newspaper nameplate */
+    --f-ar:      'Tajawal', sans-serif; /* Arabic body — condensed sans */
+    --f-display: 'Bodoni Moda', serif;  /* Latin headline */
+    --f-mono:    'JetBrains Mono', monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--f-ar);
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+  }
+  /* Newsprint fibres */
+  body::before {
+    content:''; position: fixed; inset: 0; pointer-events: none; z-index: 1;
+    background-image:
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='n'><feTurbulence baseFrequency='0.9' numOctaves='1' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.1  0 0 0 0 0.08  0 0 0 0 0.05  0 0 0 0.06 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+    mix-blend-mode: multiply;
+    opacity: 0.7;
+  }
+  .broadsheet {
+    position: relative; z-index: 2;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 48px 56px 96px;
+  }
+
+  /* Masthead */
+  .nameplate {
+    border-top: 6px solid var(--ink);
+    border-bottom: 1px solid var(--ink);
+    padding: 20px 0 14px;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    gap: 24px;
+  }
+  .nameplate .l, .nameplate .r {
+    font-family: var(--f-mono);
+    font-size: 10px;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: var(--mute);
+    line-height: 1.6;
+  }
+  .nameplate .r { text-align: right; }
+  .nameplate .r .price { color: var(--q-primary); font-weight: 500;}
+  .nameplate h1 {
+    margin: 0;
+    text-align: center;
+    font-family: var(--f-mast);
+    font-weight: 700;
+    font-size: 76px;
+    line-height: 0.95;
+    letter-spacing: 0;
+    direction: rtl;
+  }
+  .nameplate h1 .gold { color: var(--q-gold); }
+  .nameplate .latin {
+    text-align: center;
+    margin-top: 4px;
+    font-family: var(--f-display);
+    font-style: italic;
+    font-weight: 400;
+    font-size: 14px;
+    letter-spacing: 0.18em;
+    color: var(--ink-soft);
+  }
+  .deck {
+    text-align: center;
+    margin: 14px 0 0;
+    padding: 10px 0 6px;
+    border-bottom: 1px double var(--ink);
+    font-family: var(--f-display);
+    font-style: italic;
+    font-weight: 400;
+    font-size: 18px;
+    color: var(--ink-soft);
+  }
+  .deck::before, .deck::after {
+    content: '·';
+    margin: 0 14px;
+    color: var(--q-gold);
+    font-style: normal;
+  }
+
+  /* Section header */
+  .section-rule {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 18px;
+    align-items: center;
+    margin: 48px 0 22px;
+  }
+  .section-rule .num {
+    font-family: var(--f-display);
+    font-weight: 700;
+    font-size: 22px;
+    color: var(--q-primary);
+    letter-spacing: 0.04em;
+  }
+  .section-rule h2 {
+    margin: 0;
+    font-family: var(--f-mast);
+    font-weight: 700;
+    font-size: 28px;
+    color: var(--ink);
+    text-align: center;
+    direction: rtl;
+  }
+  .section-rule h2 .en {
+    display: block;
+    margin-top: 2px;
+    font-family: var(--f-mono);
+    font-size: 10px;
+    letter-spacing: 0.32em;
+    text-transform: uppercase;
+    color: var(--mute);
+    font-weight: 400;
+    direction: ltr;
+  }
+  .section-rule .l, .section-rule .r {
+    height: 1px;
+    background: var(--ink);
+    align-self: center;
+  }
+  .section-rule {
+    grid-template-columns: 1fr auto 1fr;
+  }
+
+  /* The three surfaces in a 3-col layout */
+  .columns {
+    display: grid;
+    grid-template-columns: 360px 1fr 380px;
+    gap: 32px;
+  }
+  .columns > section {
+    border: 1px solid var(--ink);
+    background: var(--white);
+    box-shadow: 6px 6px 0 var(--ink);
+    position: relative;
+  }
+  .surface-caption {
+    margin-top: 16px;
+    padding-top: 10px;
+    border-top: 3px double var(--ink);
+    display: flex; justify-content: space-between; align-items: baseline;
+    font-family: var(--f-mono);
+    font-size: 10px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--ink);
+  }
+  .surface-caption b {
+    font-family: var(--f-display);
+    font-style: italic;
+    font-size: 14px;
+    color: var(--q-primary);
+    letter-spacing: 0;
+    text-transform: none;
+    font-weight: 700;
+  }
+
+  /* ─── POPUP ─── */
+  .popup {
+    direction: rtl;
+    font-family: var(--f-ar);
+    padding: 22px;
+  }
+  .popup .mast-mini {
+    text-align: center;
+    border-bottom: 4px double var(--ink);
+    padding-bottom: 14px;
+    margin-bottom: 16px;
+  }
+  .popup .mast-mini .top-bar {
+    display: flex; justify-content: space-between; align-items: center;
+    font-family: var(--f-mono);
+    font-size: 9px;
+    letter-spacing: 0.26em;
+    text-transform: uppercase;
+    color: var(--mute);
+    margin-bottom: 6px;
+    direction: ltr;
+  }
+  .popup .mast-mini h1 {
+    margin: 0;
+    font-family: var(--f-mast);
+    font-weight: 700;
+    font-size: 36px;
+    line-height: 1;
+  }
+  .popup .mast-mini h1 .gold { color: var(--q-gold); }
+  .popup .mast-mini .tag {
+    margin-top: 6px;
+    font-family: var(--f-display);
+    font-style: italic;
+    font-size: 12px;
+    letter-spacing: 0.16em;
+    color: var(--mute);
+    direction: ltr;
+  }
+  .popup .lede {
+    font-family: var(--f-display);
+    font-style: italic;
+    font-size: 14px;
+    color: var(--ink-soft);
+    line-height: 1.5;
+    border-right: 3px solid var(--q-gold);
+    padding-right: 10px;
+    margin-bottom: 16px;
+  }
+  .seg {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    border: 1px solid var(--ink);
+    background: var(--paper);
+    margin-bottom: 14px;
+  }
+  .seg label {
+    padding: 11px 10px;
+    text-align: center;
+    font-family: var(--f-ar);
+    font-weight: 500;
+    font-size: 14px;
+    cursor: pointer;
+    color: var(--ink-soft);
+    border-left: 1px solid var(--ink);
+  }
+  .seg label:last-child { border-left: none; }
+  .seg label.is-active {
+    background: var(--ink);
+    color: var(--paper);
+  }
+  .seg label small {
+    display: block;
+    font-family: var(--f-mono);
+    font-size: 8.5px;
+    letter-spacing: 0.18em;
+    opacity: 0.7;
+    margin-top: 3px;
+    direction: ltr;
+  }
+  .btn-bold {
+    appearance: none; border: none; cursor: pointer; width: 100%;
+    padding: 14px 16px;
+    font-family: var(--f-ar);
+    font-weight: 700;
+    font-size: 17px;
+    background: var(--q-primary);
+    color: var(--paper);
+    border: 1px solid var(--ink);
+    box-shadow: 4px 4px 0 var(--ink);
+    transition: all 0.12s;
+    margin-bottom: 10px;
+  }
+  .btn-bold:hover { transform: translate(-2px,-2px); box-shadow: 6px 6px 0 var(--ink); }
+  .btn-thin {
+    appearance: none; cursor: pointer; width: 100%;
+    padding: 10px 14px;
+    font-family: var(--f-ar);
+    font-size: 13px;
+    background: var(--white);
+    color: var(--ink);
+    border: 1px solid var(--ink);
+  }
+
+  .headline-stat {
+    margin-top: 18px;
+    padding: 14px;
+    background: var(--paper-2);
+    border: 1px solid var(--ink);
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 14px;
+    align-items: center;
+  }
+  .headline-stat .big {
+    font-family: var(--f-display);
+    font-weight: 700;
+    font-size: 44px;
+    line-height: 1;
+    color: var(--q-primary);
+  }
+  .headline-stat .small {
+    font-family: var(--f-display);
+    font-style: italic;
+    font-size: 14px;
+    color: var(--ink-soft);
+    line-height: 1.4;
+  }
+  .headline-stat .small b {
+    display: block;
+    font-style: normal;
+    font-family: var(--f-mono);
+    font-size: 9px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--mute);
+    margin-bottom: 2px;
+    direction: ltr;
+  }
+
+  .popup .foot {
+    margin-top: 14px;
+    padding-top: 10px;
+    border-top: 1px solid var(--ink);
+    display: flex; justify-content: space-between; align-items: center;
+    font-family: var(--f-mono);
+    font-size: 10px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--mute);
+    direction: ltr;
+  }
+  .popup .foot button {
+    background: none; border: none; cursor: pointer;
+    font: inherit; color: var(--ink);
+    border-bottom: 2px solid var(--q-gold);
+    padding: 2px 0;
+  }
+
+  /* ─── OPTIONS ─── */
+  .options {
+    direction: rtl;
+    font-family: var(--f-ar);
+    padding: 28px 32px 32px;
+  }
+  .options-hdr {
+    border-bottom: 4px double var(--ink);
+    padding-bottom: 16px;
+    margin-bottom: 24px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 16px;
+    align-items: baseline;
+  }
+  .options-hdr h1 {
+    margin: 0;
+    font-family: var(--f-mast);
+    font-weight: 700;
+    font-size: 38px;
+    line-height: 1;
+  }
+  .options-hdr h1 .gold { color: var(--q-gold); }
+  .options-hdr .meta {
+    font-family: var(--f-mono);
+    font-size: 10px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--mute);
+    direction: ltr;
+    text-align: right;
+  }
+  .options-hdr .meta b { color: var(--q-primary); font-weight: 500; }
+
+  /* Verdict story-block — like a column of news bylines */
+  .verdict-bar {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0;
+    border-top: 1px solid var(--ink);
+    border-bottom: 1px solid var(--ink);
+  }
+  .v-row {
+    display: grid;
+    grid-template-columns: 4px 28px 1fr 180px auto;
+    gap: 14px;
+    align-items: center;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--rule-soft);
+  }
+  .v-row:last-child { border-bottom: none; }
+  .v-row .bar { background: var(--c); height: 28px; }
+  .v-row .glyph {
+    width: 28px; height: 28px;
+    font-family: var(--f-mono);
+    font-size: 13px;
+    font-weight: 500;
+    background: var(--ink);
+    color: var(--paper);
+    display: grid; place-items: center;
+  }
+  .v-row .name {
+    font-family: var(--f-mast);
+    font-weight: 700;
+    font-size: 16px;
+    color: var(--ink);
+  }
+  .v-row .name small {
+    display: block;
+    font-family: var(--f-display);
+    font-style: italic;
+    font-weight: 400;
+    font-size: 11.5px;
+    color: var(--mute);
+    margin-top: 1px;
+    direction: ltr;
+    letter-spacing: 0.06em;
+  }
+  .v-row select {
+    appearance: none;
+    border: 1px solid var(--ink);
+    background: var(--paper);
+    padding: 6px 28px 6px 10px;
+    font-family: var(--f-ar);
+    font-size: 12.5px;
+    cursor: pointer;
+    direction: rtl;
+    background-image:
+      linear-gradient(45deg, transparent 50%, var(--ink) 50%),
+      linear-gradient(135deg, var(--ink) 50%, transparent 50%);
+    background-position: calc(100% - 14px) 13px, calc(100% - 10px) 13px;
+    background-size: 4px 4px;
+    background-repeat: no-repeat;
+  }
+  .v-row .lock {
+    font-family: var(--f-mono);
+    font-size: 9px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--white);
+    background: var(--ink);
+    padding: 3px 7px;
+    direction: ltr;
+  }
+
+  /* Behaviour toggles — two col list */
+  .opt-toggle-list {
+    margin-top: 28px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0 28px;
+  }
+  .opt-toggle {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 14px;
+    align-items: start;
+    padding: 14px 0;
+    border-bottom: 1px dotted var(--ink);
+  }
+  .opt-toggle .label {
+    font-family: var(--f-ar);
+    font-weight: 500;
+    font-size: 14px;
+    color: var(--ink);
+  }
+  .opt-toggle .hint {
+    font-family: var(--f-display);
+    font-style: italic;
+    font-size: 12px;
+    color: var(--mute);
+    margin-top: 3px;
+    line-height: 1.5;
+  }
+  .opt-toggle .risk {
+    display: inline-block;
+    font-family: var(--f-mono);
+    font-size: 8.5px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--white);
+    background: var(--v-red);
+    padding: 2px 6px;
+    margin-right: 6px;
+    direction: ltr;
+  }
+  .check {
+    width: 22px; height: 22px;
+    border: 1.5px solid var(--ink);
+    background: var(--white);
+    cursor: pointer;
+    flex-shrink: 0;
+    margin-top: 2px;
+    position: relative;
+  }
+  .check.is-on {
+    background: var(--ink);
+  }
+  .check.is-on::after {
+    content: '✓';
+    position: absolute; inset: 0;
+    display: grid; place-items: center;
+    color: var(--q-gold);
+    font-family: var(--f-mast);
+    font-size: 16px;
+    font-weight: 700;
+    line-height: 1;
+  }
+
+  /* ─── PANEL ─── */
+  .panel {
+    direction: rtl;
+    font-family: var(--f-ar);
+    display: flex;
+    flex-direction: column;
+    max-height: 740px;
+  }
+  .panel-mast {
+    padding: 18px 20px 12px;
+    border-bottom: 4px double var(--ink);
+  }
+  .panel-mast .top {
+    display: flex; justify-content: space-between; align-items: center;
+    font-family: var(--f-mono);
+    font-size: 9px;
+    letter-spacing: 0.26em;
+    text-transform: uppercase;
+    color: var(--mute);
+    margin-bottom: 6px;
+    direction: ltr;
+  }
+  .panel-mast h2 {
+    margin: 0;
+    font-family: var(--f-mast);
+    font-weight: 700;
+    font-size: 26px;
+    line-height: 1;
+  }
+  .panel-mast h2 .gold { color: var(--q-gold); }
+  .panel-mast .deck {
+    margin: 8px 0 0;
+    padding: 0;
+    border: none;
+    font-family: var(--f-display);
+    font-style: italic;
+    font-size: 13px;
+    color: var(--ink-soft);
+    text-align: right;
+  }
+  .panel-mast .deck::before, .panel-mast .deck::after { display: none; }
+
+  .tally-tabular {
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--ink);
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    text-align: center;
+    gap: 4px;
+    background: var(--paper);
+  }
+  .tally-tabular .cell {
+    border-right: 1px solid var(--rule-soft);
+    padding: 4px 0;
+  }
+  .tally-tabular .cell:last-child { border-right: none; }
+  .tally-tabular .n {
+    font-family: var(--f-display);
+    font-weight: 700;
+    font-size: 26px;
+    color: var(--c);
+    line-height: 1;
+  }
+  .tally-tabular .lbl {
+    font-family: var(--f-mono);
+    font-size: 8px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--mute);
+    margin-top: 4px;
+    direction: ltr;
+  }
+
+  .findings {
+    flex: 1; overflow: auto;
+  }
+  .story {
+    padding: 16px 20px;
+    border-bottom: 3px double var(--ink);
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .story:hover { background: var(--paper-2); }
+  .story .byline {
+    display: flex; justify-content: space-between; align-items: baseline;
+    margin-bottom: 4px;
+    font-family: var(--f-mono);
+    font-size: 9px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    direction: ltr;
+  }
+  .story .byline .src { color: var(--mute); }
+  .story .byline .cat {
+    color: var(--c);
+    font-weight: 500;
+  }
+  .story .head {
+    font-family: var(--f-mast);
+    font-weight: 700;
+    font-size: 17px;
+    line-height: 1.2;
+    color: var(--ink);
+    margin: 4px 0 8px;
+  }
+  .story .head .num {
+    font-family: var(--f-display);
+    font-style: italic;
+    font-weight: 700;
+    color: var(--q-primary);
+    margin-right: 6px;
+    font-size: 14px;
+    direction: ltr; display: inline-block;
+  }
+  .story .ayah {
+    font-family: 'Amiri', serif;
+    font-size: 19px;
+    line-height: 1.9;
+    color: var(--ink);
+  }
+  .story .ayah .ins { background: rgba(11, 93, 59, 0.12); border-bottom: 2px solid var(--q-primary); padding: 0 2px;}
+  .story .ayah .del { color: var(--v-red); text-decoration: line-through; opacity: 0.65; padding: 0 2px;}
+  .story .ayah .o { color: var(--q-gold); margin: 0 3px;}
+  .story .note {
+    font-family: var(--f-display);
+    font-style: italic;
+    font-size: 12px;
+    color: var(--ink-soft);
+    margin-top: 6px;
+    border-right: 2px solid var(--q-gold);
+    padding-right: 8px;
+  }
+  .story .note b { font-style: normal; color: var(--q-primary); font-weight: 700; font-family: var(--f-ar); }
+  .story .acts { margin-top: 10px; display: flex; gap: 6px; flex-wrap: wrap; }
+  .story .act {
+    appearance: none;
+    border: 1px solid var(--ink);
+    background: var(--white);
+    padding: 5px 10px;
+    font-family: var(--f-ar);
+    font-weight: 500;
+    font-size: 12px;
+    color: var(--ink);
+    cursor: pointer;
+  }
+  .story .act.is-primary {
+    background: var(--ink);
+    color: var(--q-gold);
+  }
+
+  /* Footer */
+  .colophon {
+    margin-top: 64px;
+    padding-top: 20px;
+    border-top: 6px solid var(--ink);
+    display: flex; justify-content: space-between; align-items: baseline;
+    font-family: var(--f-mono);
+    font-size: 10px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+  .colophon .center {
+    font-family: var(--f-display);
+    font-style: italic;
+    font-size: 14px;
+    color: var(--q-primary);
+    letter-spacing: 0;
+    text-transform: none;
+  }
+  .colophon a { color: var(--ink); border-bottom: 1px solid var(--q-gold); text-decoration: none; padding: 1px 0; }
+
+  @media (max-width: 1200px) {
+    .columns { grid-template-columns: 1fr; }
+    .opt-toggle-list { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="broadsheet">
+
+  <div class="nameplate">
+    <div class="l">
+      Vol. I · No. 002<br>
+      MMXXVI · Edition Verified
+    </div>
+    <div>
+      <h1>صَوْنُ <span class="gold">القُرآن</span></h1>
+      <div class="latin">QUR<span style="color:var(--q-gold)">·</span>AN<span style="color:var(--q-gold)">·</span>GUARD</div>
+    </div>
+    <div class="r">
+      <span class="price">Integrity ↑</span> · 1.4s scan<br>
+      Plate iii of iii
+    </div>
+  </div>
+  <p class="deck">Three surfaces, one verdict — popup, options, panel</p>
+
+  <div class="section-rule">
+    <span class="l"></span>
+    <h2>السُّطوح الثلاثة <span class="en">The three surfaces</span></h2>
+    <span class="r"></span>
+  </div>
+
+  <div class="columns">
+
+    <!-- POPUP -->
+    <div>
+      <section class="popup">
+        <div class="mast-mini">
+          <div class="top-bar"><span>QURAN<small style="color:var(--q-gold);margin:0 2px;">·</small>GUARD</span><span>v 1.0.0</span></div>
+          <h1>صَوْنُ <span class="gold">القُرآن</span></h1>
+          <div class="tag">— Manual / Auto-scan —</div>
+        </div>
+        <p class="lede">يحقّق المُدقّق من صحّة الاقتباسات القرآنية ومراجعها على الصفحة، ولا يَمَسّ ما لم تَطلُبهُ.</p>
+
+        <div class="seg">
+          <label class="is-active">يدوي<small>Manual</small></label>
+          <label>تلقائي<small>Auto</small></label>
+        </div>
+
+        <button class="btn-bold">فحص الصفحة ←</button>
+        <button class="btn-thin">مسح التمييز</button>
+
+        <div class="headline-stat">
+          <div class="big">17</div>
+          <div class="small"><b>Findings so far</b>نتيجة حتى الآن — اكتمل الفحص في 1.4 ثانية</div>
+        </div>
+
+        <div class="foot">
+          <span>Alt + Shift + Q</span>
+          <button>⚙ Settings</button>
+        </div>
+      </section>
+      <div class="surface-caption"><b>I. Popup</b><span>360 × auto</span></div>
+    </div>
+
+    <!-- OPTIONS -->
+    <div>
+      <section class="options">
+        <div class="options-hdr">
+          <div>
+            <h1>الإ<span class="gold">عدادات</span></h1>
+            <div style="font-family:var(--f-display); font-style:italic; font-size:14px; color:var(--mute); margin-top:6px;">Preferences · saved instantly</div>
+          </div>
+          <div class="meta">
+            7 sections<br>
+            <b>prefs · v1</b>
+          </div>
+        </div>
+
+        <div class="section-rule" style="margin: 12px 0 18px;">
+          <span class="l"></span>
+          <h2 style="font-size:22px;">تمييز الفئات <span class="en">Verdicts</span></h2>
+          <span class="r"></span>
+        </div>
+
+        <div class="verdict-bar">
+          <div class="v-row" style="--c: var(--v-green)">
+            <span class="bar"></span><span class="glyph">✓</span>
+            <span class="name">مطابق مع المرجع<small>Exact match with reference</small></span>
+            <select><option>تسطير خفيف</option></select>
+            <span></span>
+          </div>
+          <div class="v-row" style="--c: var(--v-lightBlue)">
+            <span class="bar"></span><span class="glyph">✓</span>
+            <span class="name">بدون مرجع<small>Match, reference omitted</small></span>
+            <select><option>تسطير</option></select>
+            <span></span>
+          </div>
+          <div class="v-row" style="--c: var(--v-lightGreen)">
+            <span class="bar"></span><span class="glyph">✎</span>
+            <span class="name">صُحِّح المرجع<small>Corrected provenance</small></span>
+            <select><option>تسطير منقّط</option></select>
+            <span></span>
+          </div>
+          <div class="v-row" style="--c: var(--v-yellow)">
+            <span class="bar"></span><span class="glyph">~</span>
+            <span class="name">اختلاف لفظي<small>Wording divergence</small></span>
+            <select><option>خلفية</option></select>
+            <span class="lock">Locked</span>
+          </div>
+          <div class="v-row" style="--c: var(--v-orange)">
+            <span class="bar"></span><span class="glyph">⚠</span>
+            <span class="name">مرجع غير مطابق<small>Wrong reference</small></span>
+            <select><option>خلفية + تسطير</option></select>
+            <span></span>
+          </div>
+          <div class="v-row" style="--c: var(--v-red)">
+            <span class="bar"></span><span class="glyph">✗</span>
+            <span class="name">لم يُتحقَّق<small>Not found in the Mushaf</small></span>
+            <select><option>تأشير</option></select>
+            <span class="lock">Locked</span>
+          </div>
+        </div>
+
+        <div class="section-rule" style="margin: 32px 0 12px;">
+          <span class="l"></span>
+          <h2 style="font-size:22px;">سلوك القراءة <span class="en">Reading behaviour</span></h2>
+          <span class="r"></span>
+        </div>
+
+        <div class="opt-toggle-list">
+          <div class="opt-toggle">
+            <div>
+              <div class="label">تصحيح المراجع الخاطئة تلقائيًا</div>
+              <div class="hint">يستبدل المرجع الخاطئ بالمرجع الصحيح في الصفحة عند كل فحص.</div>
+            </div>
+            <div class="check is-on"></div>
+          </div>
+          <div class="opt-toggle">
+            <div>
+              <div class="label">استبدال الاختلاف اللفظي بالأصل</div>
+              <div class="hint">يستبدل النص المكتوب بنص المصحف الأصلي.</div>
+            </div>
+            <div class="check is-on"></div>
+          </div>
+          <div class="opt-toggle">
+            <div>
+              <div class="label"><span class="risk">High risk</span> قبول أقرب آية للأحمر</div>
+              <div class="hint">يقبل أقرب آية حين يوجد اقتراحٌ وحيد فقط.</div>
+            </div>
+            <div class="check"></div>
+          </div>
+          <div class="opt-toggle">
+            <div>
+              <div class="label">جعل المراجع روابط (quran.com)</div>
+              <div class="hint">النقر يفتح quran.com في تبويب جديد.</div>
+            </div>
+            <div class="check is-on"></div>
+          </div>
+        </div>
+      </section>
+      <div class="surface-caption"><b>II. Options</b><span>prefs · v1</span></div>
+    </div>
+
+    <!-- PANEL -->
+    <div>
+      <section class="panel">
+        <div class="panel-mast">
+          <div class="top"><span>QURAN<small style="color:var(--q-gold);margin:0 2px;">·</small>GUARD</span><span>Pinned</span></div>
+          <h2>نتائج <span class="gold">التحقق</span></h2>
+          <p class="deck">42 آية فُحصت · 5 تستحق الانتباه</p>
+        </div>
+
+        <div class="tally-tabular">
+          <div class="cell" style="--c: var(--v-green)"><div class="n">23</div><div class="lbl">Exact</div></div>
+          <div class="cell" style="--c: var(--v-lightBlue)"><div class="n">8</div><div class="lbl">No ref</div></div>
+          <div class="cell" style="--c: var(--v-yellow)"><div class="n">5</div><div class="lbl">Wording</div></div>
+          <div class="cell" style="--c: var(--v-orange)"><div class="n">4</div><div class="lbl">Wrong</div></div>
+          <div class="cell" style="--c: var(--v-red)"><div class="n">2</div><div class="lbl">Missing</div></div>
+        </div>
+
+        <div class="findings">
+
+          <article class="story" style="--c: var(--v-orange)">
+            <div class="byline"><span class="cat">⚠ Wrong reference</span><span class="src">Found · §1</span></div>
+            <div class="head">سُورَة البَقَرَة <span class="num">2:255</span></div>
+            <div class="ayah">اللَّهُ لَا إِلَٰهَ إِلَّا هُوَ الْحَيُّ الْقَيُّومُ <span class="o">۝</span></div>
+            <div class="note">المرجع في الصفحة: <b>3:18</b> — صحّحته إلى <b>2:255</b>.</div>
+            <div class="acts">
+              <button class="act is-primary">قبول</button>
+              <button class="act">تجاهل</button>
+              <button class="act">quran.com</button>
+            </div>
+          </article>
+
+          <article class="story" style="--c: var(--v-yellow)">
+            <div class="byline"><span class="cat">~ Wording diff</span><span class="src">Found · §2</span></div>
+            <div class="head">سُورَة الفاتِحَة <span class="num">1:2</span></div>
+            <div class="ayah">الْحَمْدُ <span class="del">ل</span><span class="ins">لِلَّهِ</span> رَبِّ الْعَالَمِينَ <span class="o">۝</span></div>
+            <div class="acts">
+              <button class="act is-primary">استبدال</button>
+              <button class="act">إبقاء</button>
+            </div>
+          </article>
+
+          <article class="story" style="--c: var(--v-green)">
+            <div class="byline"><span class="cat">✓ Exact match</span><span class="src">Found · §3</span></div>
+            <div class="head">سُورَة الإخلاص <span class="num">112:1</span></div>
+            <div class="ayah">قُلْ هُوَ اللَّهُ أَحَدٌ <span class="o">۝</span></div>
+          </article>
+
+          <article class="story" style="--c: var(--v-lightBlue)">
+            <div class="byline"><span class="cat">✓ Reference missing</span><span class="src">Found · §4</span></div>
+            <div class="head">— <span class="num">no ref cited</span></div>
+            <div class="ayah">وَمَا خَلَقْتُ الْجِنَّ وَالْإِنسَ إِلَّا لِيَعْبُدُونِ <span class="o">۝</span></div>
+            <div class="note">اقتراح المرجع: <b>الذاريات 51:56</b></div>
+            <div class="acts">
+              <button class="act is-primary">إدراج المرجع</button>
+              <button class="act">تجاهل</button>
+            </div>
+          </article>
+
+        </div>
+      </section>
+      <div class="surface-caption"><b>III. Panel</b><span>380 px</span></div>
+    </div>
+
+  </div>
+
+  <div class="colophon">
+    <a href="index.html">← back to gallery</a>
+    <span class="center">QuranGuard · صون القرآن</span>
+    <span>Amiri · Bodoni Moda · Tajawal</span>
+  </div>
+
+</div>
+<script>
+  document.querySelectorAll('.check').forEach(c => c.addEventListener('click', () => c.classList.toggle('is-on')));
+  document.querySelectorAll('.seg label').forEach(l => l.addEventListener('click', () => {
+    l.parentElement.querySelectorAll('label').forEach(x => x.classList.remove('is-active'));
+    l.classList.add('is-active');
+  }));
+</script>
+</body>
+</html>
