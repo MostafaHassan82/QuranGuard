@@ -1,0 +1,1447 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<title>QuranGuard — Mihrab (Design Preview · Variant 2)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Reem+Kufi:wght@400;500;600;700&family=El+Messiri:wght@400;500;600;700&family=Marcellus&family=Hanken+Grotesk:ital,wght@0,300;0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  /* ──────────────────────────────────────────────────────────────────
+     "Mihrab" — sacred-geometry / architectural variant
+     Palette preserved from the live extension (--q-* tokens).
+     Re-themable: only swap the :root values below to retheme.
+     ────────────────────────────────────────────────────────────────── */
+  :root {
+    /* From css/sidebar.css (preserved verbatim) */
+    --q-primary:        #0b5d3b;
+    --q-primary-strong: #08482e;
+    --q-primary-mute:   #1f7a52;
+    --q-on-primary:     #f7f5ef;
+    --q-gold:           #c8a24a;
+    --q-gold-soft:      #ece0bf;
+    --q-gold-strong:    #a4811f;
+    --q-bg:             #f7f5ef;
+    --q-card:           #ffffff;
+    --q-border:         #e3ddcf;
+    --q-text:           #2a2a2a;
+    --q-muted:          #6b6b6b;
+    --q-focus:          #c8a24a;
+
+    /* Verdict palette — kept compatible with extension's existing semantics */
+    --v-green:      #2d7a2d;
+    --v-lightBlue:  #4a8db8;
+    --v-lightGreen: #7cb342;
+    --v-yellow:     #d4a017;
+    --v-orange:     #d97706;
+    --v-red:        #b91c1c;
+
+    /* Architectural surfaces */
+    --marble:       #fbfaf5;
+    --marble-vein:  #ede7d6;
+    --shadow-arch:  0 30px 60px -30px rgba(11, 93, 59, 0.28),
+                    0 10px 24px -16px rgba(11, 93, 59, 0.16);
+
+    /* Type */
+    --f-display-ar: 'Reem Kufi', sans-serif;
+    --f-body-ar:    'El Messiri', sans-serif;
+    --f-display:    'Marcellus', serif;
+    --f-body:       'Hanken Grotesk', sans-serif;
+    --f-mono:       'JetBrains Mono', monospace;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--q-bg);
+    color: var(--q-text);
+    font-family: var(--f-body);
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+  }
+
+  /* Girih tessellation backdrop — fixed, very subtle */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image:
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='96' height='96' viewBox='0 0 96 96'><g fill='none' stroke='%230b5d3b' stroke-width='0.5' opacity='0.07'><path d='M48 0 L52 20 L72 12 L60 28 L80 32 L60 36 L72 52 L52 44 L48 64 L44 44 L24 52 L36 36 L16 32 L36 28 L24 12 L44 20 Z'/><circle cx='48' cy='32' r='6'/><path d='M0 80 L96 80 M0 88 L96 88'/></g></svg>");
+    background-size: 96px 96px;
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  .arcade {
+    position: relative;
+    z-index: 2;
+    max-width: 1440px;
+    margin: 0 auto;
+    padding: 56px 56px 96px;
+  }
+
+  /* ── Masthead — central arched cartouche ─────────────────────────── */
+  .masthead {
+    text-align: center;
+    margin-bottom: 64px;
+    position: relative;
+  }
+  .masthead .crest {
+    display: inline-grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    gap: 24px;
+    margin-bottom: 14px;
+    width: 100%;
+    max-width: 720px;
+  }
+  .masthead .crest .line {
+    height: 1px;
+    background: linear-gradient(to right, transparent, var(--q-primary) 30%, var(--q-primary) 70%, transparent);
+  }
+  .masthead .crest .ornament {
+    font-family: var(--f-display);
+    color: var(--q-gold-strong);
+    font-size: 14px;
+    letter-spacing: 0.4em;
+    text-transform: uppercase;
+  }
+  .masthead h1 {
+    margin: 0;
+    font-family: var(--f-display-ar);
+    font-weight: 600;
+    font-size: 56px;
+    color: var(--q-primary);
+    direction: rtl;
+    letter-spacing: 0;
+    line-height: 1;
+  }
+  .masthead h1 .gold { color: var(--q-gold-strong); }
+  .masthead .subtitle {
+    margin-top: 18px;
+    font-family: var(--f-display);
+    font-size: 18px;
+    color: var(--q-primary-strong);
+    letter-spacing: 0.04em;
+  }
+  .masthead .meta {
+    margin-top: 12px;
+    font-family: var(--f-mono);
+    font-size: 11px;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: var(--q-muted);
+  }
+  .masthead .meta span { color: var(--q-gold-strong); }
+
+  /* ── Arcade row ──────────────────────────────────────────────────── */
+  .arches {
+    display: grid;
+    grid-template-columns: 360px 1fr 380px;
+    gap: 40px;
+    align-items: start;
+  }
+
+  /* Shared "arch" container (pointed mihrab top) */
+  .arch {
+    position: relative;
+    background: var(--q-card);
+    border: 1px solid var(--q-border);
+    border-top: none;
+    box-shadow: var(--shadow-arch);
+    /* Pointed-arch top via clip + overlay */
+  }
+  .arch::before {
+    /* Pointed-arch crown drawn as a positioned SVG */
+    content: '';
+    position: absolute;
+    top: -56px;
+    left: -1px;
+    right: -1px;
+    height: 56px;
+    background-color: var(--q-card);
+    border: 1px solid var(--q-border);
+    border-bottom: none;
+    /* Pointed mihrab silhouette: ogee-ish arch via clip-path */
+    -webkit-mask-image: linear-gradient(black, black);
+    clip-path: polygon(
+      0 100%, 0 35%,
+      8% 22%, 18% 12%, 32% 5%, 50% 0,
+      68% 5%, 82% 12%, 92% 22%, 100% 35%,
+      100% 100%
+    );
+  }
+  .arch::after {
+    /* Inner gold key-line tracing the arch */
+    content: '';
+    position: absolute;
+    top: -50px;
+    left: 14px;
+    right: 14px;
+    height: 50px;
+    border: 1px solid var(--q-gold);
+    border-bottom: none;
+    clip-path: polygon(
+      0 100%, 0 35%,
+      8% 22%, 18% 12%, 32% 5%, 50% 0,
+      68% 5%, 82% 12%, 92% 22%, 100% 35%,
+      100% 100%
+    );
+    opacity: 0.55;
+    pointer-events: none;
+  }
+  /* Keystone diamond */
+  .arch .keystone {
+    position: absolute;
+    top: -52px; left: 50%;
+    transform: translate(-50%, 0) rotate(45deg);
+    width: 14px; height: 14px;
+    background: var(--q-gold);
+    box-shadow: 0 0 0 2px var(--q-card);
+    z-index: 2;
+  }
+
+  /* Plate caption (Roman-numeral + label) */
+  .plate-caption {
+    margin-top: 84px; /* leave room for the arch above */
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: baseline;
+    gap: 14px;
+    padding: 0 6px;
+  }
+  .plate-caption:first-child { margin-top: 0; }
+  .arch-wrap { margin-top: 64px; } /* push arch down to make crown visible */
+  .plate-num {
+    font-family: var(--f-display);
+    font-size: 32px;
+    color: var(--q-gold-strong);
+    letter-spacing: 0.04em;
+  }
+  .plate-title {
+    font-family: var(--f-display);
+    font-size: 16px;
+    color: var(--q-primary-strong);
+    letter-spacing: 0.06em;
+  }
+  .plate-title em {
+    font-family: var(--f-body);
+    font-style: italic;
+    color: var(--q-muted);
+    font-size: 13px;
+    margin-right: 6px;
+  }
+  .plate-tag {
+    font-family: var(--f-mono);
+    font-size: 10px;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: var(--q-muted);
+    border: 1px solid var(--q-border);
+    padding: 4px 8px;
+    border-radius: 999px;
+    background: var(--marble);
+  }
+
+  /* ════════════════════════════════════════════════════════════════════
+     PLATE I — POPUP
+     ════════════════════════════════════════════════════════════════════ */
+  .popup {
+    width: 360px;
+    padding: 28px 24px 22px;
+    direction: rtl;
+    font-family: var(--f-body-ar);
+    color: var(--q-text);
+  }
+  .popup .crest-mini {
+    text-align: center;
+    margin-bottom: 18px;
+  }
+  .popup .crest-mini h1 {
+    margin: 0;
+    font-family: var(--f-display-ar);
+    font-weight: 600;
+    font-size: 28px;
+    color: var(--q-primary);
+  }
+  .popup .crest-mini h1 .gold { color: var(--q-gold-strong); }
+  .popup .crest-mini .latin {
+    margin-top: 4px;
+    font-family: var(--f-display);
+    font-size: 12px;
+    letter-spacing: 0.32em;
+    text-transform: uppercase;
+    color: var(--q-muted);
+    direction: ltr;
+  }
+  .popup .divider-ornament {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    gap: 10px;
+    margin: 14px 0 18px;
+  }
+  .popup .divider-ornament .line {
+    height: 1px; background: var(--q-border);
+  }
+  .popup .divider-ornament .gem {
+    width: 8px; height: 8px;
+    background: var(--q-gold);
+    transform: rotate(45deg);
+  }
+
+  .mode-pills {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    background: var(--q-bg);
+    border: 1px solid var(--q-border);
+    border-radius: 999px;
+    padding: 4px;
+    gap: 4px;
+    margin-bottom: 18px;
+  }
+  .mode-pills label {
+    padding: 9px 12px;
+    text-align: center;
+    border-radius: 999px;
+    font-family: var(--f-body-ar);
+    font-size: 14px;
+    cursor: pointer;
+    color: var(--q-muted);
+    transition: all 0.2s;
+  }
+  .mode-pills label.is-active {
+    background: var(--q-primary);
+    color: var(--q-on-primary);
+    box-shadow: 0 2px 8px -2px rgba(11, 93, 59, 0.4);
+  }
+  .mode-pills label .kbd {
+    display: block;
+    font-family: var(--f-mono);
+    font-size: 9px;
+    letter-spacing: 0.18em;
+    margin-top: 2px;
+    opacity: 0.75;
+    direction: ltr;
+  }
+
+  .btn-primary {
+    appearance: none; border: none; cursor: pointer; width: 100%;
+    padding: 14px 18px;
+    font-family: var(--f-body-ar);
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--q-on-primary);
+    background: linear-gradient(180deg, var(--q-primary-mute), var(--q-primary));
+    border-radius: 4px;
+    display: flex; align-items: center; justify-content: center; gap: 12px;
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.15) inset,
+      0 8px 20px -10px rgba(11, 93, 59, 0.5);
+    position: relative;
+    transition: transform 0.15s;
+  }
+  .btn-primary:hover { transform: translateY(-1px); }
+  .btn-primary::before, .btn-primary::after {
+    content: '';
+    width: 4px; height: 4px;
+    background: var(--q-gold);
+    transform: rotate(45deg);
+    flex-shrink: 0;
+  }
+  .btn-ghost {
+    appearance: none; cursor: pointer; width: 100%;
+    padding: 11px 16px;
+    font-family: var(--f-body-ar);
+    font-size: 14px;
+    color: var(--q-primary-strong);
+    background: var(--q-card);
+    border: 1px solid var(--q-border);
+    border-radius: 4px;
+    display: flex; align-items: center; justify-content: center;
+    margin-top: 8px;
+    transition: all 0.15s;
+  }
+  .btn-ghost:hover {
+    border-color: var(--q-primary);
+    color: var(--q-primary);
+    background: var(--q-gold-soft);
+  }
+
+  .popup-status {
+    margin: 18px -24px -22px;
+    padding: 16px 24px;
+    background:
+      linear-gradient(180deg, var(--q-gold-soft), var(--q-bg));
+    border-top: 1px solid var(--q-gold);
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+  }
+  .popup-status .label {
+    font-family: var(--f-body-ar);
+    font-size: 13px;
+    color: var(--q-primary-strong);
+  }
+  .popup-status .count {
+    font-family: var(--f-display);
+    font-size: 30px;
+    color: var(--q-primary);
+    line-height: 1;
+  }
+  .popup-status .count small {
+    font-family: var(--f-mono);
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--q-gold-strong);
+    margin-right: 6px;
+    direction: ltr;
+    display: inline-block;
+  }
+
+  .popup-foot {
+    margin-top: 18px;
+    padding-top: 14px;
+    border-top: 1px dashed var(--q-border);
+    display: flex; justify-content: space-between; align-items: center;
+    font-family: var(--f-mono);
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--q-muted);
+    direction: ltr;
+  }
+  .popup-foot button {
+    background: none; border: none; cursor: pointer;
+    font: inherit; color: var(--q-primary);
+    padding: 4px 0;
+    border-bottom: 1px solid var(--q-gold);
+  }
+
+  /* ════════════════════════════════════════════════════════════════════
+     PLATE II — OPTIONS PAGE
+     ════════════════════════════════════════════════════════════════════ */
+  .options {
+    direction: rtl;
+    font-family: var(--f-body-ar);
+    color: var(--q-text);
+    padding: 36px 44px 44px;
+  }
+  .opt-banner {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: end;
+    padding-bottom: 20px;
+    margin-bottom: 32px;
+    border-bottom: 2px solid var(--q-primary);
+    position: relative;
+    gap: 24px;
+  }
+  .opt-banner::after {
+    /* gold underline beneath the green */
+    content: '';
+    position: absolute;
+    left: 0; right: 0; bottom: -6px;
+    height: 1px; background: var(--q-gold);
+  }
+  .opt-banner h1 {
+    margin: 0;
+    font-family: var(--f-display-ar);
+    font-weight: 700;
+    font-size: 40px;
+    color: var(--q-primary);
+    line-height: 1;
+  }
+  .opt-banner h1 .gold { color: var(--q-gold-strong); }
+  .opt-banner .latin {
+    font-family: var(--f-display);
+    font-size: 14px;
+    letter-spacing: 0.32em;
+    text-transform: uppercase;
+    color: var(--q-muted);
+    direction: ltr;
+    text-align: right;
+    margin-top: 8px;
+  }
+
+  .opt-grid {
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    gap: 40px;
+  }
+  .opt-rail {
+    position: sticky; top: 24px; align-self: start;
+    border-left: 1px solid var(--q-border);
+    padding-left: 20px;
+  }
+  .opt-rail .label {
+    font-family: var(--f-mono);
+    font-size: 9px;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: var(--q-muted);
+    margin-bottom: 12px;
+    direction: ltr;
+  }
+  .opt-rail ol {
+    list-style: none; margin: 0; padding: 0; counter-reset: s;
+  }
+  .opt-rail li {
+    counter-increment: s;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    padding: 10px 0;
+    align-items: center;
+    border-bottom: 1px solid transparent;
+    font-family: var(--f-body-ar);
+    font-size: 14px;
+    color: var(--q-muted);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .opt-rail li::after {
+    content: counter(s, decimal-leading-zero);
+    font-family: var(--f-mono);
+    font-size: 10px;
+    color: var(--q-border);
+    direction: ltr;
+  }
+  .opt-rail li.is-active {
+    color: var(--q-primary);
+    border-bottom-color: var(--q-gold);
+    font-weight: 600;
+  }
+  .opt-rail li.is-active::after { color: var(--q-gold-strong); }
+  .opt-rail li:hover { color: var(--q-primary); }
+
+  .opt-sections {
+    display: flex; flex-direction: column; gap: 40px;
+  }
+  .opt-sec-head {
+    display: grid;
+    grid-template-columns: 36px 1fr auto;
+    align-items: baseline;
+    gap: 16px;
+    padding-bottom: 12px;
+    margin-bottom: 18px;
+    border-bottom: 1px solid var(--q-border);
+  }
+  .opt-sec-head .num {
+    font-family: var(--f-display);
+    font-size: 28px;
+    color: var(--q-gold-strong);
+    line-height: 1;
+  }
+  .opt-sec-head h2 {
+    margin: 0;
+    font-family: var(--f-display-ar);
+    font-weight: 600;
+    font-size: 22px;
+    color: var(--q-primary);
+  }
+  .opt-sec-head .latin {
+    font-family: var(--f-display);
+    font-size: 13px;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: var(--q-muted);
+    direction: ltr;
+  }
+
+  /* Verdict tiles — 6 cards laid in 2 rows, like arched alcoves */
+  .verdict-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+  }
+  .verdict-tile {
+    position: relative;
+    background: var(--marble);
+    border: 1px solid var(--q-border);
+    border-radius: 4px 4px 2px 2px;
+    padding: 16px 14px 14px;
+    border-top: 4px solid var(--c);
+    display: flex; flex-direction: column; gap: 10px;
+    transition: all 0.18s;
+  }
+  .verdict-tile:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 24px -16px rgba(11, 93, 59, 0.2);
+  }
+  .verdict-tile .head {
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .verdict-tile .name {
+    font-family: var(--f-body-ar);
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--q-text);
+  }
+  .verdict-tile .name .latin {
+    display: block;
+    font-family: var(--f-body);
+    font-style: italic;
+    font-weight: 400;
+    font-size: 11px;
+    color: var(--q-muted);
+    direction: ltr;
+    letter-spacing: 0.04em;
+    margin-top: 2px;
+  }
+  .verdict-tile .glyph {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    background: var(--c);
+    color: white;
+    font-family: var(--f-mono);
+    font-size: 14px;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 500;
+  }
+  .verdict-tile select {
+    appearance: none;
+    border: 1px solid var(--q-border);
+    background: var(--q-card);
+    padding: 7px 28px 7px 10px;
+    font-family: var(--f-body-ar);
+    font-size: 12px;
+    color: var(--q-text);
+    border-radius: 3px;
+    cursor: pointer;
+    direction: rtl;
+    background-image:
+      linear-gradient(45deg, transparent 50%, var(--q-muted) 50%),
+      linear-gradient(135deg, var(--q-muted) 50%, transparent 50%);
+    background-position:
+      calc(100% - 14px) 13px,
+      calc(100% - 10px) 13px;
+    background-size: 4px 4px;
+    background-repeat: no-repeat;
+  }
+  .verdict-tile.is-locked {
+    background: linear-gradient(180deg, var(--q-gold-soft), var(--marble));
+  }
+  .verdict-tile .lock {
+    font-family: var(--f-mono);
+    font-size: 8.5px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--q-gold-strong);
+    direction: ltr;
+  }
+
+  /* Behavior toggle list */
+  .toggles {
+    display: grid; gap: 0;
+  }
+  .toggle {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 18px;
+    align-items: start;
+    padding: 16px 0;
+    border-bottom: 1px solid var(--q-border);
+  }
+  .toggle:last-child { border-bottom: none; }
+  .toggle .label {
+    font-family: var(--f-body-ar);
+    font-size: 15px;
+    color: var(--q-text);
+    font-weight: 500;
+  }
+  .toggle .hint {
+    font-family: var(--f-body-ar);
+    font-size: 12.5px;
+    color: var(--q-muted);
+    margin-top: 4px;
+    line-height: 1.6;
+  }
+  .toggle .risk-badge {
+    display: inline-block;
+    font-family: var(--f-mono);
+    font-size: 9px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--v-red);
+    background: rgba(185, 28, 28, 0.08);
+    padding: 2px 6px;
+    margin-right: 8px;
+    direction: ltr;
+    border-radius: 2px;
+  }
+  .switch {
+    width: 44px; height: 24px;
+    background: var(--q-bg);
+    border: 1px solid var(--q-border);
+    border-radius: 999px;
+    position: relative; cursor: pointer; flex-shrink: 0;
+    margin-top: 2px;
+    transition: all 0.2s;
+  }
+  .switch::after {
+    content: '';
+    position: absolute; top: 2px; right: 2px;
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    background: white;
+    border: 1px solid var(--q-border);
+    transition: all 0.22s cubic-bezier(0.7, 0, 0.3, 1);
+  }
+  .switch.is-on {
+    background: var(--q-primary);
+    border-color: var(--q-primary-strong);
+  }
+  .switch.is-on::after {
+    right: calc(100% - 20px);
+    background: var(--q-gold);
+    border-color: var(--q-gold-strong);
+  }
+
+  /* ════════════════════════════════════════════════════════════════════
+     PLATE III — PANEL (page-injected sidebar)
+     ════════════════════════════════════════════════════════════════════ */
+  .panel {
+    width: 380px;
+    direction: rtl;
+    font-family: var(--f-body-ar);
+    color: var(--q-text);
+    display: flex; flex-direction: column;
+    max-height: 720px;
+  }
+  .panel-head {
+    padding: 22px 22px 14px;
+    background: var(--q-primary);
+    color: var(--q-on-primary);
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    align-items: center;
+    gap: 10px;
+  }
+  .panel-head h2 {
+    margin: 0;
+    font-family: var(--f-display-ar);
+    font-weight: 600;
+    font-size: 22px;
+    color: var(--q-on-primary);
+  }
+  .panel-head h2 .gold { color: var(--q-gold); }
+  .panel-icon {
+    width: 30px; height: 30px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(236, 224, 191, 0.25);
+    color: var(--q-on-primary);
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--f-display);
+    font-size: 14px;
+    transition: all 0.15s;
+  }
+  .panel-icon:hover { background: rgba(236, 224, 191, 0.15); }
+  .panel-icon.is-pinned {
+    background: var(--q-gold);
+    color: var(--q-primary-strong);
+    border-color: var(--q-gold-strong);
+  }
+  .panel-kbd {
+    grid-column: 1 / -1;
+    margin-top: 6px;
+    font-family: var(--f-mono);
+    font-size: 9.5px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--q-gold-soft);
+    direction: ltr;
+    opacity: 0.85;
+  }
+  .panel-kbd kbd {
+    background: rgba(236, 224, 191, 0.12);
+    border: 1px solid rgba(236, 224, 191, 0.2);
+    padding: 1px 5px;
+    border-radius: 3px;
+    color: var(--q-on-primary);
+    margin: 0 1px;
+  }
+
+  /* Stat ribbon (donut + dominant count) */
+  .ribbon {
+    padding: 18px 22px;
+    background:
+      linear-gradient(180deg, var(--q-gold-soft) 0%, var(--marble) 100%);
+    border-bottom: 1px solid var(--q-border);
+    display: grid;
+    grid-template-columns: 88px 1fr;
+    gap: 18px;
+    align-items: center;
+  }
+  .donut {
+    --total: 42;
+    --g: 55; --b: 18; --y: 12; --o: 9; --r: 5;
+    width: 88px; height: 88px;
+    border-radius: 50%;
+    background: conic-gradient(
+      var(--v-green) 0 55%,
+      var(--v-lightBlue) 55% 73%,
+      var(--v-yellow) 73% 85%,
+      var(--v-orange) 85% 94%,
+      var(--v-red) 94% 100%
+    );
+    position: relative;
+    box-shadow: 0 0 0 4px var(--marble), 0 0 0 5px var(--q-border);
+  }
+  .donut::after {
+    content: '';
+    position: absolute; inset: 14px;
+    background: var(--q-card);
+    border-radius: 50%;
+  }
+  .donut .center {
+    position: absolute; inset: 0;
+    display: grid; place-items: center;
+    z-index: 1;
+    text-align: center;
+  }
+  .donut .n {
+    font-family: var(--f-display);
+    font-size: 26px;
+    color: var(--q-primary);
+    line-height: 1;
+  }
+  .donut .lbl {
+    font-family: var(--f-mono);
+    font-size: 8px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--q-muted);
+    direction: ltr;
+    margin-top: 2px;
+  }
+  .ribbon-text .top {
+    font-family: var(--f-body-ar);
+    font-size: 13px;
+    color: var(--q-muted);
+    margin-bottom: 4px;
+  }
+  .ribbon-text .head {
+    font-family: var(--f-display-ar);
+    font-size: 18px;
+    color: var(--q-primary);
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+  .ribbon-text .sub {
+    font-family: var(--f-body-ar);
+    font-size: 12.5px;
+    color: var(--q-muted);
+    line-height: 1.5;
+  }
+
+  /* Filter chips */
+  .chips {
+    padding: 14px 22px;
+    display: flex; flex-wrap: wrap; gap: 6px;
+    background: var(--q-card);
+    border-bottom: 1px solid var(--q-border);
+  }
+  .chip {
+    font-family: var(--f-body-ar);
+    font-size: 12px;
+    padding: 5px 10px;
+    border: 1px solid var(--q-border);
+    background: var(--marble);
+    border-radius: 999px;
+    cursor: pointer;
+    color: var(--q-muted);
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .chip::before {
+    content: '';
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--c, var(--q-muted));
+  }
+  .chip.is-on {
+    background: var(--q-primary);
+    border-color: var(--q-primary-strong);
+    color: var(--q-on-primary);
+  }
+  .chip.is-on::before { background: var(--q-gold); }
+
+  /* Findings */
+  .findings {
+    flex: 1; overflow: auto;
+    background: var(--q-card);
+  }
+  .finding {
+    padding: 16px 22px;
+    border-bottom: 1px solid var(--q-border);
+    border-right: 3px solid var(--c, var(--q-muted));
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .finding:hover { background: var(--q-bg); }
+  .finding .meta {
+    display: flex; justify-content: space-between; align-items: baseline;
+    margin-bottom: 6px;
+    gap: 12px;
+  }
+  .finding .ref {
+    font-family: var(--f-display-ar);
+    font-weight: 600;
+    font-size: 15px;
+    color: var(--q-primary);
+  }
+  .finding .ref .num {
+    font-family: var(--f-mono);
+    font-size: 12px;
+    color: var(--q-gold-strong);
+    margin-right: 6px;
+    direction: ltr;
+    display: inline-block;
+  }
+  .finding .pill {
+    font-family: var(--f-mono);
+    font-size: 9px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--c, var(--q-muted));
+    background: var(--marble);
+    border: 1px solid currentColor;
+    padding: 2px 7px;
+    border-radius: 999px;
+    direction: ltr;
+    opacity: 0.85;
+  }
+  .finding .ayah {
+    font-family: 'Amiri', var(--f-body-ar);  /* mushaf-ish ayah body */
+    font-size: 19px;
+    line-height: 1.95;
+    color: var(--q-text);
+  }
+  .finding .ayah .ins {
+    background: rgba(45, 122, 45, 0.14);
+    border-bottom: 1px solid var(--v-green);
+    padding: 0 2px;
+  }
+  .finding .ayah .del {
+    color: var(--v-red);
+    text-decoration: line-through;
+    opacity: 0.6;
+    padding: 0 2px;
+  }
+  .finding .ayah .ornament {
+    color: var(--q-gold-strong);
+    margin: 0 4px;
+    font-size: 16px;
+  }
+  .finding .note {
+    margin-top: 6px;
+    font-family: var(--f-body-ar);
+    font-size: 12px;
+    color: var(--q-muted);
+    line-height: 1.55;
+    padding: 6px 10px;
+    background: var(--q-gold-soft);
+    border-right: 2px solid var(--q-gold);
+    border-radius: 0 3px 3px 0;
+  }
+  .finding .note b { color: var(--q-primary-strong); }
+  .finding .acts {
+    margin-top: 10px;
+    display: flex; gap: 6px; flex-wrap: wrap;
+  }
+  .finding .act {
+    appearance: none;
+    border: 1px solid var(--q-border);
+    background: var(--q-card);
+    padding: 6px 12px;
+    font-family: var(--f-body-ar);
+    font-size: 12px;
+    color: var(--q-primary-strong);
+    cursor: pointer;
+    border-radius: 3px;
+  }
+  .finding .act:hover {
+    border-color: var(--q-primary);
+    background: var(--q-gold-soft);
+  }
+  .finding .act.is-primary {
+    background: var(--q-primary);
+    color: var(--q-on-primary);
+    border-color: var(--q-primary-strong);
+  }
+  .finding .act.is-primary:hover { background: var(--q-primary-strong); }
+
+  /* ── Theme variant swatch panel ──────────────────────────────────── */
+  .themes {
+    margin-top: 64px;
+    padding: 28px 32px;
+    background: var(--q-card);
+    border: 1px solid var(--q-border);
+    border-radius: 4px;
+    box-shadow: 0 12px 32px -24px rgba(11, 93, 59, 0.2);
+  }
+  .themes h3 {
+    margin: 0 0 8px;
+    font-family: var(--f-display);
+    font-size: 22px;
+    color: var(--q-primary);
+  }
+  .themes p {
+    margin: 0 0 18px;
+    font-family: var(--f-body);
+    font-size: 13.5px;
+    color: var(--q-muted);
+    line-height: 1.7;
+    max-width: 78ch;
+  }
+  .theme-strip {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+  }
+  .theme-card {
+    padding: 16px;
+    border: 1px solid var(--q-border);
+    border-radius: 4px;
+    background: var(--marble);
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 14px;
+    align-items: center;
+  }
+  .theme-card.is-active {
+    border-color: var(--q-primary);
+    box-shadow: 0 0 0 2px var(--q-gold-soft);
+  }
+  .swatches {
+    display: flex;
+  }
+  .swatches span {
+    width: 22px; height: 36px;
+    border: 1px solid rgba(0,0,0,0.08);
+  }
+  .swatches span + span { margin-right: -1px; }
+  .theme-card .info {
+    direction: ltr;
+  }
+  .theme-card .info .n {
+    font-family: var(--f-display);
+    font-size: 16px;
+    color: var(--q-primary);
+  }
+  .theme-card .info .d {
+    font-family: var(--f-body);
+    font-size: 12px;
+    color: var(--q-muted);
+    margin-top: 2px;
+  }
+
+  /* Footer */
+  .footer {
+    margin-top: 64px;
+    padding-top: 22px;
+    border-top: 1px solid var(--q-border);
+    display: flex; justify-content: space-between; align-items: baseline;
+    font-family: var(--f-mono);
+    font-size: 10px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--q-muted);
+  }
+  .footer .mark {
+    font-family: var(--f-display);
+    font-size: 14px;
+    color: var(--q-primary);
+    letter-spacing: 0;
+    text-transform: none;
+  }
+
+  @media (max-width: 1180px) {
+    .arches { grid-template-columns: 1fr; gap: 56px; }
+    .opt-grid { grid-template-columns: 1fr; }
+    .opt-rail { position: static; border-left: none; padding-left: 0; }
+    .verdict-grid { grid-template-columns: repeat(2, 1fr); }
+    .theme-strip { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="arcade">
+
+  <!-- ═════════ MASTHEAD ═════════ -->
+  <header class="masthead">
+    <div class="crest">
+      <span class="line"></span>
+      <span class="ornament">◆ Mihrab</span>
+      <span class="line"></span>
+    </div>
+    <h1>صَوْنُ <span class="gold">القُرآن</span></h1>
+    <div class="subtitle">QuranGuard · Variant II — Sacred geometry, theme-faithful</div>
+    <div class="meta">
+      Palette preserved <span>·</span> --q-primary #0b5d3b <span>·</span> --q-gold #c8a24a
+    </div>
+  </header>
+
+  <!-- ═════════ ARCADE OF THREE ARCHES ═════════ -->
+  <div class="arches">
+
+    <!-- ───── PLATE I — POPUP ───── -->
+    <div>
+      <div class="arch-wrap">
+        <div class="arch popup">
+          <span class="keystone"></span>
+          <div class="crest-mini">
+            <h1>صَوْنُ <span class="gold">القُرآن</span></h1>
+            <div class="latin">QuranGuard</div>
+          </div>
+          <div class="divider-ornament">
+            <span class="line"></span>
+            <span class="gem"></span>
+            <span class="line"></span>
+          </div>
+
+          <div class="mode-pills">
+            <label class="is-active">
+              يدوي
+              <span class="kbd">Manual</span>
+            </label>
+            <label>
+              تلقائي
+              <span class="kbd">Auto</span>
+            </label>
+          </div>
+
+          <button class="btn-primary">فحص الصفحة</button>
+          <button class="btn-ghost">مسح التمييز</button>
+
+          <div class="popup-status">
+            <div class="label">نتيجة حتى الآن</div>
+            <div class="count">17<small>found</small></div>
+          </div>
+
+          <div class="popup-foot">
+            <span>Alt + Shift + Q</span>
+            <button>⚙ Settings</button>
+          </div>
+        </div>
+      </div>
+      <div class="plate-caption">
+        <span class="plate-num">I.</span>
+        <span class="plate-title">Toolbar popup <em>browser action</em></span>
+        <span class="plate-tag">360 × auto</span>
+      </div>
+    </div>
+
+    <!-- ───── PLATE II — OPTIONS ───── -->
+    <div>
+      <div class="arch-wrap">
+        <div class="arch options">
+          <span class="keystone"></span>
+
+          <div class="opt-banner">
+            <div>
+              <h1>الإ<span class="gold">عدادات</span></h1>
+              <div class="latin">Preferences · prefs.v1</div>
+            </div>
+            <div style="font-family: var(--f-mono); font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--q-muted); direction: ltr;">
+              7 sections · saved instantly
+            </div>
+          </div>
+
+          <div class="opt-grid">
+            <nav class="opt-rail">
+              <div class="label">Sections</div>
+              <ol>
+                <li>اللغة</li>
+                <li class="is-active">التحقق والألوان</li>
+                <li>سلوك القراءة</li>
+                <li>الإكمال التلقائي</li>
+                <li>لوحة النتائج</li>
+                <li>البيانات</li>
+              </ol>
+            </nav>
+
+            <div class="opt-sections">
+              <section>
+                <div class="opt-sec-head">
+                  <span class="num">II.</span>
+                  <h2>تمييز الفئات</h2>
+                  <span class="latin">Verdicts</span>
+                </div>
+                <div class="verdict-grid">
+                  <div class="verdict-tile" style="--c: var(--v-green)">
+                    <div class="head">
+                      <div class="name">مطابق مع المرجع<span class="latin">Exact match</span></div>
+                      <div class="glyph">✓</div>
+                    </div>
+                    <select><option>تسطير خفيف</option></select>
+                  </div>
+                  <div class="verdict-tile" style="--c: var(--v-lightBlue)">
+                    <div class="head">
+                      <div class="name">بدون مرجع<span class="latin">Match · no ref</span></div>
+                      <div class="glyph">✓</div>
+                    </div>
+                    <select><option>تسطير</option></select>
+                  </div>
+                  <div class="verdict-tile" style="--c: var(--v-lightGreen)">
+                    <div class="head">
+                      <div class="name">صُحِّح المرجع<span class="latin">Corrected</span></div>
+                      <div class="glyph">✎</div>
+                    </div>
+                    <select><option>تسطير منقّط</option></select>
+                  </div>
+                  <div class="verdict-tile is-locked" style="--c: var(--v-yellow)">
+                    <div class="head">
+                      <div class="name">اختلاف لفظي<span class="latin">Wording</span></div>
+                      <div class="glyph">~</div>
+                    </div>
+                    <select><option>خلفية</option></select>
+                    <div class="lock">⚿ Always shown</div>
+                  </div>
+                  <div class="verdict-tile" style="--c: var(--v-orange)">
+                    <div class="head">
+                      <div class="name">مرجع غير مطابق<span class="latin">Wrong ref</span></div>
+                      <div class="glyph">⚠</div>
+                    </div>
+                    <select><option>خلفية + تسطير</option></select>
+                  </div>
+                  <div class="verdict-tile is-locked" style="--c: var(--v-red)">
+                    <div class="head">
+                      <div class="name">لم يُتحقَّق<span class="latin">Not found</span></div>
+                      <div class="glyph">✗</div>
+                    </div>
+                    <select><option>تأشير</option></select>
+                    <div class="lock">⚿ Always shown</div>
+                  </div>
+                </div>
+              </section>
+
+              <section>
+                <div class="opt-sec-head">
+                  <span class="num">III.</span>
+                  <h2>سلوك القراءة</h2>
+                  <span class="latin">Reading behavior</span>
+                </div>
+                <div class="toggles">
+                  <div class="toggle">
+                    <div>
+                      <div class="label">تصحيح المراجع الخاطئة (البرتقالي) تلقائيًا</div>
+                      <div class="hint">يستبدل المرجع الخاطئ بالمرجع الصحيح في الصفحة عند كل فحص.</div>
+                    </div>
+                    <div class="switch is-on"></div>
+                  </div>
+                  <div class="toggle">
+                    <div>
+                      <div class="label">تصحيح الاختلاف اللفظي بالنص الأصلي (الأصفر)</div>
+                      <div class="hint">يستبدل النص المكتوب بنص المصحف الأصلي في الصفحة عند كل فحص.</div>
+                    </div>
+                    <div class="switch is-on"></div>
+                  </div>
+                  <div class="toggle">
+                    <div>
+                      <div class="label"><span class="risk-badge">High risk</span> قبول أقرب آية للنصوص غير الموجودة</div>
+                      <div class="hint">يستبدل النص الذي لم يُعثر عليه بأقرب آية يقترحها المحقّق — فقط حين يوجد اقتراحٌ وحيد.</div>
+                    </div>
+                    <div class="switch"></div>
+                  </div>
+                  <div class="toggle">
+                    <div>
+                      <div class="label">جعل المراجع روابط قابلة للنقر (quran.com)</div>
+                      <div class="hint">يعرض نصّ الآية الكامل عند المرور، والنقر يفتح quran.com في تبويب جديد.</div>
+                    </div>
+                    <div class="switch is-on"></div>
+                  </div>
+                </div>
+              </section>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="plate-caption">
+        <span class="plate-num">II.</span>
+        <span class="plate-title">Options page <em>dedicated tab</em></span>
+        <span class="plate-tag">prefs · v1</span>
+      </div>
+    </div>
+
+    <!-- ───── PLATE III — PANEL ───── -->
+    <div>
+      <div class="arch-wrap">
+        <div class="arch panel">
+          <span class="keystone"></span>
+          <header class="panel-head">
+            <h2>نتائج <span class="gold">التحقق</span></h2>
+            <button class="panel-icon is-pinned" title="مثبّتة">⬓</button>
+            <button class="panel-icon" title="طيّ">‹</button>
+            <div class="panel-kbd">
+              <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>Q</kbd> · toggle
+            </div>
+          </header>
+
+          <section class="ribbon">
+            <div class="donut">
+              <div class="center">
+                <div class="n">42</div>
+                <div class="lbl">findings</div>
+              </div>
+            </div>
+            <div class="ribbon-text">
+              <div class="top">الفحص اكتمل في 1.4 ثانية</div>
+              <div class="head">23 آية مطابقة</div>
+              <div class="sub">4 مراجع خاطئة، 5 اختلافات لفظية، 2 لم يُعثر عليها — اضغط لعرض التفاصيل.</div>
+            </div>
+          </section>
+
+          <div class="chips">
+            <span class="chip is-on">الكل</span>
+            <span class="chip" style="--c: var(--v-orange)">⚠ مرجع خاطئ</span>
+            <span class="chip" style="--c: var(--v-yellow)">~ اختلاف</span>
+            <span class="chip" style="--c: var(--v-red)">✗ لم يُتحقَّق</span>
+            <span class="chip" style="--c: var(--v-lightBlue)">بدون مرجع</span>
+          </div>
+
+          <div class="findings">
+
+            <article class="finding" style="--c: var(--v-orange)">
+              <div class="meta">
+                <div class="ref">سُورَة البَقَرَة <span class="num">2:255</span></div>
+                <div class="pill">Wrong ref</div>
+              </div>
+              <div class="ayah">
+                اللَّهُ لَا إِلَٰهَ إِلَّا هُوَ الْحَيُّ الْقَيُّومُ <span class="ornament">۝</span>
+              </div>
+              <div class="note">المرجع في الصفحة: <b>3:18</b> — صحّحته إلى <b>2:255</b>.</div>
+              <div class="acts">
+                <button class="act is-primary">قبول التصحيح</button>
+                <button class="act">تجاهل</button>
+                <button class="act">فتح quran.com</button>
+              </div>
+            </article>
+
+            <article class="finding" style="--c: var(--v-yellow)">
+              <div class="meta">
+                <div class="ref">سُورَة الفاتِحَة <span class="num">1:2</span></div>
+                <div class="pill">Wording diff</div>
+              </div>
+              <div class="ayah">
+                الْحَمْدُ <span class="del">ل</span><span class="ins">لِلَّهِ</span> رَبِّ الْعَالَمِينَ <span class="ornament">۝</span>
+              </div>
+              <div class="acts">
+                <button class="act is-primary">استبدال بالنص الأصلي</button>
+                <button class="act">إبقاء</button>
+              </div>
+            </article>
+
+            <article class="finding" style="--c: var(--v-green)">
+              <div class="meta">
+                <div class="ref">سُورَة الإخلاص <span class="num">112:1</span></div>
+                <div class="pill">Exact match</div>
+              </div>
+              <div class="ayah">
+                قُلْ هُوَ اللَّهُ أَحَدٌ <span class="ornament">۝</span>
+              </div>
+            </article>
+
+            <article class="finding" style="--c: var(--v-lightBlue)">
+              <div class="meta">
+                <div class="ref">— <span class="num">no ref</span></div>
+                <div class="pill">Ref missing</div>
+              </div>
+              <div class="ayah">
+                وَمَا خَلَقْتُ الْجِنَّ وَالْإِنسَ إِلَّا لِيَعْبُدُونِ <span class="ornament">۝</span>
+              </div>
+              <div class="note">اقتراح المرجع: <b>الذاريات 51:56</b></div>
+              <div class="acts">
+                <button class="act is-primary">إدراج المرجع</button>
+                <button class="act">تجاهل</button>
+              </div>
+            </article>
+
+          </div>
+        </div>
+      </div>
+      <div class="plate-caption">
+        <span class="plate-num">III.</span>
+        <span class="plate-title">In-page panel <em>injected sidebar</em></span>
+        <span class="plate-tag">380 px</span>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ═════════ THEME PICKER — proof-of-concept ═════════ -->
+  <section class="themes">
+    <h3>Themes — pick one, swap any time.</h3>
+    <p>
+      Both design variants read all colors through a single <code style="font-family: var(--f-mono); font-size: 12px; background: var(--q-bg); padding: 1px 5px; border-radius: 2px;">--q-*</code> token set,
+      so the extension's current "Emerald &amp; Gold" theme can stay as the default while users opt into
+      <em>Manuscript Atelier</em> (parchment + ink) or any future scheme by swapping the token block in <code style="font-family: var(--f-mono); font-size: 12px; background: var(--q-bg); padding: 1px 5px; border-radius: 2px;">:root</code>.
+      A <code style="font-family: var(--f-mono); font-size: 12px; background: var(--q-bg); padding: 1px 5px; border-radius: 2px;">prefs.theme</code> field
+      driving a <code style="font-family: var(--f-mono); font-size: 12px; background: var(--q-bg); padding: 1px 5px; border-radius: 2px;">data-theme</code> attribute on <code style="font-family: var(--f-mono); font-size: 12px; background: var(--q-bg); padding: 1px 5px; border-radius: 2px;">&lt;html&gt;</code> is enough.
+    </p>
+    <div class="theme-strip">
+      <div class="theme-card is-active">
+        <div class="swatches">
+          <span style="background: #0b5d3b"></span>
+          <span style="background: #c8a24a"></span>
+          <span style="background: #f7f5ef"></span>
+          <span style="background: #ffffff"></span>
+          <span style="background: #2a2a2a"></span>
+        </div>
+        <div class="info">
+          <div class="n">Emerald &amp; Gold <small style="color: var(--q-gold-strong)">— current</small></div>
+          <div class="d">The shipped extension theme. Deep green primary, gold accents on cream.</div>
+        </div>
+      </div>
+      <div class="theme-card">
+        <div class="swatches">
+          <span style="background: #1a1410"></span>
+          <span style="background: #b8860b"></span>
+          <span style="background: #f5efe3"></span>
+          <span style="background: #faf6ec"></span>
+          <span style="background: #4a7a3d"></span>
+        </div>
+        <div class="info">
+          <div class="n">Manuscript Atelier</div>
+          <div class="d">Variant I. Parchment + ink, restrained gold leaf, jewel-tone verdicts.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="footer">
+    <span>Plates I — III · drawn for design review</span>
+    <span class="mark">QuranGuard · صون القرآن</span>
+    <span>Reem Kufi · El Messiri · Marcellus · Hanken Grotesk</span>
+  </div>
+
+</div>
+
+<script>
+  document.querySelectorAll('.switch').forEach(s => s.addEventListener('click', () => s.classList.toggle('is-on')));
+  document.querySelectorAll('.chip').forEach(c => c.addEventListener('click', () => c.classList.toggle('is-on')));
+  document.querySelectorAll('.mode-pills label').forEach(l => {
+    l.addEventListener('click', () => {
+      l.parentElement.querySelectorAll('label').forEach(x => x.classList.remove('is-active'));
+      l.classList.add('is-active');
+    });
+  });
+  document.querySelectorAll('.opt-rail li').forEach(li => {
+    li.addEventListener('click', () => {
+      li.parentElement.querySelectorAll('li').forEach(x => x.classList.remove('is-active'));
+      li.classList.add('is-active');
+    });
+  });
+  document.querySelectorAll('.theme-card').forEach(t => {
+    t.addEventListener('click', () => {
+      document.querySelectorAll('.theme-card').forEach(x => x.classList.remove('is-active'));
+      t.classList.add('is-active');
+    });
+  });
+</script>
+
+</body>
+</html>

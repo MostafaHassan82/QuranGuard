@@ -28,12 +28,17 @@
   src: url("../resources/fonts/reem-kufi-arabic-600.woff2") format("woff2");
   font-weight: 600; font-style: normal; font-display: swap;
 }
+@font-face {
+  font-family: "Amiri";
+  src: url("../resources/fonts/amiri-arabic-700.woff2") format("woff2");
+  font-weight: 700; font-style: normal; font-display: swap;
+}
 
 .quran-ext-panel,
 .quran-ext-panel-tab {
-  --q-primary: #0b5d3b;
-  --q-primary-strong: #08482e;
-  --q-primary-mute: #1f7a52;
+  --q-primary: #0a3a26;
+  --q-primary-strong: #062618;
+  --q-primary-mute: #14543a;
   --q-on-primary: #f7f5ef;
   --q-gold: #c8a24a;
   --q-gold-soft: #ece0bf;
@@ -49,9 +54,9 @@
 @media (prefers-color-scheme: dark) {
   .quran-ext-panel,
   .quran-ext-panel-tab {
-    --q-primary: #1f7a52;
-    --q-primary-strong: #166041;
-    --q-primary-mute: #2a8f63;
+    --q-primary: #14543a;
+    --q-primary-strong: #0a3a26;
+    --q-primary-mute: #1f6f4d;
     --q-on-primary: #f3f7f4;
     --q-gold: #d4b262;
     --q-gold-soft: #3a3526;
@@ -175,7 +180,7 @@
 /* Pressed = pinned/docked: gold chip. */
 .quran-ext-panel-pin[aria-pressed="true"] {
   background: var(--q-gold);
-  color: #0a3a26;
+  color: var(--q-primary);
   border-color: var(--q-gold);
 }
 /* Resize handle rides the page-facing edge: left when on the right (base),
@@ -191,7 +196,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background-color: #0a3a26;
+  background-color: var(--q-primary);
   background-image:
     radial-gradient(ellipse 120% 80% at 50% 0%, rgba(200, 162, 74, 0.10), transparent 60%),
     var(--q-motif);
@@ -202,16 +207,20 @@
 
 .quran-ext-panel-title {
   margin: 0;
-  font-family: "Reem Kufi", "Segoe UI", sans-serif;
-  font-size: 19px;
-  font-weight: 600;
+  font-family: "Amiri", "Segoe UI", serif;
+  font-size: 22px;
+  font-weight: 700;
   color: #f3e9d2;            /* warm cream matching popup/options titles */
   letter-spacing: 0;
 }
 .quran-ext-panel-title span + span { margin-inline-start: 8px; }
 .quran-ext-panel-title .gold {
-  color: var(--q-gold);
+  color: #e0b860;
   font-weight: 700;
+  text-shadow:
+    0 0 5px rgba(232, 185, 78, 0.5),
+    0 0 12px rgba(232, 185, 78, 0.3),
+    0 0 22px rgba(232, 185, 78, 0.16);
 }
 
 .quran-ext-panel-header-btns {
@@ -257,7 +266,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: #0a3a26;
+  background-color: var(--q-primary);
   background-image: var(--q-motif);
   background-repeat: repeat;
   color: var(--q-on-primary);

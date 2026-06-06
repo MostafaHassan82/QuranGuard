@@ -18,11 +18,16 @@
   src: url("../resources/fonts/reem-kufi-arabic-600.woff2") format("woff2");
   font-weight: 600; font-style: normal; font-display: swap;
 }
+@font-face {
+  font-family: "Amiri";
+  src: url("../resources/fonts/amiri-arabic-700.woff2") format("woff2");
+  font-weight: 700; font-style: normal; font-display: swap;
+}
 
 :root {
-  --q-primary: #0b5d3b;
-  --q-primary-strong: #08482e;
-  --q-primary-mute: #1f7a52;
+  --q-primary: #0a3a26;
+  --q-primary-strong: #062618;
+  --q-primary-mute: #14543a;
   --q-on-primary: #f7f5ef;
   --q-gold: #c8a24a;
   --q-gold-soft: #ece0bf;
@@ -38,9 +43,9 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --q-primary: #1f7a52;
-    --q-primary-strong: #166041;
-    --q-primary-mute: #2a8f63;
+    --q-primary: #14543a;
+    --q-primary-strong: #0a3a26;
+    --q-primary-mute: #1f6f4d;
     --q-on-primary: #f3f7f4;
     --q-gold: #d4b262;
     --q-gold-soft: #3a3526;
@@ -89,7 +94,7 @@ body {
 #options-header {
   position: relative;
   text-align: center;
-  background-color: #0a3a26;
+  background-color: var(--q-primary);
   background-image:
     radial-gradient(ellipse 120% 80% at 50% 18%, rgba(200, 162, 74, 0.10), transparent 65%),
     radial-gradient(ellipse 80% 60% at 50% 100%, rgba(0, 0, 0, 0.15), transparent 70%),
@@ -123,16 +128,20 @@ body {
 }
 #options-header h1 {
   margin: 0;
-  font-family: 'Reem Kufi', "Segoe UI", sans-serif;
-  font-size: 32px;
-  font-weight: 600;
+  font-family: 'Amiri', "Segoe UI", serif;
+  font-size: 36px;
+  font-weight: 700;
   color: #f3e9d2;
-  letter-spacing: -0.005em;
+  letter-spacing: 0;
   line-height: 1.1;
 }
 #options-header h1 .gold {
-  color: var(--q-gold);
+  color: #e0b860;
   font-weight: 700;
+  text-shadow:
+    0 0 6px rgba(232, 185, 78, 0.55),
+    0 0 14px rgba(232, 185, 78, 0.32),
+    0 0 28px rgba(232, 185, 78, 0.18);
 }
 #options-header h1 span + span { margin-inline-start: 4px; }
 
@@ -297,7 +306,6 @@ body {
   min-width: 0;
   width: 100%;
   font-size: 12.5px;
-  padding: 7px 26px 7px 10px;
 }
 
 /* ── Cards ──────────────────────────────────────────────────────────────── */
@@ -433,27 +441,26 @@ input[type="radio"]:checked::after {
   background: var(--q-gold);
 }
 
-/* ── Selects — custom arrow, refined chrome ───────────────────────────── */
+/* ── Selects — Mihrab: appearance:none + CSS-drawn chevron, sharp radius ── */
 select {
   appearance: none;
   -webkit-appearance: none;
   font-family: inherit;
   font-size: 13px;
   font-weight: 500;
-  padding: 8px 30px 8px 12px;
+  padding: 7px 28px 7px 10px;
   border: 1px solid var(--q-border);
-  border-radius: 8px;
+  border-radius: 4px;
   background: var(--q-card);
   color: var(--q-text);
   min-width: 160px;
   cursor: pointer;
-  /* Custom chevron — drawn with two diagonal lines via background-image */
   background-image:
-    linear-gradient(45deg, transparent 50%, var(--q-primary) 50%),
-    linear-gradient(135deg, var(--q-primary) 50%, transparent 50%);
+    linear-gradient(45deg, transparent 50%, var(--q-muted) 50%),
+    linear-gradient(135deg, var(--q-muted) 50%, transparent 50%);
   background-position:
-    calc(100% - 16px) 16px,
-    calc(100% - 12px) 16px;
+    calc(100% - 14px) 13px,
+    calc(100% - 10px) 13px;
   background-size: 4px 4px;
   background-repeat: no-repeat;
   transition: border-color 0.15s, box-shadow 0.15s;
@@ -461,10 +468,10 @@ select {
 /* RTL: chevron flips to the left side */
 [dir="rtl"] select,
 html[dir="rtl"] select {
-  padding: 8px 12px 8px 30px;
+  padding: 7px 10px 7px 28px;
   background-position:
-    16px 16px,
-    12px 16px;
+    14px 13px,
+    10px 13px;
 }
 select:hover { border-color: var(--q-primary-mute); }
 select:focus-visible {

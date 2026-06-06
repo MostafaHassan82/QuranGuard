@@ -18,11 +18,16 @@
   src: url("../resources/fonts/reem-kufi-arabic-600.woff2") format("woff2");
   font-weight: 600; font-style: normal; font-display: swap;
 }
+@font-face {
+  font-family: "Amiri";
+  src: url("../resources/fonts/amiri-arabic-700.woff2") format("woff2");
+  font-weight: 700; font-style: normal; font-display: swap;
+}
 
 :root {
-  --q-primary: #0b5d3b;
-  --q-primary-strong: #08482e;
-  --q-primary-mute: #1f7a52;
+  --q-primary: #0a3a26;
+  --q-primary-strong: #062618;
+  --q-primary-mute: #14543a;
   --q-on-primary: #f7f5ef;
   --q-gold: #c8a24a;
   --q-gold-soft: #ece0bf;
@@ -34,7 +39,7 @@
   --q-muted: #6b6b6b;
   --q-focus: var(--q-gold);
 
-  --f-display-ar: 'Reem Kufi', "Segoe UI", sans-serif;
+  --f-display-ar: 'Amiri', "Segoe UI", serif;
   --f-body-ar:    'El Messiri', "Segoe UI", Tahoma, sans-serif;
   --f-mono:       ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 
@@ -44,9 +49,9 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --q-primary: #1f7a52;
-    --q-primary-strong: #166041;
-    --q-primary-mute: #2a8f63;
+    --q-primary: #14543a;
+    --q-primary-strong: #0a3a26;
+    --q-primary-mute: #1f6f4d;
     --q-on-primary: #f3f7f4;
     --q-gold: #d4b262;
     --q-gold-soft: #3a3526;
@@ -83,7 +88,7 @@ body {
   text-align: center;
   padding: 44px 22px 26px;        /* top padding clears the arch peak */
   margin-bottom: 4px;
-  background-color: #0a3a26;
+  background-color: var(--q-primary);
   background-image:
     radial-gradient(ellipse 120% 80% at 50% 18%, rgba(200, 162, 74, 0.10), transparent 65%),
     radial-gradient(ellipse 80% 60% at 50% 100%, rgba(0, 0, 0, 0.15), transparent 70%),
@@ -130,17 +135,20 @@ body::before {
 #popup-header h1 {
   margin: 0;
   font-family: var(--f-display-ar);
-  font-weight: 500;
+  font-weight: 700;
   font-size: 30px;
   color: #f3e9d2;          /* warm cream — softer than --q-on-primary */
   line-height: 1.15;
   letter-spacing: -0.005em;
 }
-/* Brass gold — luminous against near-black, reads as gold-leaf on vellum. */
+/* Brass gold with neon halo — glows against the dark emerald arch. */
 #popup-header h1 .gold {
-  color: #e8b94e;
+  color: #e0b860;
   font-weight: 600;
-  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.35);
+  text-shadow:
+    0 0 5px rgba(232, 185, 78, 0.55),
+    0 0 12px rgba(232, 185, 78, 0.32),
+    0 0 24px rgba(232, 185, 78, 0.18);
 }
 #popup-header h1 span + span { margin-inline-start: 10px; }
 /* ── Diamond-gem divider ──────────────────────────────────────────────── */

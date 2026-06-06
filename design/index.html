@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<title>QuranGuard — Design Variants</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;1,9..144,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:        #f4f1ea;
+    --ink:       #1a1a1a;
+    --mute:      #6b6b6b;
+    --rule:      #d8d2c2;
+    --gold:      #c8a24a;
+    --green:     #0b5d3b;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 64px 56px 96px;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'Fraunces', serif;
+    -webkit-font-smoothing: antialiased;
+    max-width: 1240px;
+    margin: 0 auto;
+  }
+  .head {
+    text-align: center;
+    margin-bottom: 64px;
+    padding-bottom: 28px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .eyebrow {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.32em;
+    text-transform: uppercase;
+    color: var(--mute);
+    margin-bottom: 10px;
+  }
+  h1 {
+    margin: 0;
+    font-weight: 300;
+    font-style: italic;
+    font-size: 64px;
+    line-height: 1;
+    letter-spacing: -0.02em;
+  }
+  h1 .a { color: var(--gold); font-weight: 400; }
+  .sub {
+    margin-top: 14px;
+    font-size: 17px;
+    color: var(--mute);
+    max-width: 60ch;
+    margin-left: auto;
+    margin-right: auto;
+    line-height: 1.6;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 28px;
+  }
+  .card {
+    display: block;
+    text-decoration: none;
+    color: inherit;
+    border: 1px solid var(--rule);
+    background: white;
+    padding: 0;
+    border-radius: 4px;
+    overflow: hidden;
+    transition: all 0.2s;
+    position: relative;
+  }
+  .card:hover {
+    border-color: var(--ink);
+    transform: translateY(-3px);
+    box-shadow: 0 20px 40px -24px rgba(0,0,0,0.2);
+  }
+  .preview {
+    height: 200px;
+    padding: 28px;
+    position: relative;
+    overflow: hidden;
+  }
+  .body-text {
+    padding: 22px 26px 24px;
+    border-top: 1px solid var(--rule);
+  }
+  .body-text .row {
+    display: flex; justify-content: space-between; align-items: baseline;
+    margin-bottom: 8px;
+  }
+  .num {
+    font-style: italic;
+    font-weight: 300;
+    color: var(--gold);
+    font-size: 28px;
+    line-height: 1;
+  }
+  .tag {
+    font-family: 'DM Mono', monospace;
+    font-size: 9.5px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--mute);
+    border: 1px solid var(--rule);
+    padding: 3px 8px;
+    border-radius: 999px;
+  }
+  .name {
+    font-weight: 400;
+    font-size: 24px;
+    margin: 4px 0 8px;
+  }
+  .desc {
+    font-size: 13.5px;
+    color: var(--mute);
+    line-height: 1.6;
+    margin: 0;
+  }
+  .swatches {
+    display: flex; gap: 0; margin-top: 14px;
+  }
+  .swatches span {
+    width: 24px; height: 18px;
+    border: 1px solid rgba(0,0,0,0.06);
+  }
+  .swatches span + span { margin-left: -1px; }
+
+  /* Per-variant preview styling */
+  .pv-atelier { background: #f5efe3; }
+  .pv-atelier::before {
+    content: '';
+    position: absolute; inset: 24px;
+    background: #faf6ec;
+    border: 1px solid #c8b9a3;
+    box-shadow: 0 8px 24px -16px rgba(0,0,0,0.15);
+  }
+  .pv-atelier::after {
+    content: 'صَوْنُ القُرآن';
+    position: absolute; inset: 0;
+    display: grid; place-items: center;
+    font-family: serif;
+    font-size: 30px;
+    color: #1a1410;
+    direction: rtl;
+  }
+
+  .pv-mihrab { background: #f7f5ef; }
+  .pv-mihrab::before {
+    content: '';
+    position: absolute; left: 50%; top: 30px;
+    transform: translateX(-50%);
+    width: 140px; height: 140px;
+    background: white;
+    border: 1px solid #e3ddcf;
+    clip-path: polygon(0 100%, 0 35%, 8% 22%, 18% 12%, 32% 5%, 50% 0, 68% 5%, 82% 12%, 92% 22%, 100% 35%, 100% 100%);
+    box-shadow: 0 12px 24px -16px rgba(11, 93, 59, 0.3);
+  }
+  .pv-mihrab::after {
+    content: '◆';
+    position: absolute; left: 50%; top: 80px;
+    transform: translateX(-50%);
+    color: #c8a24a;
+    font-size: 18px;
+  }
+  .pv-mihrab .label {
+    position: absolute; bottom: 24px; left: 50%;
+    transform: translateX(-50%);
+    font-family: 'Reem Kufi', sans-serif;
+    font-size: 22px;
+    color: #0b5d3b;
+    direction: rtl;
+  }
+
+  .pv-tahrir { background: #f4f0e6; }
+  .pv-tahrir::before {
+    content: 'الجَريدَة';
+    position: absolute; inset: 0;
+    display: grid; place-items: center;
+    font-family: 'Amiri', serif;
+    font-weight: 700;
+    font-size: 56px;
+    color: #1a1a1a;
+    direction: rtl;
+  }
+  .pv-tahrir::after {
+    content: '';
+    position: absolute; left: 28px; right: 28px; bottom: 50px;
+    height: 1px;
+    background:
+      repeating-linear-gradient(to right, #1a1a1a 0 8px, transparent 8px 12px);
+  }
+  .pv-tahrir .label {
+    position: absolute; bottom: 28px; left: 0; right: 0;
+    text-align: center;
+    font-family: 'DM Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.32em;
+    text-transform: uppercase;
+    color: #6b6b6b;
+  }
+  .pv-tahrir .label b { color: #0b5d3b; }
+
+  .pv-marakeb { background: #0a0e0c; }
+  .pv-marakeb::before {
+    content: '> scan_page --auto\A 17 findings\A ▮';
+    white-space: pre;
+    position: absolute; inset: 28px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    color: #6ee7b7;
+    line-height: 1.8;
+    text-shadow: 0 0 8px rgba(110, 231, 183, 0.6);
+  }
+  .pv-marakeb::after {
+    content: '●  ●  ●';
+    position: absolute; top: 14px; left: 18px;
+    color: #555;
+    font-size: 10px;
+    letter-spacing: 4px;
+  }
+
+  .pv-diwan {
+    background: linear-gradient(160deg, #f0f7f1 0%, #e6f1e3 100%);
+  }
+  .pv-diwan::before {
+    content: '';
+    position: absolute; left: 30px; right: 30px; top: 28px; bottom: 28px;
+    background: white;
+    border-radius: 22px;
+    box-shadow: 0 12px 32px -20px rgba(11, 93, 59, 0.25);
+  }
+  .pv-diwan::after {
+    content: '';
+    position: absolute; left: 50px; top: 48px;
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #5ba87a, #0b5d3b);
+  }
+  .pv-diwan .label {
+    position: absolute; left: 96px; top: 56px;
+    font-family: 'Hanken Grotesk', sans-serif;
+    font-weight: 600;
+    font-size: 15px;
+    color: #0b5d3b;
+  }
+  .pv-diwan .label small {
+    display: block;
+    color: #7a8a7a;
+    font-weight: 400;
+    font-size: 12px;
+    margin-top: 2px;
+  }
+  .pv-diwan .pill {
+    position: absolute; bottom: 50px; left: 50px;
+    background: #f0f7f1;
+    padding: 6px 14px;
+    border-radius: 999px;
+    font-family: 'Hanken Grotesk', sans-serif;
+    font-size: 12px;
+    color: #0b5d3b;
+    font-weight: 500;
+  }
+
+  .foot {
+    margin-top: 72px;
+    text-align: center;
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: var(--mute);
+  }
+</style>
+</head>
+<body>
+
+<div class="head">
+  <div class="eyebrow">QuranGuard · Design exploration</div>
+  <h1>Five v<span class="a">a</span>riants, one purpose.</h1>
+  <p class="sub">
+    Each variant carries the same job — popup, options page, in-page panel — but in a radically different aesthetic register. Click to view the full preview; the colour tokens are common across all so the chosen direction can ship as a theme.
+  </p>
+</div>
+
+<div class="grid">
+
+  <a class="card" href="atelier-preview.html">
+    <div class="preview pv-atelier"></div>
+    <div class="body-text">
+      <div class="row"><span class="num">I.</span><span class="tag">Editorial · Parchment</span></div>
+      <h2 class="name">Manuscript Atelier</h2>
+      <p class="desc">Editorial Arabic-manuscript feel. Parchment + ink, restrained gold leaf, museum-plate captions. Drops the live palette in favour of jewel tones.</p>
+      <div class="swatches">
+        <span style="background:#1a1410"></span>
+        <span style="background:#b8860b"></span>
+        <span style="background:#f5efe3"></span>
+        <span style="background:#faf6ec"></span>
+        <span style="background:#4a7a3d"></span>
+      </div>
+    </div>
+  </a>
+
+  <a class="card" href="mihrab-preview.html">
+    <div class="preview pv-mihrab"><span class="label">صَوْنُ القُرآن</span></div>
+    <div class="body-text">
+      <div class="row"><span class="num">II.</span><span class="tag">Architectural · Kept palette</span></div>
+      <h2 class="name">Mihrab</h2>
+      <p class="desc">Sacred geometry. Pointed-arch frames with gold keystones over a girih tessellation. Keeps the live extension palette unchanged — closest to current.</p>
+      <div class="swatches">
+        <span style="background:#0b5d3b"></span>
+        <span style="background:#c8a24a"></span>
+        <span style="background:#f7f5ef"></span>
+        <span style="background:#ffffff"></span>
+        <span style="background:#2a2a2a"></span>
+      </div>
+    </div>
+  </a>
+
+  <a class="card" href="tahrir-preview.html">
+    <div class="preview pv-tahrir"><span class="label">Vol. I · No. 002 — <b>Edition Verified</b></span></div>
+    <div class="body-text">
+      <div class="row"><span class="num">III.</span><span class="tag">Newspaper · High contrast</span></div>
+      <h2 class="name">Tahrir</h2>
+      <p class="desc">Arabic broadsheet. Heavy masthead rules, condensed grotesque labels, two-column flow, dropline dividers. Green used as a single accent on near-black ink.</p>
+      <div class="swatches">
+        <span style="background:#1a1a1a"></span>
+        <span style="background:#0b5d3b"></span>
+        <span style="background:#c8a24a"></span>
+        <span style="background:#f4f0e6"></span>
+        <span style="background:#ffffff"></span>
+      </div>
+    </div>
+  </a>
+
+  <a class="card" href="marakeb-preview.html">
+    <div class="preview pv-marakeb"></div>
+    <div class="body-text">
+      <div class="row"><span class="num">IV.</span><span class="tag">Terminal · Dark</span></div>
+      <h2 class="name">Marakeb</h2>
+      <p class="desc">Precision instrument. Phosphor green on near-black, monospace-forward, glowing cursor, command-palette command. For users who want the tool to feel surgical.</p>
+      <div class="swatches">
+        <span style="background:#0a0e0c"></span>
+        <span style="background:#6ee7b7"></span>
+        <span style="background:#c8a24a"></span>
+        <span style="background:#13201a"></span>
+        <span style="background:#e8f0ec"></span>
+      </div>
+    </div>
+  </a>
+
+  <a class="card" href="diwan-preview.html">
+    <div class="preview pv-diwan">
+      <span class="label">QuranGuard<small>17 findings · ready</small></span>
+      <span class="pill">✓ Page verified</span>
+    </div>
+    <div class="body-text">
+      <div class="row"><span class="num">V.</span><span class="tag">Soft modern · Calm</span></div>
+      <h2 class="name">Diwan</h2>
+      <p class="desc">Soft modern reader. Rounded corners, mint pastels, glassy surfaces, generous whitespace. Reads as friendly and contemporary — closest to a polished iOS reader app.</p>
+      <div class="swatches">
+        <span style="background:#0b5d3b"></span>
+        <span style="background:#5ba87a"></span>
+        <span style="background:#f0f7f1"></span>
+        <span style="background:#ffffff"></span>
+        <span style="background:#c8a24a"></span>
+      </div>
+    </div>
+  </a>
+
+</div>
+
+<div class="foot">Pick one to port — then we wire a <code>data-theme</code> attr so others remain selectable.</div>
+
+</body>
+</html>
