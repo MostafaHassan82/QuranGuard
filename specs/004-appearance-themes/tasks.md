@@ -17,24 +17,24 @@
 
 ## Phase 1: Setup
 
-- [ ] T001 Create directory `css/themes/` (will hold per-theme CSS files; default theme has no file)
-- [ ] T002 Create directory `js/themes/` (will hold `registry.js` and `bootstrap.js`)
+- [X] T001 Create directory `css/themes/` (will hold per-theme CSS files; default theme has no file)
+- [X] T002 Create directory `js/themes/` (will hold `registry.js` and `bootstrap.js`)
 
 ## Phase 2: Foundational (blocks all user stories)
 
 This phase must complete before any User Story phase. It establishes the theme registry, the prefs schema delta, the bootstrap that prevents FOUC, the manifest update, and — critically for US3 — the extraction of Mihrab-specific CSS out of the shared default stylesheets so the default theme is exactly the pre-branch UI.
 
-- [ ] T003 Create `js/themes/registry.js` per `contracts/theme-registry.md` (exported `QuranThemes` with `list`, `ids`, `defaultId()`, `isValidId()`, `get()`; two descriptors: `default` with `defaultFor: 'fresh-install'` and `mihrab` with `defaultFor: 'never'`)
-- [ ] T004 [P] Update `js/storage/prefs.js`: add `appearance: { theme: 'default' }` to `DEFAULTS`; add the appearance default-fill + clamp block to `applyDefaults` per `contracts/storage-prefs.md` (use the `typeof QuranThemes !== 'undefined'` guard so the Node prefs test still loads)
-- [ ] T005 Create `js/themes/bootstrap.js`: synchronously add `theme-loading` class to `document.documentElement`; read `chrome.storage.local['prefs.v1']` via `QuranPrefs.read()`; set `document.documentElement.dataset.theme` to the read value (or `QuranThemes.defaultId()` on failure); remove `theme-loading` class; export `applyThemeAttribute(rootEl, themeId)` for the sidebar to reuse
-- [ ] T006 [P] Audit `css/popup.css` for Mihrab-specific rules (everything authored during this branch's design work). Move every such rule into `css/themes/mihrab.css` wrapped under `[data-theme="mihrab"] ...` selectors. Restore `css/popup.css` to behave identically to the prior release for users with no `data-theme` attribute set
-- [ ] T007 [P] Same extraction for `css/options.css` → `css/themes/mihrab.css`
-- [ ] T008 [P] Same extraction for `css/sidebar.css` → `css/themes/mihrab.css`
-- [ ] T009 Update `manifest.json` `content_scripts[0]`:
+- [X] T003 Create `js/themes/registry.js` per `contracts/theme-registry.md` (exported `QuranThemes` with `list`, `ids`, `defaultId()`, `isValidId()`, `get()`; two descriptors: `default` with `defaultFor: 'fresh-install'` and `mihrab` with `defaultFor: 'never'`)
+- [X] T004 [P] Update `js/storage/prefs.js`: add `appearance: { theme: 'default' }` to `DEFAULTS`; add the appearance default-fill + clamp block to `applyDefaults` per `contracts/storage-prefs.md` (use the `typeof QuranThemes !== 'undefined'` guard so the Node prefs test still loads)
+- [X] T005 Create `js/themes/bootstrap.js`: synchronously add `theme-loading` class to `document.documentElement`; read `chrome.storage.local['prefs.v1']` via `QuranPrefs.read()`; set `document.documentElement.dataset.theme` to the read value (or `QuranThemes.defaultId()` on failure); remove `theme-loading` class; export `applyThemeAttribute(rootEl, themeId)` for the sidebar to reuse
+- [X] T006 [P] Audit `css/popup.css` for Mihrab-specific rules (everything authored during this branch's design work). Move every such rule into `css/themes/mihrab.css` wrapped under `[data-theme="mihrab"] ...` selectors. Restore `css/popup.css` to behave identically to the prior release for users with no `data-theme` attribute set
+- [X] T007 [P] Same extraction for `css/options.css` → `css/themes/mihrab.css`
+- [X] T008 [P] Same extraction for `css/sidebar.css` → `css/themes/mihrab.css`
+- [X] T009 Update `manifest.json` `content_scripts[0]`:
   - Add `js/themes/registry.js` to `js` array, ordered BEFORE `js/storage/prefs.js` and BEFORE `js/panel/sidebar-surface.js`
   - Add `css/themes/mihrab.css` to `css` array (any order; selectors are scoped)
-- [ ] T010 Add `html.theme-loading body { visibility: hidden }` rule to `css/popup.css` and `css/options.css` (in the default base, NOT inside a theme block) so the bootstrap-managed FOUC guard works
-- [ ] T011 Add Amiri `@font-face` declaration to `css/themes/mihrab.css` with `local()` fallback chain and `font-display: swap`; reference `resources/fonts/amiri-arabic-400.woff2` and `resources/fonts/amiri-arabic-700.woff2`
+- [X] T010 Add `html.theme-loading body { visibility: hidden }` rule to `css/popup.css` and `css/options.css` (in the default base, NOT inside a theme block) so the bootstrap-managed FOUC guard works
+- [X] T011 Add Amiri `@font-face` declaration to `css/themes/mihrab.css` with `local()` fallback chain and `font-display: swap`; reference `resources/fonts/amiri-arabic-400.woff2` and `resources/fonts/amiri-arabic-700.woff2`
 
 **Foundational gate**: Loading the unpacked extension with no stored prefs MUST produce the default UI on all three surfaces, visually indistinguishable from the prior release.
 
