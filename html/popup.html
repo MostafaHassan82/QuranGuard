@@ -3,7 +3,15 @@
 <head>
   <meta charset="UTF-8">
   <title data-i18n="popup_title">تدقيق آيات القرآن</title>
+  <!-- Feature 004 theme bootstrap: registry + prefs + bootstrap, ordered.
+       Must precede the default stylesheet so the theme-loading FOUC guard
+       (html.theme-loading body { visibility: hidden }) takes effect before
+       the body is rendered. -->
+  <script src="../js/themes/registry.js"></script>
+  <script src="../js/storage/prefs.js"></script>
+  <script src="../js/themes/bootstrap.js"></script>
   <link rel="stylesheet" href="../css/popup.css">
+  <link rel="stylesheet" href="../css/themes/mihrab.css">
 </head>
 <body>
   <header id="popup-header">

@@ -146,9 +146,61 @@ async function applyPrefsToUI(prefs) {
   if (elState) elState.checked = true;
 }
 
+// T017/T018 — Appearance picker (feature 004). Renders one card per registered
+// theme. Click → write prefs.appearance.theme and immediately reflect the change
+// on the options page (the page IS its own live preview). Bootstrap-handled
+// onChanged listener then propagates the change to popup + sidebar if they are
+// open in another window (FR-004 live cross-surface update guarantee).
+function renderAppearancePicker(activeId) {
+  const picker = document.getElementById('appearance-picker');
+  if (!picker || typeof QuranThemes === 'undefined') return;
+  const lang = document.documentElement.lang || 'ar';
+  const labelOf = (t) => (lang === 'ar' ? t.displayNameAr : t.displayName) || t.displayName;
+  picker.innerHTML = '';
+  for (const t of QuranThemes.list) {
+    const label = document.createElement('label');
+    label.className = 'theme-card';
+    label.dataset.themeId = t.id;
+    label.innerHTML = `
+      <input type="radio" name="theme" value="${t.id}" ${t.id === activeId ? 'checked' : ''}>
+      <span class="theme-card-swatch" aria-hidden="true"></span>
+      <span class="theme-card-name">${labelOf(t)}</span>
+    `;
+    picker.appendChild(label);
+  }
+}
+
+function setActiveThemeCard(id) {
+  document.querySelectorAll('#appearance-picker .theme-card').forEach(card => {
+    const isActive = card.dataset.themeId === id;
+    card.classList.toggle('is-active', isActive);
+    const input = card.querySelector('input[type=radio]');
+    if (input) input.checked = isActive;
+  });
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
   const prefs = await loadPrefs();
   await applyPrefsToUI(prefs);
+
+  // Appearance picker initial render. Read the live attribute (bootstrap set
+  // it from prefs.appearance.theme) so the picker stays in sync with what the
+  // user actually sees, even if the prefs read above races the bootstrap.
+  const activeTheme = document.documentElement.dataset.theme
+    || (prefs && prefs.appearance && prefs.appearance.theme)
+    || (typeof QuranThemes !== 'undefined' ? QuranThemes.defaultId() : 'default');
+  renderAppearancePicker(activeTheme);
+  setActiveThemeCard(activeTheme);
+
+  document.getElementById('appearance-picker').addEventListener('change', (e) => {
+    const target = e.target;
+    if (!target || target.name !== 'theme') return;
+    const id = target.value;
+    if (typeof QuranThemes !== 'undefined' && !QuranThemes.isValidId(id)) return;
+    document.documentElement.dataset.theme = id;
+    setActiveThemeCard(id);
+    savePrefs({ appearance: { theme: id } });
+  });
 
   // Language (T096) — persist via prefs.lang → PREFS_CHANGED re-localizes the
   // open sidebar; the options page re-localizes itself immediately.
