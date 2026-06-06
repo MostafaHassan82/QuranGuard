@@ -53,7 +53,7 @@ const QuranPrefs = (() => {
     // the existing UI (no [data-theme] attribute applied). At read time the
     // value is clamped against QuranThemes.ids when the registry is loaded
     // (browser/SW context); the Node prefs-validation test skips that step.
-    appearance: { theme: 'default' },
+    appearance: { theme: 'mihrab' },
   };
 
   const VALID_REF_FORMATS = new Set(['arabicName', 'number']);
@@ -147,7 +147,7 @@ const QuranPrefs = (() => {
     // the registry isn't loaded; the runtime always has it loaded first.
     const fallbackTheme = (typeof QuranThemes !== 'undefined' && QuranThemes.defaultId)
       ? QuranThemes.defaultId()
-      : 'default';
+      : 'mihrab';
     if (!p.appearance || typeof p.appearance !== 'object') p.appearance = {};
     if (typeof p.appearance.theme !== 'string') {
       p.appearance.theme = fallbackTheme;

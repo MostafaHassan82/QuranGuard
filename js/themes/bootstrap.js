@@ -24,7 +24,7 @@
   // stylesheet renders correctly.
   const defaultId = (typeof QuranThemes !== 'undefined' && QuranThemes.defaultId)
     ? QuranThemes.defaultId()
-    : 'default';
+    : 'mihrab';
   root.dataset.theme = defaultId;
 
   // Phase 2: async — read persisted theme, then reveal.
@@ -77,7 +77,7 @@
     if (!rootEl || typeof rootEl.setAttribute !== 'function') return;
     const fallback = (typeof QuranThemes !== 'undefined' && QuranThemes.defaultId)
       ? QuranThemes.defaultId()
-      : 'default';
+      : 'mihrab';
     const id = (typeof QuranThemes !== 'undefined' && QuranThemes.isValidId(themeId))
       ? themeId
       : fallback;

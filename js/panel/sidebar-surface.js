@@ -1209,7 +1209,7 @@ const QuranPanelSidebar = (() => {
       if (!rootEl) return;
       const id = (typeof QuranThemes !== 'undefined' && QuranThemes.isValidId(next))
         ? next
-        : (typeof QuranThemes !== 'undefined' ? QuranThemes.defaultId() : 'default');
+        : (typeof QuranThemes !== 'undefined' ? QuranThemes.defaultId() : 'mihrab');
       rootEl.dataset.theme = id;
     });
   }
@@ -1229,10 +1229,10 @@ const QuranPanelSidebar = (() => {
       const stored = r && r['prefs.v1'] && r['prefs.v1'].appearance && r['prefs.v1'].appearance.theme;
       const themeId = (typeof QuranThemes !== 'undefined' && QuranThemes.isValidId(stored))
         ? stored
-        : (typeof QuranThemes !== 'undefined' ? QuranThemes.defaultId() : 'default');
+        : (typeof QuranThemes !== 'undefined' ? QuranThemes.defaultId() : 'mihrab');
       rootEl.dataset.theme = themeId;
     } catch (_) {
-      rootEl.dataset.theme = (typeof QuranThemes !== 'undefined' ? QuranThemes.defaultId() : 'default');
+      rootEl.dataset.theme = (typeof QuranThemes !== 'undefined' ? QuranThemes.defaultId() : 'mihrab');
     }
 
     // Defensive sweep: drop any stray panel/tab nodes left over from an earlier
