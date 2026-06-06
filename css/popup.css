@@ -1,30 +1,61 @@
-/* T095 — Popup theme (action-only surface). Deep-green + gold, light/dark via
-   prefers-color-scheme. Pure CSS, no build step. The popup holds no findings or
-   settings — only the scan controls, status, and a Settings entry point. */
+/* T095 — Popup theme: Mihrab port.
+   Architectural / sacred-geometry treatment with the live --q-* palette.
+   Arch silhouette omitted (cramped at 320 px), keystone composition kept.
+   Preserves every id/class popup.js reads. */
+
+@font-face {
+  font-family: "El Messiri";
+  src: url("../resources/fonts/el-messiri-arabic-400.woff2") format("woff2");
+  font-weight: 400; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: "El Messiri";
+  src: url("../resources/fonts/el-messiri-arabic-600.woff2") format("woff2");
+  font-weight: 600; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: "Reem Kufi";
+  src: url("../resources/fonts/reem-kufi-arabic-600.woff2") format("woff2");
+  font-weight: 600; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: "Amiri";
+  src: url("../resources/fonts/amiri-arabic-700.woff2") format("woff2");
+  font-weight: 700; font-style: normal; font-display: swap;
+}
 
 :root {
-  --q-primary: #0b5d3b;
-  --q-primary-strong: #08482e;
+  --q-primary: #0a3a26;
+  --q-primary-strong: #062618;
+  --q-primary-mute: #14543a;
   --q-on-primary: #f7f5ef;
   --q-gold: #c8a24a;
   --q-gold-soft: #ece0bf;
+  --q-gold-strong: #a4811f;
   --q-bg: #f7f5ef;
   --q-card: #ffffff;
   --q-border: #e3ddcf;
   --q-text: #2a2a2a;
   --q-muted: #6b6b6b;
   --q-focus: var(--q-gold);
-  /* Subtle 8-point-star arabesque band for green headers (white, low opacity). */
+
+  --f-display-ar: 'Amiri', "Segoe UI", serif;
+  --f-body-ar:    'El Messiri', "Segoe UI", Tahoma, sans-serif;
+  --f-mono:       ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  /* 8-point-star arabesque band (white, low opacity) for the green header. */
   --q-motif: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='44' height='44' viewBox='0 0 44 44'%3E%3Cg fill='none' stroke='%23ffffff' stroke-opacity='0.14' stroke-width='1'%3E%3Crect x='10' y='10' width='24' height='24'/%3E%3Crect x='10' y='10' width='24' height='24' transform='rotate(45 22 22)'/%3E%3C/g%3E%3C/svg%3E");
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --q-primary: #1f7a52;
-    --q-primary-strong: #166041;
+    --q-primary: #14543a;
+    --q-primary-strong: #0a3a26;
+    --q-primary-mute: #1f6f4d;
     --q-on-primary: #f3f7f4;
     --q-gold: #d4b262;
     --q-gold-soft: #3a3526;
+    --q-gold-strong: #e0c47a;
     --q-bg: #14181a;
     --q-card: #1d2326;
     --q-border: #2c3438;
@@ -34,108 +65,340 @@
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
+/* HTML's `hidden` attribute must win over our display: flex / display: grid rules. */
+[hidden] { display: none !important; }
 
 body {
-  font-family: "Segoe UI", Tahoma, Arial, sans-serif;
-  min-width: 260px;
-  max-width: 320px;
-  background: var(--q-bg);
+  position: relative;
+  font-family: var(--f-body-ar);
+  min-width: 340px;
+  max-width: 360px;
+  /* Light cream surround — shows above the arched header crown and around
+     the arch shoulders, giving the header its silhouette. */
+  background: #faf6ec;
   color: var(--q-text);
   font-size: 14px;
-  line-height: 1.5;
+  line-height: 1.55;
+  padding-top: 14px;
 }
 
-/* ── Header (green + gold + arabesque motif) ────────────────────────────── */
+/* ── Header — pointed mihrab arch in deep emerald with star motif ────── */
 #popup-header {
-  background: var(--q-primary);
-  background-image: var(--q-motif);
-  background-repeat: repeat;
+  position: relative;
+  text-align: center;
+  padding: 44px 22px 26px;        /* top padding clears the arch peak */
+  margin-bottom: 4px;
+  background-color: var(--q-primary);
+  background-image:
+    radial-gradient(ellipse 120% 80% at 50% 18%, rgba(200, 162, 74, 0.10), transparent 65%),
+    radial-gradient(ellipse 80% 60% at 50% 100%, rgba(0, 0, 0, 0.15), transparent 70%),
+    var(--q-motif);
+  background-repeat: no-repeat, no-repeat, repeat;
   border-bottom: 2px solid var(--q-gold);
-  padding: 12px 14px;
+  /* Pointed mihrab silhouette — gentle ogee curve to a peak at top centre. */
+  clip-path: polygon(
+    0% 100%,
+    0% 28%,
+    8% 18%,
+    18% 10%,
+    32% 4%,
+    50% 0%,
+    68% 4%,
+    82% 10%,
+    92% 18%,
+    100% 28%,
+    100% 100%
+  );
+  filter: drop-shadow(0 4px 6px rgba(10, 58, 38, 0.18));
+}
+/* Gold keystone diamond at the arch peak. Positioned on the popup body so
+   it sits on top of the clip-path silhouette without being clipped. */
+body::before {
+  content: '';
+  position: absolute;
+  top: 9px; left: 50%;
+  width: 10px; height: 10px;
+  transform: translateX(-50%) rotate(45deg);
+  background: var(--q-gold);
+  box-shadow: 0 0 0 2px #faf6ec, 0 2px 4px rgba(0, 0, 0, 0.18);
+  z-index: 2;
+}
+/* Thin gold hairline just above the title, inside the arch. */
+#popup-header::before {
+  content: '';
+  display: block;
+  width: 56px;
+  height: 1px;
+  margin: 0 auto 14px;
+  background: linear-gradient(to right, transparent, var(--q-gold) 30%, var(--q-gold) 70%, transparent);
 }
 #popup-header h1 {
-  font-size: 17px;
+  margin: 0;
+  font-family: var(--f-display-ar);
   font-weight: 700;
-  color: var(--q-on-primary);
-  letter-spacing: 0.2px;
+  font-size: 30px;
+  color: #f3e9d2;          /* warm cream — softer than --q-on-primary */
+  line-height: 1.15;
+  letter-spacing: -0.005em;
 }
-
-/* ── Scan-mode toggle ───────────────────────────────────────────────────── */
-#trigger-row {
-  display: flex;
+/* Brass gold with neon halo — glows against the dark emerald arch. */
+#popup-header h1 .gold {
+  color: #e0b860;
+  font-weight: 600;
+  text-shadow:
+    0 0 5px rgba(232, 185, 78, 0.55),
+    0 0 12px rgba(232, 185, 78, 0.32),
+    0 0 24px rgba(232, 185, 78, 0.18);
+}
+#popup-header h1 span + span { margin-inline-start: 10px; }
+/* ── Diamond-gem divider ──────────────────────────────────────────────── */
+.popup-divider-ornament {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  gap: 10px;
-  font-size: 13px;
-  color: var(--q-muted);
-  padding: 10px 14px 6px;
+  gap: 12px;
+  margin: 14px 22px 4px;
 }
-#trigger-label { font-weight: 600; color: var(--q-text); }
-.toggle-option { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; }
-.toggle-option input { accent-color: var(--q-primary); }
+.popup-divider-ornament .line {
+  height: 1px;
+  background: linear-gradient(to right, transparent, var(--q-border) 30%, var(--q-border) 70%, transparent);
+}
+.popup-divider-ornament .gem {
+  width: 8px; height: 8px;
+  background: var(--q-gold);
+  transform: rotate(45deg);
+}
 
-/* ── Controls ───────────────────────────────────────────────────────────── */
+/* ── Mode pills (scan trigger) ─────────────────────────────────────────── */
+#trigger-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  background: var(--q-bg);
+  border: 1px solid var(--q-border);
+  border-radius: 999px;
+  padding: 4px;
+  margin: 16px 22px 14px;
+}
+#trigger-label {
+  /* Accessibly hidden — the pills make the choice self-evident */
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+.toggle-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 10px;
+  cursor: pointer;
+  border-radius: 999px;
+  font-family: var(--f-body-ar);
+  font-weight: 500;
+  font-size: 14px;
+  color: var(--q-muted);
+  transition: background 0.2s, color 0.2s, box-shadow 0.2s;
+}
+.toggle-option input {
+  appearance: none;
+  position: absolute;
+  width: 0; height: 0;
+  opacity: 0;
+}
+.toggle-option .kbd {
+  display: block;
+  font-family: var(--f-mono);
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  margin-top: 2px;
+  opacity: 0.75;
+  direction: ltr;
+}
+.toggle-option:has(input:checked) {
+  background: var(--q-primary);
+  color: var(--q-on-primary);
+  box-shadow: 0 2px 8px -2px rgba(11, 93, 59, 0.4);
+}
+
+/* ── Controls — primary scan + ghost siblings ─────────────────────────── */
 #controls {
   display: flex;
+  flex-direction: column;
   gap: 8px;
-  padding: 6px 14px 4px;
+  padding: 4px 22px;
 }
 
 button {
-  flex: 1;
-  padding: 9px 12px;
-  border: 1px solid var(--q-border);
-  border-radius: 6px;
-  background: var(--q-card);
-  cursor: pointer;
+  padding: 11px 14px;
+  font-family: var(--f-body-ar);
   font-size: 14px;
   font-weight: 500;
+  border: 1px solid var(--q-border);
+  border-radius: 4px;
+  background: var(--q-card);
   color: var(--q-text);
-  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, transform 0.1s, box-shadow 0.15s;
 }
-button:hover { background: var(--q-gold-soft); }
-button:focus-visible { outline: 2px solid var(--q-focus); outline-offset: 1px; }
+button:hover { background: var(--q-gold-soft); border-color: var(--q-primary-mute); }
+button:focus-visible { outline: 2px solid var(--q-focus); outline-offset: 2px; }
 button:disabled { opacity: 0.5; cursor: not-allowed; }
 
 #btn-scan {
-  background: var(--q-primary);
+  background: linear-gradient(180deg, var(--q-primary-mute), var(--q-primary));
   border-color: var(--q-primary-strong);
   color: var(--q-on-primary);
   font-weight: 600;
+  font-size: 15px;
+  padding: 13px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 6px 16px -8px rgba(11, 93, 59, 0.5);
 }
-#btn-scan:hover { background: var(--q-primary-strong); }
+#btn-scan::before,
+#btn-scan::after {
+  content: '';
+  width: 4px; height: 4px;
+  background: var(--q-gold);
+  transform: rotate(45deg);
+  flex-shrink: 0;
+}
+#btn-scan:hover {
+  background: linear-gradient(180deg, var(--q-primary), var(--q-primary-strong));
+  transform: translateY(-1px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 10px 20px -10px rgba(11, 93, 59, 0.55);
+}
+#btn-scan:active { transform: translateY(0); }
 
-/* ── Status + progress ──────────────────────────────────────────────────── */
+#btn-clear, #btn-continue {
+  color: var(--q-primary-strong);
+}
+
+/* ── Status line (live region) ─────────────────────────────────────────── */
 #status {
+  font-family: var(--f-body-ar);
   font-size: 13px;
   color: var(--q-muted);
   min-height: 16px;
-  margin: 8px 14px 0;
+  margin: 12px 22px 0;
   text-align: center;
 }
-#progress {
-  font-size: 13px;
-  color: var(--q-muted);
-  text-align: center;
-  margin: 4px 14px 0;
-}
-#progress-count { font-weight: 700; color: var(--q-primary); }
 
-/* ── Settings entry point ───────────────────────────────────────────────── */
-/* Item 3 — match the other controls: same solid button style, full text color
-   and weight (was a thin dashed/muted variant that read as out of place). */
-#btn-settings {
-  display: block;
-  width: calc(100% - 28px);
-  margin: 12px 14px;
-  flex: none;
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--q-text);
+/* ── Progress block — flush, gold-soft, big numeral ────────────────────── */
+#progress {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  margin: 16px 0 0;
+  padding: 14px 22px 14px;
+  background: linear-gradient(180deg, var(--q-gold-soft), var(--q-bg));
+  border-top: 1px solid var(--q-gold);
 }
-#btn-settings:hover { background: var(--q-gold-soft); }
+#progress .progress-label {
+  font-family: var(--f-body-ar);
+  font-size: 13px;
+  color: var(--q-primary-strong);
+}
+#progress .progress-count-wrap {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  direction: ltr;
+}
+#progress-count {
+  font-family: var(--f-display-ar);
+  font-weight: 600;
+  font-size: 28px;
+  color: var(--q-primary);
+  line-height: 1;
+}
+.progress-found {
+  font-family: var(--f-mono);
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--q-gold-strong);
+}
+#progress-suffix { display: none; }
+
+/* ── Data-unavailable error state ──────────────────────────────────────── */
+#data-error {
+  margin: 12px 22px 0;
+  padding: 10px 12px;
+  background: rgba(185, 28, 28, 0.06);
+  border: 1px solid rgba(185, 28, 28, 0.3);
+  border-radius: 6px;
+  font-size: 13px;
+  color: #8a1a1a;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+#data-error #btn-retry {
+  align-self: flex-end;
+  padding: 6px 12px;
+  font-size: 13px;
+  border: 1px solid var(--q-border);
+  background: var(--q-card);
+  color: var(--q-text);
+  border-radius: 4px;
+}
+
+/* ── Foot row: shortcut + Settings link ────────────────────────────────── */
+.popup-foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 16px;
+  padding: 14px 22px 16px;
+  border-top: 1px dashed var(--q-border);
+  font-family: var(--f-mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--q-muted);
+  direction: ltr;
+}
+.popup-shortcut { user-select: none; }
+#btn-settings {
+  background: none;
+  border: none;
+  padding: 4px 0;
+  font-family: var(--f-mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--q-primary);
+  border-bottom: 1px solid var(--q-gold);
+  border-radius: 0;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+#btn-settings:hover {
+  color: var(--q-primary-strong);
+  border-bottom-color: var(--q-primary);
+  background: none;
+}
+#btn-settings:focus-visible {
+  outline: none;
+  background: var(--q-gold-soft);
+}
 
 /* T010 — Theme FOUC guard. The bootstrap script (js/themes/bootstrap.js)
- * adds the `theme-loading` class to <html> before paint and removes it
- * after applying the persisted data-theme attribute, preventing a flash of
- * the wrong theme on first paint (FR-006, SC-006). */
+ * adds `theme-loading` to <html> before paint and removes it after applying
+ * the persisted data-theme attribute (FR-006, SC-006). The guard is a no-op
+ * for the currently identical default and Mihrab themes, but it is in place
+ * for future themes that materially change the popup chrome. */
 html.theme-loading body { visibility: hidden; }
