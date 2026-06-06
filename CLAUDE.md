@@ -1,19 +1,15 @@
 <!-- SPECKIT START -->
-Active feature: **002-correction-autocorrect** (V1.2). Foundation: 001
-(reader-side V1, shipped) and 003 (writer-side ayah autocomplete, shipped on
-003-ayah-autocomplete branch — its commits are ancestors of this branch).
+Active feature: **004-appearance-themes**. Foundation: 001 (reader-side V1, shipped), 002 (correction/autocorrect, shipped), 003 (writer-side ayah autocomplete, shipped). 004 is a UI-only feature: an opt-in theme system defaulting to today's UI; ships `default` and `mihrab` themes; no verifier, classifier, or matcher code is touched.
 
-Read the implementation plan and supporting artifacts before making
-non-trivial changes:
+Read the implementation plan and supporting artifacts before making non-trivial changes:
 
-- Plan:        specs/002-correction-autocorrect/plan.md
-- Spec:        specs/002-correction-autocorrect/spec.md (22 FRs, 8 SCs, 4 clarifications)
-- Data model:  specs/002-correction-autocorrect/data-model.md
-- Contracts:   specs/002-correction-autocorrect/contracts/
-- Research:    specs/002-correction-autocorrect/research.md
-- Quickstart:  specs/002-correction-autocorrect/quickstart.md
-- Foundation:  specs/001-arabic-citation-auditor/ (reader-side V1, shipped) and
-               specs/003-ayah-autocomplete/ (writer-side autocomplete, shipped).
+- Plan:        specs/004-appearance-themes/plan.md
+- Spec:        specs/004-appearance-themes/spec.md (14 FRs, 7 SCs)
+- Data model:  specs/004-appearance-themes/data-model.md
+- Contracts:   specs/004-appearance-themes/contracts/ (theme-registry.md, storage-prefs.md)
+- Research:    specs/004-appearance-themes/research.md
+- Quickstart:  specs/004-appearance-themes/quickstart.md
+- Foundation:  specs/001-arabic-citation-auditor/, specs/002-correction-autocorrect/, specs/003-ayah-autocomplete/.
 - Constitution: .specify/memory/constitution.md (v2.0.0 — 6 principles, two NON-NEGOTIABLE)
 
 Constitution non-negotiables (full text in the constitution file):
