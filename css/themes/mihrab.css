@@ -939,7 +939,7 @@ button:active { transform: translateY(1px); }
 /* ── Sidebar ─────────────────────────────────────────── */
 [data-theme="mihrab"] {
 /* T049 / T095 — Page-injected sidebar styles. Every selector is namespaced
-   under .quran-ext-panel so host-page rules can't accidentally match our DOM,
+   under &.quran-ext-panel so host-page rules can't accidentally match our DOM,
    and the root resets inherited values via `all: initial` so host styles don't
    bleed in. Custom properties survive `all: initial`, so the deep-green + gold
    theme tokens are defined on the root and the collapsed tab.
@@ -953,7 +953,7 @@ button:active { transform: translateY(1px); }
 
 /* Bundled UI fonts — loaded from web-accessible resources so the sidebar font
    stays consistent regardless of the host page's CSP. */
-.quran-ext-panel,
+&.quran-ext-panel,
 .quran-ext-panel-tab {
   --q-primary: #0a3a26;
   --q-primary-strong: #062618;
@@ -971,7 +971,7 @@ button:active { transform: translateY(1px); }
 }
 
 @media (prefers-color-scheme: dark) {
-  .quran-ext-panel,
+  &.quran-ext-panel,
   .quran-ext-panel-tab {
     --q-primary: #14543a;
     --q-primary-strong: #0a3a26;
@@ -987,7 +987,7 @@ button:active { transform: translateY(1px); }
   }
 }
 
-.quran-ext-panel {
+&.quran-ext-panel {
   all: initial;
   position: fixed;
   top: 0;
@@ -1026,22 +1026,22 @@ button:active { transform: translateY(1px); }
   filter: drop-shadow(-2px 4px 10px rgba(0, 0, 0, 0.22));
 }
 
-.quran-ext-panel * { box-sizing: border-box; }
+&.quran-ext-panel * { box-sizing: border-box; }
 
 /* ── Docking position (prefs.v1.panelPosition) ──────────────────────────────
    The base rule above pins right; these classes (set by sidebar-surface.js)
    re-pin for left-dock and detach for float. Shadow direction follows the
    docking edge. */
-.quran-ext-panel.quran-ext-pos-right { right: 0; left: auto; box-shadow: -2px 0 12px rgba(0, 0, 0, 0.18); }
-.quran-ext-panel.quran-ext-pos-left  { left: 0; right: auto; box-shadow: 2px 0 12px rgba(0, 0, 0, 0.18); }
+&.quran-ext-panel.quran-ext-pos-right { right: 0; left: auto; box-shadow: -2px 0 12px rgba(0, 0, 0, 0.18); }
+&.quran-ext-panel.quran-ext-pos-left  { left: 0; right: auto; box-shadow: 2px 0 12px rgba(0, 0, 0, 0.18); }
 /* Docked float renders like a docked panel but overlays the page (no host gutter
    is reserved — set in sidebar-surface.js). A heftier shadow signals it sits
    over the content. The side pin + resize edge come from the pos-left/right
    class, applied alongside pos-float. */
-.quran-ext-panel.quran-ext-pos-float { box-shadow: 0 0 24px rgba(0, 0, 0, 0.32); }
+&.quran-ext-panel.quran-ext-pos-float { box-shadow: 0 0 24px rgba(0, 0, 0, 0.32); }
 /* Undocked float: a free-floating card at an inline top/left, sized to content
    up to the viewport, rounded with an all-around shadow. */
-.quran-ext-panel.quran-ext-pos-float-free {
+&.quran-ext-panel.quran-ext-pos-float-free {
   right: auto;
   height: auto;
   max-height: calc(100vh - 32px);
@@ -1050,14 +1050,14 @@ button:active { transform: translateY(1px); }
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.32);
 }
 /* In float mode the title bar is the drag handle (tear off / reposition). */
-.quran-ext-panel.quran-ext-pos-float .quran-ext-panel-header,
-.quran-ext-panel.quran-ext-pos-float-free .quran-ext-panel-header { cursor: move; }
+&.quran-ext-panel.quran-ext-pos-float .quran-ext-panel-header,
+&.quran-ext-panel.quran-ext-pos-float-free .quran-ext-panel-header { cursor: move; }
 /* Collapsed free box = just the header bar, kept at its float position. */
-.quran-ext-panel.quran-ext-pos-float-free.quran-ext-float-collapsed {
+&.quran-ext-panel.quran-ext-pos-float-free.quran-ext-float-collapsed {
   height: auto;
   max-height: none;
 }
-.quran-ext-panel.quran-ext-pos-float-free.quran-ext-float-collapsed > *:not(.quran-ext-panel-header) {
+&.quran-ext-panel.quran-ext-pos-float-free.quran-ext-float-collapsed > *:not(.quran-ext-panel-header) {
   display: none !important;
 }
 /* In-header collapse/expand button (free-floating only; toggled inline by JS). */
@@ -1104,8 +1104,8 @@ button:active { transform: translateY(1px); }
 }
 /* Resize handle rides the page-facing edge: left when on the right (base),
    right when on the left or floating free. */
-.quran-ext-panel.quran-ext-pos-left .quran-ext-panel-resize,
-.quran-ext-panel.quran-ext-pos-float-free .quran-ext-panel-resize { left: auto; right: 0; }
+&.quran-ext-panel.quran-ext-pos-left .quran-ext-panel-resize,
+&.quran-ext-panel.quran-ext-pos-float-free .quran-ext-panel-resize { left: auto; right: 0; }
 
 /* Header — deep emerald plate with star motif. The panel's clip-path shapes
    the visible top edge (arch); header padding clears the arch shoulders so
