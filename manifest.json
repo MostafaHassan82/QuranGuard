@@ -19,6 +19,7 @@
         "js/shared/log.js",
         "js/shared/messaging.js",
         "js/shared/i18n.js",
+        "js/themes/registry.js",
         "js/panel/model.js",
         "js/panel/actions.js",
         "js/panel/keyboard.js",
@@ -36,7 +37,7 @@
         "js/compose/render-editable.js",
         "js/compose/index.js"
       ],
-      "css": ["css/content.css", "css/sidebar.css", "css/compose.css"],
+      "css": ["css/content.css", "css/sidebar.css", "css/compose.css", "css/themes/mihrab.css"],
       "run_at": "document_start"
     }
   ],

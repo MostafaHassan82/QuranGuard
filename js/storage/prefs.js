@@ -49,6 +49,11 @@ const QuranPrefs = (() => {
     //                      The N for the multi-ayah scope is asked inline at
     //                      insertion time, not stored.
     autocomplete: { enabled: true, liveRender: true, refFormat: 'arabicName', refPlacement: 'after', minWords: 2, maxCandidates: 8, multiAyahsWordCap: 200 },
+    // Appearance / theme selection (feature 004). The id 'default' refers to
+    // the existing UI (no [data-theme] attribute applied). At read time the
+    // value is clamped against QuranThemes.ids when the registry is loaded
+    // (browser/SW context); the Node prefs-validation test skips that step.
+    appearance: { theme: 'default' },
   };
 
   const VALID_REF_FORMATS = new Set(['arabicName', 'number']);
@@ -135,6 +140,20 @@ const QuranPrefs = (() => {
       let cap = parseInt(p.autocomplete.multiAyahsWordCap, 10);
       if (!Number.isFinite(cap)) cap = DEFAULTS.autocomplete.multiAyahsWordCap;
       p.autocomplete.multiAyahsWordCap = Math.min(2000, Math.max(20, cap));
+    }
+
+    // Appearance (feature 004): default-fill + clamp against registry.
+    // The `typeof QuranThemes` guard handles the Node test environment where
+    // the registry isn't loaded; the runtime always has it loaded first.
+    const fallbackTheme = (typeof QuranThemes !== 'undefined' && QuranThemes.defaultId)
+      ? QuranThemes.defaultId()
+      : 'default';
+    if (!p.appearance || typeof p.appearance !== 'object') p.appearance = {};
+    if (typeof p.appearance.theme !== 'string') {
+      p.appearance.theme = fallbackTheme;
+    } else if (typeof QuranThemes !== 'undefined' && QuranThemes.isValidId && !QuranThemes.isValidId(p.appearance.theme)) {
+      console.warn('[QuranPrefs] appearance.theme not in registry, clamped to default');
+      p.appearance.theme = fallbackTheme;
     }
 
     // Clamp: red MUST be false
