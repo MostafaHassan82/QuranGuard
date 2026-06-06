@@ -3,7 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <title data-i18n="options_title">إعدادات مُدقّق آيات القرآن</title>
+  <!-- Feature 004 theme bootstrap (see html/popup.html for the rationale). -->
+  <script src="../js/themes/registry.js"></script>
+  <script src="../js/storage/prefs.js"></script>
+  <script src="../js/themes/bootstrap.js"></script>
   <link rel="stylesheet" href="../css/options.css">
+  <link rel="stylesheet" href="../css/themes/mihrab.css">
 </head>
 <body>
   <div id="options-shell">
@@ -19,6 +24,7 @@
       <!-- Sticky TOC rail (jumps to each section by id). -->
       <nav class="opt-toc" aria-label="Sections">
         <ol>
+          <li><a href="#sec-appearance"   data-i18n="sec_appearance">المظهر</a></li>
           <li><a href="#sec-language"     data-i18n="sec_language">اللغة</a></li>
           <li><a href="#sec-text"         data-i18n="sec_text">عرض النص القرآني</a></li>
           <li><a href="#sec-highlight"    data-i18n="sec_highlight">تمييز الفئات</a></li>
@@ -30,6 +36,18 @@
       </nav>
 
       <div class="opt-sections">
+
+        <!-- ── Appearance / Theme picker (feature 004) ──────────────────── -->
+        <section class="opt-section" id="sec-appearance">
+          <div class="opt-sec-head">
+            <h2 class="opt-section-title" data-i18n="sec_appearance">المظهر</h2>
+          </div>
+          <div class="opt-card">
+            <h3 class="opt-card-title" data-i18n="appearance_heading">اختيار المظهر</h3>
+            <div id="appearance-picker" role="radiogroup" data-i18n-aria="appearance_picker_aria" aria-label="اختر مظهرًا"></div>
+            <p class="opt-hint" data-i18n="appearance_hint">يُطبَّق المظهر فورًا على النافذة المنبثقة وصفحة الإعدادات واللوحة الجانبية.</p>
+          </div>
+        </section>
 
         <!-- ── Language ─────────────────────────────────────────────────── -->
         <section class="opt-section" id="sec-language">

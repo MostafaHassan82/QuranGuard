@@ -202,3 +202,48 @@ button:focus-visible { outline: 2px solid var(--q-focus); outline-offset: 1px; }
  * after applying the persisted data-theme attribute, preventing a flash of
  * the wrong theme on first paint (FR-006, SC-006). */
 html.theme-loading body { visibility: hidden; }
+
+/* T023 — Appearance picker (feature 004). Default theme presentation. */
+#appearance-picker {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
+  margin-top: 4px;
+}
+#appearance-picker .theme-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1.5px solid var(--q-border, #d4d4d8);
+  border-radius: 8px;
+  cursor: pointer;
+  background: var(--q-card, #fff);
+  transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+}
+#appearance-picker .theme-card:hover {
+  border-color: var(--q-primary-mute, #14543a);
+}
+#appearance-picker .theme-card.is-active {
+  border-color: var(--q-primary, #0a3a26);
+  background: var(--q-gold-soft, #fdf8e8);
+  box-shadow: 0 1px 0 var(--q-gold, #c8a24a) inset;
+}
+#appearance-picker .theme-card input[type="radio"] {
+  margin: 0;
+  flex-shrink: 0;
+}
+#appearance-picker .theme-card-swatch {
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--q-primary, #0a3a26) 50%, var(--q-gold, #c8a24a) 50%);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  flex-shrink: 0;
+}
+#appearance-picker .theme-card[data-theme-id="mihrab"] .theme-card-swatch {
+  background: linear-gradient(135deg, #0a3a26 50%, #c8a24a 50%);
+}
+#appearance-picker .theme-card-name {
+  font-weight: 600;
+  font-size: 14px;
+}

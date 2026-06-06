@@ -1189,11 +1189,52 @@ const QuranPanelSidebar = (() => {
     mountInFlight = (async () => { try { await doMount(); } finally { mountInFlight = null; } })();
     return mountInFlight;
   }
+  // T021 — One-shot chrome.storage.onChanged listener for cross-surface theme
+  // updates (feature 004, Clarifications Q1, FR-004). If the options page (or
+  // any other surface) writes a new appearance.theme to prefs.v1, every page
+  // with the sidebar mounted flips the panel root's data-theme attribute
+  // within one frame. Installed once per page load; idempotent.
+  let themeChangeHooked = false;
+  function hookThemeChangeOnce() {
+    if (themeChangeHooked) return;
+    themeChangeHooked = true;
+    if (typeof chrome === 'undefined' || !chrome.storage || !chrome.storage.onChanged) return;
+    chrome.storage.onChanged.addListener((changes, areaName) => {
+      if (areaName !== 'local') return;
+      const c = changes['prefs.v1'];
+      if (!c) return;
+      const next = c.newValue && c.newValue.appearance && c.newValue.appearance.theme;
+      const prev = c.oldValue && c.oldValue.appearance && c.oldValue.appearance.theme;
+      if (!next || next === prev) return;
+      if (!rootEl) return;
+      const id = (typeof QuranThemes !== 'undefined' && QuranThemes.isValidId(next))
+        ? next
+        : (typeof QuranThemes !== 'undefined' ? QuranThemes.defaultId() : 'default');
+      rootEl.dataset.theme = id;
+    });
+  }
+
   async function doMount() {
     const html = await fetchTemplate();
     const wrapper = document.createElement('div');
     wrapper.innerHTML = html;
     rootEl = wrapper.firstElementChild;
+
+    // T020 — Apply the persisted theme BEFORE inserting into the DOM so the
+    // sidebar never appears in an unthemed flash. Read chrome.storage.local
+    // directly; QuranPrefs isn't loaded in content scripts, but the registry
+    // is (manifest.json content_scripts.js).
+    try {
+      const r = await chrome.storage.local.get('prefs.v1');
+      const stored = r && r['prefs.v1'] && r['prefs.v1'].appearance && r['prefs.v1'].appearance.theme;
+      const themeId = (typeof QuranThemes !== 'undefined' && QuranThemes.isValidId(stored))
+        ? stored
+        : (typeof QuranThemes !== 'undefined' ? QuranThemes.defaultId() : 'default');
+      rootEl.dataset.theme = themeId;
+    } catch (_) {
+      rootEl.dataset.theme = (typeof QuranThemes !== 'undefined' ? QuranThemes.defaultId() : 'default');
+    }
+
     // Defensive sweep: drop any stray panel/tab nodes left over from an earlier
     // orphaned mount (e.g. if the host page tore the DOM down and back up
     // without our unmount running).
@@ -1202,6 +1243,7 @@ const QuranPanelSidebar = (() => {
     });
     tabEl = null;
     document.body.appendChild(rootEl);
+    hookThemeChangeOnce();
     // Reserve gutter space on <html> so the sidebar doesn't overlap content.
     document.documentElement.classList.add('quran-ext-sidebar-mounted');
 
