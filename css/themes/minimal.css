@@ -1,0 +1,209 @@
+/* css/themes/minimal.css — Minimal theme (feature 004-appearance-themes).
+ *
+ * Loaded alongside css/popup.css, css/options.css, css/sidebar.css on every
+ * surface. Activates only when [data-theme="minimal"] is set on the root
+ * (popup/options) or on the sidebar panel root. The Mihrab styling baked
+ * into the base stylesheets remains the visual baseline; this file STRIPS
+ * the most distinctive Mihrab decorations and recolors via --q-* token
+ * overrides so the page reads as a flat, low-contrast neutral.
+ *
+ * Strategy:
+ *   1. Redefine the --q-* palette tokens to neutral grays + a blue accent.
+ *      Most Mihrab styling resolves through these vars; one block does
+ *      most of the visual lift.
+ *   2. Strip non-token decorations: arch clip-paths, decorative motifs,
+ *      gold keystone gems, hairline gold dividers, gem divider ornaments.
+ *   3. Drop Mihrab fonts (Amiri / El Messiri / Reem Kufi) in favor of
+ *      system fonts. Verdict color classes (.v-green, .v-yellow, etc.)
+ *      are NEVER overridden — the verdict taxonomy is a constitutional
+ *      contract (Principle II, FR-008) preserved under every theme.
+ */
+
+/* ── 1. Palette tokens ──────────────────────────────────────────────────── */
+
+/* Popup + options use :root for vars; sidebar's panel root has the
+ * data-theme attribute directly. Both forms covered. */
+:root[data-theme="minimal"],
+[data-theme="minimal"] {
+  --q-primary: #475569;          /* slate-600 instead of emerald */
+  --q-primary-strong: #334155;   /* slate-700 */
+  --q-primary-mute: #64748b;     /* slate-500 */
+  --q-on-primary: #f8fafc;       /* slate-50 */
+  --q-gold: #2563eb;             /* blue-600 instead of brass */
+  --q-gold-soft: #eff6ff;        /* blue-50 */
+  --q-gold-strong: #1d4ed8;      /* blue-700 */
+  --q-bg: #f8fafc;               /* slate-50 */
+  --q-card: #ffffff;
+  --q-border: #e2e8f0;           /* slate-200 */
+  --q-text: #0f172a;             /* slate-900 */
+  --q-muted: #64748b;            /* slate-500 */
+  --q-danger: #dc2626;
+  --q-focus: var(--q-gold);
+  --q-motif: none;               /* kill the SVG star motif everywhere */
+
+  /* System fonts — drop Amiri / El Messiri / Reem Kufi. */
+  --f-display-ar: -apple-system, BlinkMacSystemFont, "Segoe UI", "Tahoma", sans-serif;
+  --f-body-ar:    -apple-system, BlinkMacSystemFont, "Segoe UI", "Tahoma", sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root[data-theme="minimal"],
+  [data-theme="minimal"] {
+    --q-primary: #94a3b8;        /* slate-400 */
+    --q-primary-strong: #cbd5e1; /* slate-300 */
+    --q-primary-mute: #64748b;   /* slate-500 */
+    --q-on-primary: #0f172a;
+    --q-gold: #60a5fa;           /* blue-400 */
+    --q-gold-soft: #1e293b;      /* slate-800 */
+    --q-gold-strong: #93c5fd;    /* blue-300 */
+    --q-bg: #0f172a;             /* slate-900 */
+    --q-card: #1e293b;           /* slate-800 */
+    --q-border: #334155;         /* slate-700 */
+    --q-text: #e2e8f0;           /* slate-200 */
+    --q-muted: #94a3b8;          /* slate-400 */
+    --q-danger: #f87171;
+  }
+}
+
+/* ── 2. Strip arch silhouettes, motifs, decorative gems ─────────────────── */
+
+/* Popup + options pointed-mihrab arch headers → flat solid color. */
+[data-theme="minimal"] #popup-header,
+[data-theme="minimal"] #options-header {
+  clip-path: none;
+  background-image: none;
+  background-color: var(--q-primary);
+  filter: none;
+  border-bottom: 1px solid var(--q-border);
+  padding-top: 18px;
+  padding-bottom: 18px;
+}
+
+/* Hide gold keystone diamonds that sat on top of the clipped arches. */
+[data-theme="minimal"] body::before,
+[data-theme="minimal"] #options-shell::before { display: none; }
+
+/* Hide the thin gold hairline above headings inside the arch. */
+[data-theme="minimal"] #popup-header::before,
+[data-theme="minimal"] #options-header::before { display: none; }
+
+/* Two-tone heading: drop the gold glow on the second span; keep the split
+ * markup but flatten to a single color. */
+[data-theme="minimal"] #popup-header h1 .gold,
+[data-theme="minimal"] #options-header h1 .gold {
+  color: var(--q-on-primary);
+  font-weight: 600;
+  text-shadow: none;
+}
+[data-theme="minimal"] #popup-header h1,
+[data-theme="minimal"] #options-header h1 {
+  color: var(--q-on-primary);
+  letter-spacing: 0;
+}
+
+/* Diamond-gem divider in the popup — collapse to a thin rule. */
+[data-theme="minimal"] .popup-divider-ornament .gem { display: none; }
+[data-theme="minimal"] .popup-divider-ornament {
+  grid-template-columns: 1fr;
+  gap: 0;
+  margin: 12px 22px 0;
+}
+[data-theme="minimal"] .popup-divider-ornament .line {
+  background: var(--q-border);
+}
+
+/* Options TOC: drop the gold counter color treatment; keep numbering. */
+[data-theme="minimal"] .opt-toc a::after { color: var(--q-muted); }
+[data-theme="minimal"] .opt-toc a:hover::after { color: var(--q-primary); }
+
+/* Section heads: drop the Roman-numeral gold accent color, keep numbers. */
+[data-theme="minimal"] .opt-sec-head::before { color: var(--q-muted); }
+[data-theme="minimal"] .opt-section-title { color: var(--q-text); }
+
+/* Verdict tiles: keep the grid layout, drop the gold lock-state gradient. */
+[data-theme="minimal"] .verdict-tile.is-locked {
+  background: var(--q-card);
+  border-color: var(--q-border);
+}
+[data-theme="minimal"] .verdict-lock {
+  color: var(--q-muted);
+  background: var(--q-bg);
+  border-color: var(--q-border);
+}
+
+/* Cards: flatten the layered Mihrab shadow. */
+[data-theme="minimal"] .opt-card {
+  box-shadow: none;
+  border-radius: 6px;
+}
+[data-theme="minimal"] .opt-card-title {
+  border-bottom-color: var(--q-border);
+}
+
+/* Scan / primary buttons: flatten the green gradient + gold-keystone pseudo. */
+[data-theme="minimal"] #btn-scan {
+  background: var(--q-primary);
+  border-color: var(--q-primary-strong);
+  box-shadow: none;
+}
+[data-theme="minimal"] #btn-scan::before,
+[data-theme="minimal"] #btn-scan::after { display: none; }
+
+/* Progress block: drop the gold-soft gradient. */
+[data-theme="minimal"] #progress {
+  background: var(--q-bg);
+  border-top: 1px solid var(--q-border);
+}
+
+/* Settings link in the popup foot: drop the underline-gold treatment. */
+[data-theme="minimal"] #btn-settings {
+  border-bottom-color: var(--q-border);
+}
+
+/* ── 3. Sidebar panel — root is its own carrier; use &-style scoping ────── */
+
+/* Panel chrome flat, no shadow band. The selector form covers the case
+ * where the panel root carries data-theme directly. */
+[data-theme="minimal"].quran-ext-panel {
+  background: var(--q-card);
+  border-inline-end: 1px solid var(--q-border);
+  box-shadow: none;
+}
+[data-theme="minimal"].quran-ext-panel.quran-ext-pos-left,
+[data-theme="minimal"].quran-ext-panel.quran-ext-pos-right {
+  box-shadow: none;
+}
+[data-theme="minimal"] .quran-ext-panel-header {
+  background: var(--q-card);
+  border-bottom-color: var(--q-border);
+}
+[data-theme="minimal"] .quran-ext-panel-title { color: var(--q-text); }
+[data-theme="minimal"] .quran-ext-panel-title .gold {
+  color: var(--q-text);
+  text-shadow: none;
+}
+
+/* Edge collapse tab — neutral. */
+[data-theme="minimal"] .quran-ext-panel-tab {
+  background: var(--q-card);
+  border-color: var(--q-border);
+  color: var(--q-text);
+  box-shadow: none;
+}
+
+/* Summary + Results section heads: drop gold-soft hover band. */
+[data-theme="minimal"] .quran-ext-summary-toggle,
+[data-theme="minimal"] .quran-ext-results-toggle {
+  background: var(--q-card);
+  color: var(--q-text);
+}
+
+/* Filter chips: keep their verdict-color identity (constitution!) — only
+ * neutralize the chip CHASSIS, never the color dot itself. */
+[data-theme="minimal"] .quran-ext-filter-chip {
+  background: var(--q-card);
+  border-color: var(--q-border);
+}
+
+/* Hide the gem divider ornaments inside the sidebar (if any). */
+[data-theme="minimal"] .quran-ext-panel .gem { display: none; }

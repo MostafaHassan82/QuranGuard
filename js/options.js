@@ -188,7 +188,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // user actually sees, even if the prefs read above races the bootstrap.
   const activeTheme = document.documentElement.dataset.theme
     || (prefs && prefs.appearance && prefs.appearance.theme)
-    || (typeof QuranThemes !== 'undefined' ? QuranThemes.defaultId() : 'default');
+    || (typeof QuranThemes !== 'undefined' ? QuranThemes.defaultId() : 'mihrab');
   renderAppearancePicker(activeTheme);
   setActiveThemeCard(activeTheme);
 
