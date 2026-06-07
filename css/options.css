@@ -255,8 +255,9 @@ html.theme-loading body { visibility: hidden; }
   border: 1px solid var(--q-border);
   background: linear-gradient(135deg, var(--q-swatch-a, #ddd) 0 50%, var(--q-swatch-b, #aaa) 50% 100%);
 }
-.theme-card[data-theme-id="default"] { --q-swatch-a: #ffffff; --q-swatch-b: #e2e8f0; }
-.theme-card[data-theme-id="mihrab"]  { --q-swatch-a: #0a3a26; --q-swatch-b: #c8a24a; }
+/* Swatch colors are set inline by js/options.js from each registry
+ * descriptor's swatchA/swatchB fields — keeping them with the theme data
+ * is what makes SC-007 hold (no shared-file edit needed to add a theme). */
 .theme-card-text {
   display: flex;
   flex-direction: column;

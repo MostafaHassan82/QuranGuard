@@ -8,8 +8,12 @@ const QuranThemes = (() => {
   const list = [
     // Default is the neutral base look (matches the pre-Mihrab UI). Mihrab
     // is an opt-in decorative treatment layered on top via [data-theme="mihrab"].
-    { id: 'default', displayName: 'Default', displayNameAr: 'الافتراضي', defaultFor: 'fresh-install' },
-    { id: 'mihrab',  displayName: 'Mihrab',  displayNameAr: 'المحراب',   defaultFor: 'never' },
+    // swatchA/swatchB feed the two-tone gradient in the picker card swatch.
+    // Carrying them here (instead of hardcoding per-id rules in css/options.css)
+    // is what makes SC-007 hold: a new theme = registry descriptor + own CSS file,
+    // no shared-file edits.
+    { id: 'default', displayName: 'Default', displayNameAr: 'الافتراضي', defaultFor: 'fresh-install', swatchA: '#ffffff', swatchB: '#e2e8f0' },
+    { id: 'mihrab',  displayName: 'Mihrab',  displayNameAr: 'المحراب',   defaultFor: 'never',         swatchA: '#0a3a26', swatchB: '#c8a24a' },
   ];
 
   const ids = new Set(list.map(t => t.id));

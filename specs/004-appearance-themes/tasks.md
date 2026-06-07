@@ -102,8 +102,8 @@ This phase must complete before any User Story phase. It establishes the theme r
 **Independent test criteria**: Add a trivial stub theme during development; it appears in the picker and applies correctly with zero edits to `popup.js`, `options.js`, `sidebar-surface.js`, or `bootstrap.js`.
 
 - [X] T034 [US4] Implemented as `tests/theme_registry_check.js` (Node, matches the existing `*_check.js` test-style convention). Asserts list shape, single `defaultFor:'fresh-install'`, id regex `^[a-z][a-z0-9-]{1,31}$`, `defaultId()`, `isValidId()` positive/negative cases, and `get()`. Verified green: "OK theme registry — 2 theme(s): default, mihrab".
-- [ ] T035 [US4] DEFERRED — quickstart.md walkthrough below has the architecture in plain prose. Adding a stub-theme flow is straightforward but not blocking; the registry test already asserts the contract.
-- [ ] T036 [US4] DEFERRED — pending T035.
+- [X] T035 [US4] Stub-theme dev-verification flow added to `quickstart.md` ("Add a new theme" section, six steps). The flow itself uncovered one shared-file edit that broke SC-007 (swatch colors hardcoded in `css/options.css`), so I moved swatch colors into the registry descriptor (`swatchA`/`swatchB` fields, rendered inline by `js/options.js`). Now adding a theme is registry descriptor + 3 own CSS files + 2 HTML link tags + 1 manifest entry + 4 i18n strings — zero shared-CSS edits.
+- [X] T036 [US4] Performed the stub-theme verification on disk: added a `stub` theme (purple + amber), confirmed it appeared in the picker, applied across all three surfaces, and required zero edits to `popup.js`/`options.js`/`sidebar-surface.js`/`bootstrap.js`/`prefs.js`/`css/{popup,options,sidebar}.css`. Reverted cleanly. Outcome recorded in `quickstart.md` "SC-007 verification" section.
 
 **Checkpoint US4**: Registry contract enforced by test; SC-007 verified by lived experience.
 
@@ -132,7 +132,7 @@ This phase must complete before any User Story phase. It establishes the theme r
 - [ ] T044 PENDING — user to run `python tests/run_tests.py` against the final commit. Node-side prefs + registry checks already pass (`node tests/prefs_position_check.js`, `node tests/theme_registry_check.js`).
 - [X] T045 PRIVACY.md updated (per the maintenance rule applied to every storage-touching change): "Last updated" bumped to 2026-06-07 and the settings list now includes `appearance theme` alongside the existing entries. No new data category — it's still local-only.
 - [X] T046 `docs/chrome-web-store.md` `storage` permission justification now includes `appearance theme` in the preferences list. No user-facing feature bullet list to update.
-- [ ] T047 PENDING — quickstart.md walkthrough vs final implementation.
+- [X] T047 Walked `quickstart.md` against shipping behavior; fixed all drift: corrected verdict class names (camelCase `lightBlue`/`lightGreen`, not kebab); replaced the single-`mihrab.css` reference with the three per-surface files (`mihrab-popup.css`/`mihrab-options.css`/`mihrab-sidebar.css`); corrected the storage claim (`chrome.storage.local`, not auto-sync); replaced references to never-created Playwright specs with the actual Node-side tests; added the architecture table, SC-007 verification record, and the language-flip + forced-colors edge cases.
 
 ---
 
