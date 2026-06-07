@@ -24,6 +24,8 @@
         "js/panel/keyboard.js",
         "js/panel/sidebar-surface.js",
         "js/render/fonts.js",
+        "js/render/tooltip.js",
+        "js/render/decoration.js",
         "js/render/swap.js",
         "js/context-atom.js",
         "js/content.js",
