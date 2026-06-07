@@ -376,9 +376,23 @@
     // plain inputs (cannot hold markup) and when liveRender is off.
     let persistedMarkup = false;
     if (settings.liveRender && p.ctx.surface === 'contenteditable') {
+      // Build the tooltip via the shared QuranTooltip module so writer-side
+      // hover text reads exactly like reader-side. For writer-inserted
+      // citations the matcher's choice IS the cited reference (the author
+      // just accepted the canonical text), so claimedRef === matchedRef.
+      const tooltip = (typeof QuranTooltip !== 'undefined')
+        ? QuranTooltip.build(verdict, { claimedRef: cand.refLabel, matchedRef: cand.refLabel })
+        : null;
       persistedMarkup = QuranComposeRenderEditable.mark(
-        p.ctx, p.start, p.start + built.text.length, verdict,
-        { fontFamily: QuranComposeRenderEditable.fontFamily(fontKey) });
+        p.ctx, p.start + built.ayahStart, p.start + built.ayahEnd, verdict,
+        {
+          fontFamily: QuranComposeRenderEditable.fontFamily(fontKey),
+          refStart:   p.start + built.refStart,
+          refEnd:     p.start + built.refEnd,
+          claimedRef: cand.refLabel,
+          matchedRef: cand.refLabel,
+          tooltip,
+        });
     }
     hook.lastInsertion = {
       ref: cand.refLabel,
@@ -414,8 +428,16 @@
     const det = STATE.det;
     const end = det.citeStart + det.citationText.length;
     try {
+      const tooltip = (typeof QuranTooltip !== 'undefined')
+        ? QuranTooltip.build(verdict, { claimedRef: top.refLabel, matchedRef: top.refLabel })
+        : null;
       QuranComposeRenderEditable.mark(STATE.ctx, det.citeStart, end, verdict,
-        { fontFamily: QuranComposeRenderEditable.fontFamily(fontKey) });
+        {
+          fontFamily: QuranComposeRenderEditable.fontFamily(fontKey),
+          claimedRef: top.refLabel,
+          matchedRef: top.refLabel,
+          tooltip,
+        });
     } catch (_) {}
     hook.lastClassification = { ref: top.refLabel, verdict, viaFallthrough: true };
   }
@@ -438,11 +460,22 @@
     if (candidates && candidates.length) {
       const top = candidates[0];
       const verdict = QuranComposeRenderEditable.verdictForTier(top.tier);
+      const tooltip = (typeof QuranTooltip !== 'undefined')
+        ? QuranTooltip.build(verdict, { claimedRef: top.refLabel, matchedRef: top.refLabel })
+        : null;
       const ok = QuranComposeRenderEditable.mark(ctx, det.citeStart, end, verdict,
-        { fontFamily: QuranComposeRenderEditable.fontFamily(fontKey) });
+        {
+          fontFamily: QuranComposeRenderEditable.fontFamily(fontKey),
+          claimedRef: top.refLabel,
+          matchedRef: top.refLabel,
+          tooltip,
+        });
       if (ok) hook.lastClassification = { ref: top.refLabel, verdict, viaFallthrough: true };
     } else {
-      const ok = QuranComposeRenderEditable.mark(ctx, det.citeStart, end, 'red', {});
+      const tooltip = (typeof QuranTooltip !== 'undefined')
+        ? QuranTooltip.build('red', {})
+        : null;
+      const ok = QuranComposeRenderEditable.mark(ctx, det.citeStart, end, 'red', { tooltip });
       if (ok) hook.lastClassification = { ref: null, verdict: 'red', viaFallthrough: true };
     }
   }

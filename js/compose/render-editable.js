@@ -83,10 +83,25 @@ const QuranComposeRenderEditable = (() => {
     return false;
   }
 
-  // Wrap [start, end) of a contenteditable block in a verdict span — additively.
-  // Returns true when markup was applied (and the text content verified
-  // unchanged), false otherwise. Plain inputs return false (no markup possible).
-  // opts: { fontFamily } — when set, the matched text also carries the Quran font.
+  // Wrap [start, end) of a contenteditable block in a verdict-colored span,
+  // and (when opts.refStart/refEnd are supplied) wrap the cited reference in
+  // a .quran-ref-marker sibling — same decoration shape the reader-side
+  // emits. Returns true when both wraps land cleanly and the text content
+  // verifies unchanged; false otherwise (the author's text stays exactly as
+  // it was — no partial mutation reaches the user).
+  //
+  // Plain <input>/<textarea> return false (cannot hold markup). Framework
+  // editors (Lexical/Draft/ProseMirror) return false — their reconcilers
+  // would drop the wrap.
+  //
+  // opts:
+  //   fontFamily — applied to the ayah span (Quran font).
+  //   refStart, refEnd — root-relative offsets of the cited reference inside
+  //                      the inserted text. Omit for single-span rendering
+  //                      (fall-through and focus-render paths that don't know
+  //                      the body/ref split).
+  //   claimedRef, matchedRef — written to the ayah span's dataset.
+  //   tooltip   — pre-built tooltip text (caller uses QuranTooltip.build).
   function mark(ctx, start, end, verdict, opts) {
     if (!ctx || ctx.surface !== 'contenteditable') return false;   // FR-018b: inputs are text-only
     if (!VERDICTS.has(verdict)) return false;
@@ -96,29 +111,60 @@ const QuranComposeRenderEditable = (() => {
     // Constitution #1: never alter the ayah. In framework editors the splice
     // below would be reconciled away and drop the author's text — bail out.
     if (isFrameworkEditor(ctx.el || root)) return false;
+    if (typeof QuranDecoration === 'undefined') return false;
     const doc = root.ownerDocument;
-    const expected = (root.textContent || '').slice(start, end);
-    if (!expected) return false;
+    const tc = root.textContent || '';
+    const expectedAyah = tc.slice(start, end);
+    if (!expectedAyah) return false;
+
+    const wantRef = opts && Number.isFinite(opts.refStart) && Number.isFinite(opts.refEnd)
+      && opts.refEnd > opts.refStart;
+    const expectedRef = wantRef ? tc.slice(opts.refStart, opts.refEnd) : null;
+
     try {
-      const a = pointAt(root, start);
-      const b = pointAt(root, end);
-      const range = doc.createRange();
-      range.setStart(a.node, a.offset);
-      range.setEnd(b.node, b.offset);
-      // Offsets drifted (the field changed under us) → do NOT touch the text.
-      if (range.toString() !== expected) return false;
-      const span = doc.createElement('span');
-      span.className = 'quran-ac-cite ' + verdictClass(verdict);
-      if (opts && opts.fontFamily) {
-        span.classList.add('quran-ac-cite-quranfont');
-        span.style.fontFamily = opts.fontFamily;
+      // Wrap the reference first when present. Order is incidental for
+      // textContent (slice offsets stay valid across either order), but
+      // doing the smaller/optional one first keeps the failure mode
+      // simple — if ayah wrapping fails afterward, we bail with only the
+      // ref marker in place, which still satisfies Constitution #1
+      // (text content byte-identical).
+      if (wantRef) {
+        const ra = pointAt(root, opts.refStart);
+        const rb = pointAt(root, opts.refEnd);
+        const refRange = doc.createRange();
+        refRange.setStart(ra.node, ra.offset);
+        refRange.setEnd(rb.node, rb.offset);
+        if (refRange.toString() !== expectedRef) return false;
+        const refRes = QuranDecoration.wrapRefMarker({
+          range: refRange,
+          claimedRef: opts && opts.claimedRef,
+          guard: 'writer',
+        });
+        if (!refRes.ok) return false;
       }
-      // extractContents + insertNode only RE-PARENTS the existing characters into
-      // the span; it never drops them. Verified below.
-      const frag = range.extractContents();
-      span.appendChild(frag);
-      range.insertNode(span);
-      return span.textContent === expected;
+
+      // Build the ayah range fresh from the current DOM — pointAt walks
+      // live text nodes, so a prior ref wrap doesn't invalidate offsets.
+      const aa = pointAt(root, start);
+      const ab = pointAt(root, end);
+      const ayahRange = doc.createRange();
+      ayahRange.setStart(aa.node, aa.offset);
+      ayahRange.setEnd(ab.node, ab.offset);
+      if (ayahRange.toString() !== expectedAyah) return false;
+
+      const extraClass = 'quran-ac-cite' + (opts && opts.fontFamily ? ' quran-ac-cite-quranfont' : '');
+      const ayahRes = QuranDecoration.apply({
+        range: ayahRange,
+        color: verdict,
+        claimedRef: opts && opts.claimedRef,
+        matchedRef: opts && opts.matchedRef,
+        tooltip:    opts && opts.tooltip,
+        ariaLabel:  opts && opts.ariaLabel,
+        fontFamily: opts && opts.fontFamily,
+        extraClass,
+        guard: 'writer',
+      });
+      return ayahRes.ok;
     } catch (_) {
       return false;       // any DOM hiccup leaves the author's text exactly as-is
     }

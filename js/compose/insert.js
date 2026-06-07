@@ -249,9 +249,26 @@ const QuranComposeInsert = (() => {
     const ob = opts && opts.openBracket;
     const cb = (opts && opts.closeBracket) || (ob ? CLOSERS[ob] : null);
     const body = (ob && cb) ? `${ob}${r.body}${cb}` : r.body;
-    const text = (settings && settings.refPlacement === 'before')
-      ? `${ref} ${body}` : `${body} ${ref}`;
-    return { text };
+    // Track where the ayah body and reference sit inside `text` so the
+    // writer-side renderer can wrap them in separate decorations (verdict
+    // span over the body, .quran-ref-marker over the reference). Offsets
+    // are relative to the start of `text`; callers shift by the insertion
+    // point in the editable to get root-relative offsets.
+    let text, ayahStart, refStart;
+    if (settings && settings.refPlacement === 'before') {
+      text = `${ref} ${body}`;
+      refStart = 0;
+      ayahStart = ref.length + 1;
+    } else {
+      text = `${body} ${ref}`;
+      ayahStart = 0;
+      refStart = body.length + 1;
+    }
+    return {
+      text,
+      ayahStart, ayahEnd: ayahStart + body.length,
+      refStart,  refEnd:  refStart  + ref.length,
+    };
   }
 
   return { buildInsertText, buildReference, buildBody };

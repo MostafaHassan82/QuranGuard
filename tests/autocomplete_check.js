@@ -685,6 +685,21 @@ async function inPageTests() {
       T('US4 contenteditable markup is non-destructive (ayah + ref + lead-in intact)',
         ce.textContent.includes(ayah.text) && ce.textContent.includes('(البقرة:255)') && ce.textContent.includes('قال تعالى'),
         ce.textContent);
+      // The unified-decoration refactor wraps the ayah body and the cited
+      // reference in SEPARATE decorations: a .quran-ac-cite verdict span
+      // over the body, plus a .quran-ref-marker over (البقرة:255). The
+      // ayah span also carries dataset.tooltip + aria-label populated via
+      // QuranTooltip — same shape the reader-side classifier emits.
+      const refMarker = ce.querySelector('.quran-ref-marker');
+      T('US4 reference paren is wrapped in its own .quran-ref-marker',
+        !!refMarker && /\(البقرة:255\)/.test(refMarker.textContent),
+        refMarker && refMarker.outerHTML);
+      T('US4 verdict span carries a tooltip (dataset + aria-label)',
+        !!span && !!span.dataset.tooltip && !!span.getAttribute('aria-label'),
+        span && JSON.stringify({ tooltip: span.dataset.tooltip, aria: span.getAttribute('aria-label') }));
+      T('US4 verdict span carries claimed + matched ref metadata',
+        !!span && span.dataset.claimedRef === 'البقرة:255' && span.dataset.matchedRef === 'البقرة:255',
+        span && JSON.stringify({ claimed: span.dataset.claimedRef, matched: span.dataset.matchedRef }));
     }
 
     // (b) plain input accept → styling skipped, matching/insertion preserved (FR-018b).
@@ -717,6 +732,9 @@ async function inPageTests() {
         window.__quranCompose.lastClassification && window.__quranCompose.lastClassification.viaFallthrough === true
           && window.__quranCompose.lastClassification.verdict === 'green',
         JSON.stringify(window.__quranCompose.lastClassification));
+      T('US4 pre-existing render attaches a tooltip',
+        !!span && !!span.dataset.tooltip,
+        span && span.dataset.tooltip);
     }
 
     // (d) caret-away with candidates still showing → verdict fall-through (FR-011a).
