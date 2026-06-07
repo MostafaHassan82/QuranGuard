@@ -2006,8 +2006,29 @@ function setupMutationObserver() {
       const rootList = [...drained];
       const lca = rootList.length > 1 ? boundedCommonAncestor(rootList, MUT_LCA_MAX_UP) : null;
       const scanTargets = (lca && lca !== document.body && lca.nodeType === 1) ? [lca] : rootList;
+      // Snapshot finding verdicts so we can tell what THIS batch produced.
+      const findingsBefore = new Map(STATE.findings.map(f => [f.id, f.color]));
       for (const root of scanTargets) {
         await scanPage({ subtreeRoot: root }).catch(() => {});
+      }
+      // Provisional-promote: a subtree scan's walker is bounded by its root,
+      // so a citation whose reference (e.g. "(القصص:85)") lives in a sibling
+      // node falls outside the candidate window. Without that ref the
+      // verifier text-matches against the whole index and can land on
+      // wordLevel (yellow) instead of the exact match (green). Any NEW or
+      // RECOLORED non-green/non-lightGreen finding emitted by this batch is
+      // therefore suspect — promote to a full rescan, which sees the whole
+      // document and is authoritative. Stable findings (unchanged colors)
+      // and trusted colors (green, lightGreen) do not warrant promotion.
+      const TRUSTED_SUBTREE_COLORS = new Set(['green', 'lightGreen']);
+      const suspect = STATE.findings.find(f => {
+        if (TRUSTED_SUBTREE_COLORS.has(f.color)) return false;
+        const before = findingsBefore.get(f.id);
+        return before === undefined || before !== f.color;
+      });
+      if (suspect && !STATE.scanning) {
+        QuranLog.scope('mutation').info(`promoting to full rescan: subtree pass produced suspect ${suspect.color} finding (${suspect.id})`);
+        await scanPage().catch(() => {});
       }
       // No-progress breaker: a SLOW re-render fight evades the rate cap, but its
       // rescans never change the findings. If the finding set is identical for
