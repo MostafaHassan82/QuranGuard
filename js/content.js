@@ -2351,24 +2351,11 @@ function placeRefMarkers() {
 // hover/focus tooltip, and the surah/ayah numbers drive the quran.com link.
 // The link is enabled by toggling the .quran-ref-link class (gated by prefs).
 async function decorateRefMarker(marker, refString) {
-  if (!marker || !refString) return;
-  let resolved = null;
-  try { resolved = await sendToBackground({ type: 'resolveReference', ref: refString }); } catch (_) {}
-  if (!resolved || !resolved.surahNum || !Array.isArray(resolved.ayahNums) || resolved.ayahNums.length === 0) return;
-  const texts = Array.isArray(resolved.ayahTexts) ? resolved.ayahTexts.filter(Boolean) : [];
-  if (texts.length) marker.dataset.tooltip = texts.join(' ۝ ');
-  // Render the ayah text in the user's selected Quran font (independent of
-  // whether authentic-text swap is enabled). The tooltip reads this var; the
-  // font key drives the downscale rule that mirrors the swap engine.
-  if (typeof QuranFonts !== 'undefined') {
-    marker.style.setProperty('--quran-ref-tooltip-font', QuranFonts.familyFor(STATE.prefs?.font));
-  }
-  marker.dataset.quranFont = STATE.prefs?.font || 'uthmaniHafs';
-  marker.dataset.quranSurah = String(resolved.surahNum);
-  marker.dataset.quranAyahFirst = String(resolved.ayahNums[0]);
-  marker.dataset.quranAyahLast = String(resolved.ayahNums[resolved.ayahNums.length - 1]);
-  if (STATE.prefs?.refLinks !== false) marker.classList.add('quran-ref-link');
-  applyRefHighlightStyle(marker);
+  // QuranRefDecoration owns the resolve + dataset/link/tooltip wiring + the
+  // refHighlight class; both reader and writer call it. applyRefHighlightStyle
+  // is still used elsewhere for the prefs.refHighlight runtime toggle on
+  // existing markers (reader-only path).
+  return QuranRefDecoration.decorate(marker, refString, { prefs: STATE.prefs, sendToBackground });
 }
 
 // Item 1 — apply the reference highlight toggle (prefs.refHighlight). When off,

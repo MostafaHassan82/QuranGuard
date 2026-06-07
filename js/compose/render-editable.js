@@ -121,6 +121,7 @@ const QuranComposeRenderEditable = (() => {
       && opts.refEnd > opts.refStart;
     const expectedRef = wantRef ? tc.slice(opts.refStart, opts.refEnd) : null;
 
+    let refSpanOut = null;
     try {
       // Wrap the reference first when present. Order is incidental for
       // textContent (slice offsets stay valid across either order), but
@@ -141,6 +142,7 @@ const QuranComposeRenderEditable = (() => {
           guard: 'writer',
         });
         if (!refRes.ok) return false;
+        refSpanOut = refRes.span;
       }
 
       // Build the ayah range fresh from the current DOM — pointAt walks
@@ -164,7 +166,14 @@ const QuranComposeRenderEditable = (() => {
         extraClass,
         guard: 'writer',
       });
-      return ayahRes.ok;
+      if (!ayahRes.ok) return false;
+      // Async ref-marker decoration (tooltip ayah text + quran.com link).
+      // Fire-and-forget — the structural wrap is already in place, so even
+      // if the resolve fails the marker stays correctly classed.
+      if (refSpanOut && opts && opts.refDecorationDeps && typeof QuranRefDecoration !== 'undefined') {
+        QuranRefDecoration.decorate(refSpanOut, opts.claimedRef, opts.refDecorationDeps);
+      }
+      return true;
     } catch (_) {
       return false;       // any DOM hiccup leaves the author's text exactly as-is
     }

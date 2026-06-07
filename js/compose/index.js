@@ -106,12 +106,38 @@
   }
 
   // ── Settings ────────────────────────────────────────────────────────────────
+  // Cache top-level prefs the ref-marker decoration needs (font + refLinks +
+  // refHighlight). Compose only used the `autocomplete` sub-tree before; the
+  // writer-side ref marker reuses the SAME quran.com-link + tooltip wiring as
+  // the reader, so it needs the same top-level toggles.
+  let refMarkerPrefs = { font: 'uthmaniHafs', refLinks: true, refHighlight: true };
+  function refreshRefMarkerPrefs(prefs) {
+    refMarkerPrefs = {
+      font:          (prefs && prefs.font) || 'uthmaniHafs',
+      refLinks:      !prefs || prefs.refLinks !== false,
+      refHighlight:  !prefs || prefs.refHighlight !== false,
+    };
+  }
+  // Promise-returning wrapper around chrome.runtime.sendMessage; passed to
+  // QuranRefDecoration so the shared module has no chrome.runtime coupling.
+  function sendToBackground(msg) {
+    return new Promise((resolve, reject) => {
+      try {
+        chrome.runtime.sendMessage(msg, (resp) => {
+          const err = chrome.runtime.lastError;
+          if (err) reject(err);
+          else resolve(resp);
+        });
+      } catch (e) { reject(e); }
+    });
+  }
   async function loadSettings() {
     try {
       const resp = await QuranMsg.sendRequest('PREFS_READ', {});
       const prefs = resp && resp.payload && resp.payload.result;
       if (prefs && prefs.autocomplete) settings = prefs.autocomplete;
       if (prefs && prefs.font) fontKey = prefs.font;
+      refreshRefMarkerPrefs(prefs);
     } catch (_) {}
   }
   chrome.runtime.onMessage.addListener((msg) => {
@@ -119,6 +145,7 @@
       const prefs = msg.payload.prefs;
       if (prefs.autocomplete) settings = prefs.autocomplete;
       if (prefs.font) fontKey = prefs.font;
+      refreshRefMarkerPrefs(prefs);
       if (!settings.enabled) closeInstance('classified');
     }
     // no response needed
@@ -392,6 +419,10 @@
           claimedRef: cand.refLabel,
           matchedRef: cand.refLabel,
           tooltip,
+          // Hands QuranRefDecoration the writer's prefs + a sendMessage
+          // wrapper so the inserted ref marker gets the same async tooltip
+          // + quran.com-link wiring the reader-side ref markers get.
+          refDecorationDeps: { prefs: refMarkerPrefs, sendToBackground },
         });
     }
     hook.lastInsertion = {
