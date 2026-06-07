@@ -68,17 +68,12 @@ function makeEmptyStats() {
 }
 let STATS = makeEmptyStats();
 
-const CSS_BY_COLOR = {
-  green:     'quran-green',
-  lightBlue: 'quran-lightblue',
-  yellow:    'quran-yellow',
-  orange:    'quran-orange',
-  red:       'quran-red',
-  // Provenance color (not a classifier verdict): a citation we corrected
-  // in place. Verification-wise it is green; lightGreen marks that WE fixed it,
-  // so the user can filter corrected citations apart from natively-correct ones.
-  lightGreen: 'quran-lightgreen',
-};
+// Verdict color → CSS class. Source of truth is js/render/decoration.js
+// (QuranDecoration.CSS_BY_COLOR) so reader-side and writer-side never drift.
+// lightGreen is the provenance color (correct-in-place), not a classifier
+// verdict — verification-wise it is green but lightGreen marks that WE
+// fixed it, so corrected citations filter apart from natively-correct ones.
+const CSS_BY_COLOR = QuranDecoration.CSS_BY_COLOR;
 // Invisible placeholder class used during intermediate scan passes.
 // Pending spans still fragment the DOM (driving convergence) but are not visible.
 const PENDING_CLASS = 'quran-pending';
@@ -86,7 +81,7 @@ const ALL_HIGHLIGHT_CLASSES = [...Object.values(CSS_BY_COLOR), PENDING_CLASS];
 const HIGHLIGHT_SELECTOR = ALL_HIGHLIGHT_CLASSES.map(c => '.' + c).join(', ');
 // T065 — wrapper placed around the cited reference's on-page text so
 // correct-in-place can find and replace it. Distinct from the highlight span.
-const REF_MARKER_CLASS = 'quran-ref-marker';
+const REF_MARKER_CLASS = QuranDecoration.REF_MARKER_CLASS;
 
 // ── Window globals (T019) — per contracts/window-globals.md ──────────────────
 window.__quranScan = null;      // set on SCAN_COMPLETE, null on SCAN_START
@@ -764,42 +759,13 @@ function runExtractionStrategies(textNodes, combined, map) {
 
 // ── Tooltip building ──────────────────────────────────────────────────────────
 
-function canonicalRef(refString) {
-  if (!refString) return '';
-  return refString.replace(/^[\s({«\[﴿]+|[\s)}»\]﴾]+$/g, '').replace(/\s+/g, ' ').trim();
-}
-
 function tt(key, vars) { return (typeof QuranI18n !== 'undefined') ? QuranI18n.t(key, vars) : key; }
 
+// Thin wrapper over QuranTooltip.build (js/render/tooltip.js) — the per-color
+// formula now lives in the shared module so reader-side and writer-side
+// produce identical tooltip text from the same inputs.
 function buildTooltip(color, result) {
-  switch (color) {
-    case 'green': {
-      let tip = result.matchedRef || tt('tip_match');
-      const exact = result.allExactRefs || [];
-      const partial = result.allPartialRefs || [];
-      const otherExact = exact.filter(r => r !== result.matchedRef);
-      if (otherExact.length > 0) tip += '\n' + tt('tip_also_in', { refs: otherExact.join(' • ') });
-      if (partial.length > 0) tip += '\n' + tt('tip_partial_in', { refs: partial.join(' • ') });
-      return tip;
-    }
-    case 'lightBlue': {
-      const refs = result.matchedRefs && result.matchedRefs.length > 1 ? result.matchedRefs.join(' • ') : (result.matchedRef || '');
-      return refs + '\n' + tt('tip_no_ref');
-    }
-    case 'yellow': {
-      const matched = result.matchedRef || '';
-      const claimed = result.claimedRef || '';
-      const refsDiffer = claimed && canonicalRef(claimed) !== canonicalRef(matched);
-      const note = refsDiffer ? '\n' + tt('tip_word_level_and_ref', { cited: claimed }) : '\n' + tt('tip_word_level');
-      return matched + note;
-    }
-    case 'lightGreen': return tt('tip_corrected', { from: result.correctedFromRef || '?', to: result.matchedRef || '?' });
-    case 'orange': return tt('tip_orange', { cited: result.claimedRef || '?', matched: result.matchedRef || '?' });
-    case 'red': return result.claimedRef
-      ? tt('tip_red_with_ref', { ref: result.claimedRef })
-      : tt('tip_red');
-    default: return '';
-  }
+  return QuranTooltip.build(color, result);
 }
 
 // ── DOM wrapping ──────────────────────────────────────────────────────────────
@@ -883,18 +849,32 @@ function wrapTextNodes(nodes, startOffset, endOffset, cssClass, dataAttrs) {
   try {
     const span = document.createElement('span');
     span.className = cssClass;
-    for (const [k, v] of Object.entries(dataAttrs)) { if (v != null) span.dataset[k] = v; }
     // T034 — Keyboard focusable + role + aria-label for assistive tech.
-    // aria-label is preferred over an appended SR-only child: no DOM mutation
-    // risk, no chance of the label text being concatenated into the visible
-    // span, no chance of the mutation observer / convergence loop seeing it.
-    span.setAttribute('tabindex', '0');
-    span.setAttribute('role', 'mark');
+    // QuranDecoration.decorateSpan owns the canonical metadata shape
+    // (color/claimedRef/matchedRef/tooltip/findingId + tabindex/role/aria-
+    // label). Reader-side prepends the category label to aria-label so AT
+    // users hear the finding category before the tooltip; that string is
+    // built here and passed explicitly, since writer-side uses just the
+    // tooltip and the shared module accepts either.
     const color = dataAttrs.color;
-    if (color && CATEGORY_LABEL_AR[color]) {
-      const tooltip = dataAttrs.tooltip || '';
-      span.setAttribute('aria-label', tt('cat_' + color) + (tooltip ? '. ' + tooltip : ''));
-    }
+    const tooltip = dataAttrs.tooltip || '';
+    const ariaLabel = (color && CATEGORY_LABEL_AR[color])
+      ? tt('cat_' + color) + (tooltip ? '. ' + tooltip : '')
+      : null;
+    QuranDecoration.decorateSpan(span, {
+      color, tooltip, ariaLabel,
+      claimedRef: dataAttrs.claimedRef,
+      matchedRef: dataAttrs.matchedRef,
+      findingId:  dataAttrs.findingId,
+    });
+    // Reader-only dataset fields (panel + correct-in-place need them; writer
+    // doesn't carry these). Kept here rather than in the shared module so
+    // QuranDecoration stays focused on the cross-cutting shape.
+    if (dataAttrs.matchedRefs != null) span.dataset.matchedRefs = dataAttrs.matchedRefs;
+    if (dataAttrs.authenticText != null) span.dataset.authenticText = dataAttrs.authenticText;
+    if (dataAttrs.deviation != null) span.dataset.deviation = dataAttrs.deviation;
+    if (dataAttrs.originalText != null) span.dataset.originalText = dataAttrs.originalText;
+    if (dataAttrs.strategy != null) span.dataset.strategy = dataAttrs.strategy;
     if (nodes.length === 1) {
       const node = nodes[0];
       const before = node.textContent.slice(0, startOffset);
@@ -1119,12 +1099,21 @@ function materializeHighlights() {
   const pending = document.querySelectorAll('.' + PENDING_CLASS);
   for (const span of pending) {
     const color = span.dataset.color;
-    const realClass = CSS_BY_COLOR[color];
-    if (realClass) {
-      span.classList.remove(PENDING_CLASS);
-      span.classList.add(realClass);
-      applyHighlightStyleClass(span);
-    }
+    if (!CSS_BY_COLOR[color]) continue;
+    span.classList.remove(PENDING_CLASS);
+    // QuranDecoration.upgrade sets the verdict color class and reapplies the
+    // canonical metadata shape. Dataset values already on the pending span
+    // (placed by wrapTextNodes) are passed through so the upgrade is a pure
+    // class swap — no fields are zeroed.
+    QuranDecoration.upgrade(span, {
+      color,
+      tooltip:    span.dataset.tooltip,
+      claimedRef: span.dataset.claimedRef,
+      matchedRef: span.dataset.matchedRef,
+      findingId:  span.dataset.findingId,
+      ariaLabel:  span.getAttribute('aria-label'),
+    });
+    applyHighlightStyleClass(span);
   }
 }
 

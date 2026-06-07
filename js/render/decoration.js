@@ -157,5 +157,18 @@ const QuranDecoration = (() => {
     return { ok: true, span };
   }
 
-  return { apply, wrapRefMarker, upgrade, classFor, CSS_BY_COLOR, REF_MARKER_CLASS };
+  // Apply the canonical metadata shape (dataset, tabindex, role, ARIA, font)
+  // to a span the caller has already created and parented. Used by the
+  // reader-side path, whose wrap mechanism is text-node-based (multi-node
+  // aware) rather than Range-based — apply() doesn't fit, but the OUTPUT
+  // shape should still match the writer-side. Caller manages class names
+  // (because the reader supports a transient PENDING_CLASS state that
+  // doesn't belong in the verdict color set).
+  function decorateSpan(span, params) {
+    if (!span || !params) return { ok: false, reason: 'bad-params' };
+    setSpanMetadata(span, params);
+    return { ok: true, span };
+  }
+
+  return { apply, wrapRefMarker, upgrade, decorateSpan, classFor, CSS_BY_COLOR, REF_MARKER_CLASS };
 })();
