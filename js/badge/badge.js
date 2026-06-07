@@ -34,7 +34,7 @@ const QuranBadge = (() => {
   }
 
   function onScanComplete(tabId, finalState, perCategoryCount, totalCount) {
-    if (finalState === 'notArabic' || finalState === 'empty') {
+    if (finalState === 'empty') {
       set(tabId, { text: '', color: '#888888', title: 'Quran Citation Verifier — no citations found' });
       return;
     }

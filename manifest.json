@@ -37,7 +37,8 @@
         "js/compose/index.js"
       ],
       "css": ["css/content.css", "css/sidebar.css", "css/compose.css"],
-      "run_at": "document_start"
+      "run_at": "document_start",
+      "all_frames": true
     }
   ],
   "action": {

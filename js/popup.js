@@ -141,7 +141,6 @@ chrome.runtime.onMessage.addListener((msg) => {
     document.getElementById('btn-continue').disabled = false;
     document.getElementById('progress').hidden = true;
 
-    if (payload.finalState === 'notArabic') { setStatus(QuranI18n.t('status_not_arabic')); return; }
     if (payload.finalState === 'empty')     { setStatus(QuranI18n.t('status_empty'));      return; }
 
     setStatus(QuranI18n.t('status_done'));
@@ -185,10 +184,6 @@ async function hydrateFromActiveTab() {
       return;
     }
     if (state.scanComplete) {
-      if (state.languageDetected && state.languageDetected !== 'ar') {
-        setStatus(QuranI18n.t('status_not_arabic'));
-        return;
-      }
       if (state.totalCount === 0) { setStatus(QuranI18n.t('status_empty')); return; }
       setStatus(QuranI18n.t('status_done'));
       if (state.capHit) {

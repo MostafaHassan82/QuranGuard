@@ -1241,21 +1241,15 @@ async function scanPage({ liftCap = false, subtreeRoot = null } = {}) {
   // recur across passes (the common case) skip the service-worker round-trip.
   const verdictCache = new Map();
 
-  // Language gate — only needs to run once.
+  // Record the detected page language for telemetry only — we DO NOT gate on
+  // it. Quran citations are Arabic-script wherever they appear (a Gmail
+  // message, an English news article quoting an ayah, a Google Chat
+  // thread, etc.). The verifier finds Arabic candidates anywhere in the
+  // DOM; if there are none, the natural "no findings" path reports an
+  // empty scan. The lang gate that used to skip non-Arabic pages was a
+  // bug — it produced false negatives on every mixed-language surface.
   if (isFreshFull) {
-    const lang = detectLanguage();
-    STATE.languageDetected = lang;
-    if (lang !== 'ar') {
-      clearHighlights();
-      STATE.scanning = false;
-      const payload = {
-        scanId, totalCount: 0, perCategoryCount: { green: 0, lightBlue: 0, lightGreen: 0, yellow: 0, orange: 0, red: 0 },
-        durationMs: Date.now() - startTime, languageDetected: lang, finalState: 'notArabic',
-      };
-      QuranMsg.emit('SCAN_COMPLETE', payload);
-      updateWindowGlobals(scanId, startedAt, payload);
-      return;
-    }
+    STATE.languageDetected = detectLanguage();
   }
 
   for (let pass = 1; pass <= maxPasses; pass++) {
@@ -1711,7 +1705,7 @@ async function autoCorrectLightBlue({ refByKey, autoAll }) {
 
 async function maybeMountSidebar(finalState) {
   if (typeof QuranPanelSidebar === 'undefined') return;
-  if (finalState === 'empty' || finalState === 'notArabic') return;
+  if (finalState === 'empty') return;
 
   // Read the persisted corrections/dismissals for this URL first (FR-024).
   let entries = null;
