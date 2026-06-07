@@ -822,4 +822,32 @@
   .quran-ext-panel-suggest-list { display: flex; flex-wrap: wrap; gap: 6px; }
   .quran-ext-panel-suggest-item { display: inline-flex; align-items: center; gap: 4px; }
   .quran-ext-panel-suggest-copy { font-size: 0.85em; }
+
+  /* T040 — Forced colors fallback. The panel's clip-path arch and gold motif
+   * collapse to a plain rectangle with system-color chrome. Verdict color
+   * classes are never themed (Principle II). */
+  @media (forced-colors: active) {
+    &.quran-ext-panel {
+      background: Canvas;
+      color: CanvasText;
+      clip-path: none;
+      filter: none;
+      border-inline-end: 1px solid CanvasText;
+    }
+    &.quran-ext-panel-tab {
+      background: Canvas;
+      color: CanvasText;
+      border: 1px solid CanvasText;
+    }
+    .quran-ext-panel-header {
+      background: Canvas;
+      color: CanvasText;
+      border-bottom: 1px solid CanvasText;
+    }
+    .quran-ext-panel-title,
+    .quran-ext-panel-title .gold {
+      color: CanvasText;
+      text-shadow: none;
+    }
+  }
 }

@@ -586,4 +586,39 @@
     flex-shrink: 0;
   }
   #appearance-picker .theme-card-name { font-weight: 600; font-size: 14px; }
+
+  /* T040 — Forced colors fallback. Verdict color classes are never themed
+   * (Principle II), so they remain untouched here. */
+  @media (forced-colors: active) {
+    & body { background: Canvas; color: CanvasText; }
+    #options-header,
+    #options-header h1,
+    #options-header h1 .gold {
+      background: Canvas;
+      color: CanvasText;
+      clip-path: none;
+      filter: none;
+      text-shadow: none;
+    }
+    #options-header { border-bottom: 1px solid CanvasText; }
+    #options-shell::before { display: none; }
+    .opt-card,
+    .verdict-tile,
+    .theme-card { border-color: CanvasText; background: Canvas; color: CanvasText; }
+    .opt-sec-head::before,
+    .opt-toc a::after { color: CanvasText; }
+    button { border: 1px solid ButtonText; }
+    /* Active theme card under forced-colors: Mihrab's gold-soft + emerald
+     * border collapses to plain Canvas. Override with system Highlight so
+     * the selection is visible. Higher specificity needed to outweigh the
+     * Mihrab `.is-active` rule above. */
+    #appearance-picker .theme-card.is-active {
+      background: Highlight;
+      color: HighlightText;
+      border-color: Highlight;
+      box-shadow: none;
+      forced-color-adjust: none;
+    }
+    #appearance-picker .theme-card.is-active .theme-card-desc { color: HighlightText; }
+  }
 }
