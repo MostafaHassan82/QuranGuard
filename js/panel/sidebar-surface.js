@@ -247,6 +247,12 @@ const QuranPanelSidebar = (() => {
     tabEl.setAttribute('role', 'button');
     tabEl.setAttribute('tabindex', '0');
     tabEl.innerHTML = CHEVRON_LEFT;
+    // Mirror the panel root's data-theme so same-element theme rules
+    // (&.quran-ext-panel-tab in css/themes/mihrab.css) match. The tab is a
+    // sibling of the panel root in DOM, not a descendant.
+    if (rootEl && rootEl.dataset && rootEl.dataset.theme) {
+      tabEl.dataset.theme = rootEl.dataset.theme;
+    }
     const toggle = () => { if (collapsed) expand(); else collapse(); };
     tabEl.addEventListener('click', toggle);
     tabEl.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } });
@@ -1209,8 +1215,11 @@ const QuranPanelSidebar = (() => {
       if (!rootEl) return;
       const id = (typeof QuranThemes !== 'undefined' && QuranThemes.isValidId(next))
         ? next
-        : (typeof QuranThemes !== 'undefined' ? QuranThemes.defaultId() : 'mihrab');
+        : (typeof QuranThemes !== 'undefined' ? QuranThemes.defaultId() : 'default');
       rootEl.dataset.theme = id;
+      // Keep the edge tab (a sibling of the panel root in DOM) in sync so
+      // same-element theme rules like &.quran-ext-panel-tab match.
+      if (tabEl) tabEl.dataset.theme = id;
     });
   }
 
@@ -1229,10 +1238,10 @@ const QuranPanelSidebar = (() => {
       const stored = r && r['prefs.v1'] && r['prefs.v1'].appearance && r['prefs.v1'].appearance.theme;
       const themeId = (typeof QuranThemes !== 'undefined' && QuranThemes.isValidId(stored))
         ? stored
-        : (typeof QuranThemes !== 'undefined' ? QuranThemes.defaultId() : 'mihrab');
+        : (typeof QuranThemes !== 'undefined' ? QuranThemes.defaultId() : 'default');
       rootEl.dataset.theme = themeId;
     } catch (_) {
-      rootEl.dataset.theme = (typeof QuranThemes !== 'undefined' ? QuranThemes.defaultId() : 'mihrab');
+      rootEl.dataset.theme = (typeof QuranThemes !== 'undefined' ? QuranThemes.defaultId() : 'default');
     }
 
     // Defensive sweep: drop any stray panel/tab nodes left over from an earlier

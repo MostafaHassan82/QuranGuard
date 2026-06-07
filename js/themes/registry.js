@@ -6,11 +6,10 @@
 const QuranThemes = (() => {
   // Ordered: this is the display order in the Appearance picker.
   const list = [
-    // Mihrab is the fresh-install default — the current published UI ships
-    // this look. "Minimal" is a neutral alternative for users who prefer a
-    // less decorative, lower-contrast appearance.
-    { id: 'mihrab',  displayName: 'Mihrab',  displayNameAr: 'المحراب', defaultFor: 'fresh-install' },
-    { id: 'minimal', displayName: 'Minimal', displayNameAr: 'بسيط',    defaultFor: 'never' },
+    // Default is the neutral base look (matches the pre-Mihrab UI). Mihrab
+    // is an opt-in decorative treatment layered on top via [data-theme="mihrab"].
+    { id: 'default', displayName: 'Default', displayNameAr: 'الافتراضي', defaultFor: 'fresh-install' },
+    { id: 'mihrab',  displayName: 'Mihrab',  displayNameAr: 'المحراب',   defaultFor: 'never' },
   ];
 
   const ids = new Set(list.map(t => t.id));
