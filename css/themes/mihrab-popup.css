@@ -405,4 +405,36 @@
    * the persisted data-theme attribute (FR-006, SC-006). The guard is a no-op
    * for the currently identical default and Mihrab themes, but it is in place
    * for future themes that materially change the popup chrome. */
+
+  /* T040 — Forced colors (Windows High Contrast). Drop the decorative
+   * green-on-gold palette and clip-path arches so user-agent system colors
+   * (Canvas, CanvasText, LinkText, ButtonText) drive contrast. Verdict
+   * classes are NEVER overridden by themes (Principle II). */
+  @media (forced-colors: active) {
+    & body { background: Canvas; color: CanvasText; }
+    #popup-header,
+    #popup-header h1,
+    #popup-header h1 .gold {
+      background: Canvas;
+      color: CanvasText;
+      clip-path: none;
+      filter: none;
+      text-shadow: none;
+    }
+    #popup-header { border-bottom: 1px solid CanvasText; }
+    .popup-divider-ornament { display: none; }
+    button { border: 1px solid ButtonText; }
+    /* The custom toggle hides the native radio and shows selection via a
+     * colored background — both stripped by forced-colors. Restore a visible
+     * selected state using system Highlight colors. */
+    .toggle-option { border: 1px solid CanvasText; background: Canvas; color: CanvasText; }
+    .toggle-option:has(input:checked) {
+      background: Highlight;
+      color: HighlightText;
+      border-color: Highlight;
+      /* Belt-and-suspenders: forced-colors honors `forced-color-adjust: none`
+       * so the system can still let us paint with system colors. */
+      forced-color-adjust: none;
+    }
+  }
 }

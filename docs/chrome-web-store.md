@@ -66,7 +66,7 @@ The "Single purpose" field on the Privacy tab is nominally 1000 chars but in pra
 CWS asks for a one-paragraph justification per permission. Copy these into the dashboard. Each is tailored to QuranGuard's actual usage.
 
 ### `storage`
-> Stores user preferences (verdict color filter, autocomplete settings, panel position) and per-page state (which findings were corrected or dismissed, so a revisit does not flag them again). All data is kept in `chrome.storage.local`; nothing is transmitted off the device.
+> Stores user preferences (verdict color filter, autocomplete settings, panel position, appearance theme) and per-page state (which findings were corrected or dismissed, so a revisit does not flag them again). All data is kept in `chrome.storage.local`; nothing is transmitted off the device.
 
 ### `activeTab`
 > The toolbar popup operates on the page currently in view — opening the findings panel, triggering a manual rescan. `activeTab` is the minimal permission that grants this on-demand access only after the user clicks the QuranGuard action.

@@ -1,6 +1,6 @@
 # Privacy Policy — QuranGuard (صون القرآن)
 
-**Last updated:** 2026-06-04
+**Last updated:** 2026-06-07
 
 QuranGuard is a Chrome extension that verifies Quran citations on web pages and helps authors insert correct citations while typing. This policy describes, in full, what it does and does not do with your data.
 
@@ -15,7 +15,7 @@ QuranGuard is a Chrome extension that verifies Quran citations on web pages and 
 | Access | Purpose | Where it stays |
 | --- | --- | --- |
 | The text content of web pages you visit | Detect Quran citations, compare them against the authentic mushaf | Read in memory only; never stored, never transmitted |
-| Your extension settings (verdict colors, autocomplete prefs, panel position, font choice) | Apply your preferences across pages and sessions | `chrome.storage.local` on your device |
+| Your extension settings (verdict colors, autocomplete prefs, panel position, font choice, appearance theme) | Apply your preferences across pages and sessions | `chrome.storage.local` on your device |
 | Per-page correction & dismissal records (which findings on a URL you corrected or dismissed) | Re-apply your decisions on revisit so QuranGuard does not re-prompt you | `chrome.storage.local` on your device |
 
 ## What QuranGuard does NOT do

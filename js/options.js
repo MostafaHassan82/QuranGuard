@@ -154,8 +154,9 @@ async function applyPrefsToUI(prefs) {
 function renderAppearancePicker(activeId) {
   const picker = document.getElementById('appearance-picker');
   if (!picker || typeof QuranThemes === 'undefined') return;
-  const lang = document.documentElement.lang || 'ar';
-  const labelOf = (t) => (lang === 'ar' ? t.displayNameAr : t.displayName) || t.displayName;
+  // Per-theme name + one-line blurb (US5 / T039). Spans are tagged with
+  // data-i18n so QuranI18n.applyDom() re-translates them when the user
+  // flips the language without needing to rebuild the picker.
   picker.innerHTML = '';
   for (const t of QuranThemes.list) {
     const label = document.createElement('label');
@@ -164,9 +165,15 @@ function renderAppearancePicker(activeId) {
     label.innerHTML = `
       <input type="radio" name="theme" value="${t.id}" ${t.id === activeId ? 'checked' : ''}>
       <span class="theme-card-swatch" aria-hidden="true"></span>
-      <span class="theme-card-name">${labelOf(t)}</span>
+      <span class="theme-card-text">
+        <span class="theme-card-name" data-i18n="theme_${t.id}_name"></span>
+        <span class="theme-card-desc" data-i18n="theme_${t.id}_desc"></span>
+      </span>
     `;
     picker.appendChild(label);
+  }
+  if (typeof QuranI18n !== 'undefined' && typeof QuranI18n.applyDom === 'function') {
+    QuranI18n.applyDom(picker);
   }
 }
 
