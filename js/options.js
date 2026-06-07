@@ -162,9 +162,14 @@ function renderAppearancePicker(activeId) {
     const label = document.createElement('label');
     label.className = 'theme-card';
     label.dataset.themeId = t.id;
+    // Swatch colors come from the registry descriptor so adding a theme
+    // requires zero edits to css/options.css. Fallback to neutral defaults
+    // if a descriptor is missing them.
+    const a = t.swatchA || '#dddddd';
+    const b = t.swatchB || '#aaaaaa';
     label.innerHTML = `
       <input type="radio" name="theme" value="${t.id}" ${t.id === activeId ? 'checked' : ''}>
-      <span class="theme-card-swatch" aria-hidden="true"></span>
+      <span class="theme-card-swatch" aria-hidden="true" style="--q-swatch-a:${a};--q-swatch-b:${b}"></span>
       <span class="theme-card-text">
         <span class="theme-card-name" data-i18n="theme_${t.id}_name"></span>
         <span class="theme-card-desc" data-i18n="theme_${t.id}_desc"></span>
