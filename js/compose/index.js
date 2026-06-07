@@ -396,7 +396,15 @@
       inserting = false;
     }
     const cand = p.cand;
-    const verdict = QuranComposeRenderEditable.verdictForTier(cand.tier);
+    // The MATCHER's tier (cand.tier) describes how the user's TYPED fragment
+    // aligned to the candidate. After insertion the typed fragment is gone —
+    // replaceRange just wrote the AUTHENTIC mushaf wording in its place (every
+    // scope in buildBody emits verse words verbatim; see js/compose/insert.js,
+    // Principle I). The on-page text is therefore exact-match by construction
+    // and the verdict is always green, regardless of how badly the author's
+    // typing drifted. The matcher's tier is still recorded on the classification
+    // hook below for telemetry.
+    const verdict = 'green';
     // FR-018/018b: in contenteditable, render the just-inserted authentic ayah by
     // its verdict color + Quran font as PERSISTENT markup. Additive only — wraps
     // the inserted run, never re-splices the user's surrounding text. Skipped in
