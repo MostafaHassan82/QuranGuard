@@ -318,6 +318,16 @@ function createTextWalker(root) {
       if (parent.closest(HIGHLIGHT_SELECTOR)) return NodeFilter.FILTER_REJECT;
       // T152 — never walk into our own panel/tab/tooltip.
       if (parent.closest(OWN_UI_SELECTOR)) return NodeFilter.FILTER_REJECT;
+      // Live writer surfaces belong to the compose autocomplete pipeline.
+      // Scanning them while the author is typing produces premature lightBlue/
+      // yellow verdicts on partial citations and leaves leftover wrap spans
+      // around the accepted insertion, so reader-side stays out — compose's
+      // own renderer owns the verdict markup inside contenteditable surfaces
+      // (already-inserted writer markup carries .quran-ac-cite and is in
+      // HIGHLIGHT_SELECTOR, so it's still skipped by the check above).
+      // [contenteditable="false"] is read-only display content (e.g. mention
+      // chips) and is left walkable.
+      if (parent.closest('[contenteditable=""], [contenteditable="true"]')) return NodeFilter.FILTER_REJECT;
       // Keep short non-whitespace text nodes — single chars like "{", "}", "*"
       // often sit in their own text nodes between inline elements (e.g.
       //   {<font>v88</font> * <font>v89</font>}) and are required for BRACE_RE
