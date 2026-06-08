@@ -111,6 +111,37 @@ A trivial stub theme (e.g., `css/themes/_stub.css` adding a single accent rule +
 
 ---
 
+## Decision 9 — Four-theme amendment (2026-06-07): per-theme design tokens & fonts
+
+**Decision**: Promote the four preview-only designs in `design/` (`atelier`, `diwan`, `marakeb`, `tahrir`) into full themes using the architecture established in Decisions 1–8 — registry entry + three per-surface CSS files + manifest/HTML/i18n wiring. Per-theme tokens are anchored on the `design/index.html` swatch chips and the structural rules cribbed from each `design/<id>-preview.html`. Each theme's hero font is bundled in `resources/fonts/` (no remote loading per constitution) with a `local()` fallback chain identical to Mihrab's approach.
+
+| Theme | `--q-primary` | `--q-gold`/accent | `--q-bg` | `--q-card` | Hero display font | Body font | Mono |
+|---|---|---|---|---|---|---|---|
+| atelier | `#1a1410` (ink) | `#b8860b` (gold-leaf) | `#f5efe3` (parchment) | `#faf6ec` | Fraunces 9pt opsz italic 300/400 | Fraunces 14pt 400 | DM Mono 400 |
+| diwan | `#0b5d3b` (green) | `#5ba87a` (sage) | `#f0f7f1` (mint) | `#ffffff` | Hanken Grotesk 600 | Hanken Grotesk 400/500 | DM Mono 400 |
+| marakeb | `#6ee7b7` (phosphor) on `#0a0e0c` (terminal bg) | `#c8a24a` (brass) | `#0a0e0c` | `#13201a` | JetBrains Mono 700 | JetBrains Mono 400 | JetBrains Mono 400 |
+| tahrir | `#1a1a1a` (ink) | `#0b5d3b` (single green accent) | `#f4f0e6` (broadsheet cream) | `#ffffff` | Amiri 700 (masthead) | Amiri 400 | DM Mono 400 (labels) |
+
+Structural signatures (sources for the popup header treatment specifically — the most thematic surface):
+
+- **atelier**: framed parchment card with a 1px ink hairline border + inner gold-leaf rule; museum-plate caption row above the title; Arabic display in Fraunces italic; no clip-path silhouette.
+- **diwan**: rounded-22px white panel floating on a mint→pale-mint linear gradient body; circular gradient avatar-style icon left of title; rounded pill status chip.
+- **marakeb**: phosphor-green on near-black; monospace everywhere; three-dot terminal chrome top-left; cursor "▮" pseudo-element; subtle text-shadow glow on the accent.
+- **tahrir**: heavy double-rule horizontal masthead (top + bottom of the header band); large Amiri serif title centered; tiny condensed-uppercase "vol/no." caption in DM Mono; dropline divider (4px-8px dash pattern) under the masthead.
+
+**Rationale**:
+- Lifting tokens verbatim from `design/index.html` keeps the picker swatches and the rendered theme visually consistent — the swatch chip the user clicks IS a slice of the actual surface.
+- Each theme uses ONE hero font + system fallbacks. We do not bundle every weight of every family — only the weights present in the preview's masthead and the body. Mihrab already bundles three families (Amiri, El Messiri, Reem Kufi); the new themes add at most two families each (one display, one body — sometimes the same family).
+- Fonts ship from `resources/fonts/` as `woff2`. EN/LA fonts are subset to Latin + numerals; AR fonts to the standard Arabic+presentation-forms range. Tahrir reuses the Amiri files already bundled for Mihrab — zero new font assets.
+
+**Alternatives considered**:
+- *System-fallback only, defer font bundling*. Rejected because three of the four themes (atelier's Fraunces italic, diwan's Hanken rounded character, marakeb's monospace identity) are visually defined by the typeface; system fallbacks would degrade them into "default with a different accent color" and undercut why the theme exists.
+- *One shared "typography pack" loaded once for all themes*. Rejected: violates the "theme owns its assets" principle (SC-007); a user on Default + atelier would load the marakeb mono and tahrir broadsheet faces for no reason.
+
+**Best practice**: Each new theme file follows the same shape as `css/themes/mihrab-popup.css`: `@font-face` declarations at the top of the `[data-theme="<id>"]` block; `& { --q-*: ... }` token redefinitions; structural rules using existing selector IDs (`#popup-header`, `#trigger-row`, `#controls`, `#progress`, `.popup-foot`, etc.); a `@media (forced-colors: active)` block at the end resetting chrome to system colors. Verdict color classes are NEVER referenced.
+
+---
+
 ## Open questions
 
-None. Phase 1 can proceed.
+None. Phase 1 design is unchanged by the amendment (no new entities, no new contracts). Phase 2 (tasks) extends `tasks.md` with one task per CSS file + the registry/manifest/i18n wiring.

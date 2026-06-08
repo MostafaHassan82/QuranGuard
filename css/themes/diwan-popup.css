@@ -1,0 +1,239 @@
+@font-face {
+    font-family: "Hanken Grotesk";
+    src: local("Hanken Grotesk"), url("../../resources/fonts/hanken-grotesk-400.woff2") format("woff2");
+    font-weight: 400; font-style: normal; font-display: swap;
+  }
+@font-face {
+    font-family: "Hanken Grotesk";
+    src: local("Hanken Grotesk Medium"), url("../../resources/fonts/hanken-grotesk-500.woff2") format("woff2");
+    font-weight: 500; font-style: normal; font-display: swap;
+  }
+@font-face {
+    font-family: "Hanken Grotesk";
+    src: local("Hanken Grotesk SemiBold"), url("../../resources/fonts/hanken-grotesk-600.woff2") format("woff2");
+    font-weight: 600; font-style: normal; font-display: swap;
+  }
+@font-face {
+    font-family: "DM Mono";
+    src: local("DM Mono"), url("../../resources/fonts/dm-mono-400.woff2") format("woff2");
+    font-weight: 400; font-style: normal; font-display: swap;
+  }
+
+
+/* css/themes/diwan-popup.css — Diwan theme, popup surface (feature 004 amendment).
+ * Soft modern · Calm. Rounded corners, mint pastels, glassy white panels.
+ * Verdict color classes preserved.
+ */
+
+[data-theme="diwan"] {
+  & {
+    --q-primary: #0b5d3b;
+    --q-primary-strong: #084428;
+    --q-primary-mute: #5ba87a;
+    --q-on-primary: #ffffff;
+    --q-gold: #5ba87a;
+    --q-gold-soft: #d8ecde;
+    --q-bg: #f0f7f1;
+    --q-card: #ffffff;
+    --q-border: #e0ece3;
+    --q-text: #1a2a1f;
+    --q-muted: #7a8a7a;
+    --q-focus: var(--q-primary-mute);
+    --f-body: 'Hanken Grotesk', "Segoe UI", system-ui, sans-serif;
+    --f-label: 'DM Mono', ui-monospace, monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  [hidden] { display: none !important; }
+
+  body {
+    font-family: var(--f-body);
+    min-width: 340px;
+    max-width: 360px;
+    background: linear-gradient(160deg, #f0f7f1 0%, #e6f1e3 100%);
+    color: var(--q-text);
+    font-size: 14px;
+    line-height: 1.55;
+    padding: 18px 18px 16px;
+  }
+
+  /* ── Header — rounded white panel floating on the mint gradient ─────── */
+  #popup-header {
+    position: relative;
+    padding: 18px 18px 18px 64px;
+    background: var(--q-card);
+    border-radius: 22px;
+    box-shadow: 0 12px 32px -20px rgba(11, 93, 59, 0.25);
+    margin: 0 0 14px;
+  }
+  /* Circular gradient avatar-style icon. */
+  #popup-header::before {
+    content: '';
+    position: absolute;
+    left: 16px; top: 50%;
+    transform: translateY(-50%);
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #5ba87a, #0b5d3b);
+  }
+  #popup-header h1 {
+    margin: 0;
+    font-family: var(--f-body);
+    font-weight: 600;
+    font-size: 17px;
+    color: var(--q-primary);
+    line-height: 1.2;
+  }
+  #popup-header h1 .gold { color: var(--q-primary-mute); font-weight: 500; }
+  #popup-header h1 span + span { margin-inline-start: 6px; }
+
+  .popup-divider-ornament { display: none; }
+
+  /* ── Mode pills — full pill toggle ───────────────────────────────────── */
+  #trigger-row {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 4px;
+    background: var(--q-card);
+    border-radius: 999px;
+    padding: 4px;
+    margin-bottom: 12px;
+    box-shadow: 0 4px 16px -10px rgba(11, 93, 59, 0.15);
+  }
+  #trigger-label {
+    position: absolute; width: 1px; height: 1px;
+    padding: 0; margin: -1px; overflow: hidden;
+    clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+  }
+  .toggle-option {
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 8px 10px;
+    border-radius: 999px;
+    cursor: pointer;
+    font-family: var(--f-body);
+    font-weight: 500;
+    font-size: 13px;
+    color: var(--q-muted);
+    transition: background 0.18s, color 0.18s;
+  }
+  .toggle-option input { appearance: none; position: absolute; width: 0; height: 0; opacity: 0; }
+  .toggle-option .kbd {
+    display: block;
+    font-family: var(--f-label);
+    font-size: 9px;
+    margin-top: 2px;
+    opacity: 0.7;
+    direction: ltr;
+  }
+  .toggle-option:has(input:checked) {
+    background: var(--q-primary);
+    color: var(--q-on-primary);
+  }
+
+  /* ── Controls ────────────────────────────────────────────────────────── */
+  #controls { display: flex; flex-direction: column; gap: 8px; }
+  button {
+    padding: 11px 14px;
+    font-family: var(--f-body);
+    font-weight: 500;
+    font-size: 14px;
+    background: var(--q-card);
+    color: var(--q-text);
+    border: 1px solid var(--q-border);
+    border-radius: 14px;
+    cursor: pointer;
+    transition: background 0.15s, transform 0.1s, box-shadow 0.15s;
+  }
+  button:hover {
+    background: var(--q-gold-soft);
+    box-shadow: 0 8px 20px -14px rgba(11, 93, 59, 0.3);
+  }
+  button:focus-visible { outline: 2px solid var(--q-focus); outline-offset: 2px; }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  #btn-scan {
+    background: linear-gradient(135deg, #5ba87a, #0b5d3b);
+    color: var(--q-on-primary);
+    border-color: transparent;
+    font-weight: 600;
+    font-size: 15px;
+    padding: 13px 16px;
+    border-radius: 16px;
+    box-shadow: 0 8px 20px -10px rgba(11, 93, 59, 0.4);
+  }
+  #btn-scan:hover { transform: translateY(-1px); box-shadow: 0 12px 24px -10px rgba(11, 93, 59, 0.5); }
+
+  /* ── Status + Progress ───────────────────────────────────────────────── */
+  #status {
+    font-family: var(--f-body);
+    font-size: 13px;
+    color: var(--q-muted);
+    margin: 10px 0 0;
+    text-align: center;
+    min-height: 16px;
+  }
+  #progress {
+    display: grid; grid-template-columns: 1fr auto;
+    align-items: center;
+    margin: 12px 0 0;
+    padding: 14px 16px;
+    background: var(--q-card);
+    border-radius: 14px;
+    box-shadow: 0 6px 16px -12px rgba(11, 93, 59, 0.18);
+  }
+  #progress .progress-label {
+    font-family: var(--f-body);
+    font-size: 13px;
+    color: var(--q-primary);
+  }
+  #progress-count {
+    font-family: var(--f-body);
+    font-weight: 600;
+    font-size: 26px;
+    color: var(--q-primary);
+    line-height: 1;
+  }
+  .progress-found {
+    font-family: var(--f-label);
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--q-primary-mute);
+  }
+  #progress-suffix { display: none; }
+
+  /* ── Foot ────────────────────────────────────────────────────────────── */
+  .popup-foot {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-top: 14px;
+    padding: 10px 6px 0;
+    font-family: var(--f-label);
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--q-muted);
+    direction: ltr;
+  }
+  #btn-settings {
+    background: var(--q-gold-soft);
+    border: none;
+    padding: 6px 14px;
+    border-radius: 999px;
+    font-family: var(--f-label);
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    color: var(--q-primary);
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+  #btn-settings:hover { background: var(--q-primary); color: var(--q-on-primary); }
+
+  @media (forced-colors: active) {
+    & body { background: Canvas; color: CanvasText; }
+    #popup-header { background: Canvas; box-shadow: none; border: 1px solid CanvasText; border-radius: 0; }
+    #popup-header::before { display: none; }
+    #trigger-row, #progress { background: Canvas; box-shadow: none; border: 1px solid CanvasText; border-radius: 0; }
+    button { background: ButtonFace; color: ButtonText; border: 1px solid ButtonText; border-radius: 0; box-shadow: none; }
+    .toggle-option:has(input:checked) { background: Highlight; color: HighlightText; forced-color-adjust: none; }
+    #btn-settings { background: ButtonFace; color: ButtonText; border: 1px solid ButtonText; }
+  }
+}

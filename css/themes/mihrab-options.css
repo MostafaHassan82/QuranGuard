@@ -1,3 +1,25 @@
+@font-face {
+    font-family: "El Messiri";
+    src: url("../../resources/fonts/el-messiri-arabic-400.woff2") format("woff2");
+    font-weight: 400; font-style: normal; font-display: swap;
+  }
+@font-face {
+    font-family: "El Messiri";
+    src: url("../../resources/fonts/el-messiri-arabic-600.woff2") format("woff2");
+    font-weight: 600; font-style: normal; font-display: swap;
+  }
+@font-face {
+    font-family: "Reem Kufi";
+    src: url("../../resources/fonts/reem-kufi-arabic-600.woff2") format("woff2");
+    font-weight: 600; font-style: normal; font-display: swap;
+  }
+@font-face {
+    font-family: "Amiri";
+    src: url("../../resources/fonts/amiri-arabic-700.woff2") format("woff2");
+    font-weight: 700; font-style: normal; font-display: swap;
+  }
+
+
 /* css/themes/mihrab-options.css — Mihrab visual treatment for the options surface (feature 004).
  *
  * Base styling lives in css/options.css; this file layers Mihrab decoration on top,
@@ -9,27 +31,6 @@
 [data-theme="mihrab"] {
   /* Bundled UI fonts (same as popup/sidebar) — local woff2 from web-accessible
      resources so the page renders consistently offline. */
-  @font-face {
-    font-family: "El Messiri";
-    src: url("../resources/fonts/el-messiri-arabic-400.woff2") format("woff2");
-    font-weight: 400; font-style: normal; font-display: swap;
-  }
-  @font-face {
-    font-family: "El Messiri";
-    src: url("../resources/fonts/el-messiri-arabic-600.woff2") format("woff2");
-    font-weight: 600; font-style: normal; font-display: swap;
-  }
-  @font-face {
-    font-family: "Reem Kufi";
-    src: url("../resources/fonts/reem-kufi-arabic-600.woff2") format("woff2");
-    font-weight: 600; font-style: normal; font-display: swap;
-  }
-  @font-face {
-    font-family: "Amiri";
-    src: url("../resources/fonts/amiri-arabic-700.woff2") format("woff2");
-    font-weight: 700; font-style: normal; font-display: swap;
-  }
-
   & {
     --q-primary: #0a3a26;
     --q-primary-strong: #062618;

@@ -1,0 +1,429 @@
+/* css/themes/atelier-popup.css — Atelier theme, popup surface (feature 004 amendment).
+ *
+ * Ported as faithfully as possible from design/atelier-preview.html PLATE I.
+ * Uses the existing popup.html markup; missing-element decorations (eyebrow
+ * row, italic Latin tagline, primary-button arrow, ghost-button glyphs,
+ * progress bar) are injected via ::before / ::after on existing selectors.
+ *
+ * Verdict color classes (.v-*) are PRESERVED (constitution Principle II).
+ */
+
+/* @font-face MUST be at stylesheet root, not inside a nested rule. CSS
+   Nesting spec only allows @media / @supports / @container / @layer / @scope
+   to nest — @font-face inside [data-theme="atelier"] { } is silently ignored
+   by Chromium. This is why Amiri wasn't loading no matter what path I used. */
+@font-face {
+  font-family: "Amiri";
+  src: url("../../resources/fonts/amiri-arabic-400.woff2") format("woff2");
+  font-weight: 400; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: "Amiri";
+  src: url("../../resources/fonts/amiri-arabic-700.woff2") format("woff2");
+  font-weight: 700; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: "Noto Naskh Arabic";
+  src: url("../../resources/fonts/noto-naskh-arabic-400.woff2") format("woff2");
+  font-weight: 400; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: "Noto Naskh Arabic";
+  src: url("../../resources/fonts/noto-naskh-arabic-500.woff2") format("woff2");
+  font-weight: 500; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: "Fraunces";
+  src: local("Fraunces Italic"), url("../../resources/fonts/fraunces-italic-400.woff2") format("woff2");
+  font-weight: 400; font-style: italic; font-display: swap;
+}
+@font-face {
+  font-family: "Fraunces";
+  src: local("Fraunces Light Italic"), url("../../resources/fonts/fraunces-italic-300.woff2") format("woff2");
+  font-weight: 300; font-style: italic; font-display: swap;
+}
+@font-face {
+  font-family: "DM Mono";
+  src: local("DM Mono"), url("../../resources/fonts/dm-mono-400.woff2") format("woff2");
+  font-weight: 400; font-style: normal; font-display: swap;
+}
+
+[data-theme="atelier"] {
+  & {
+    --q-ink: #1a1410;
+    --q-ink-soft: #3a302a;
+    --q-ink-mute: #6b5d51;
+    --q-rule: #c8b9a3;
+    --q-rule-soft: #e2d6bf;
+    --q-parchment: #f5efe3;
+    --q-parchment-2: #efe7d6;
+    --q-vellum: #faf6ec;
+    --q-gold: #b8860b;
+    --q-gold-deep: #8a6508;
+    --q-gold-soft: #d9b85a;
+
+    /* Shared-token mappings used by the base popup.css */
+    --q-primary: var(--q-ink);
+    --q-primary-strong: #000000;
+    --q-on-primary: var(--q-vellum);
+    --q-bg: var(--q-parchment);
+    --q-card: var(--q-vellum);
+    --q-border: var(--q-rule);
+    --q-text: var(--q-ink);
+    --q-muted: var(--q-ink-mute);
+    --q-focus: var(--q-gold);
+
+    --f-display-ar: 'Amiri', "Times New Roman", serif;
+    --f-display:    'Fraunces', "Times New Roman", Georgia, serif;
+    --f-body-ar:    'Noto Naskh Arabic', "Segoe UI", Tahoma, sans-serif;
+    --f-mono:       'DM Mono', ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  [hidden] { display: none !important; }
+
+  /* ── Body — flat parchment, no decorative chrome ─────────────────────── */
+  body {
+    position: relative;
+    font-family: var(--f-body-ar);
+    min-width: 340px;
+    max-width: 360px;
+    background: var(--q-vellum);
+    color: var(--q-ink);
+    font-size: 14px;
+    line-height: 1.55;
+    padding: 22px 22px 18px;
+  }
+
+  /* ── Eyebrow row — gold seal + "QURANGUARD" left, "V 1.0.0" right ────── */
+  body::before {
+    content: 'QURANGUARD';
+    position: absolute;
+    top: 24px;
+    left: 22px;
+    height: 18px;
+    padding-left: 26px;     /* room for the seal at the start of the chip */
+    display: flex;
+    align-items: center;
+    font-family: var(--f-mono);
+    font-size: 9px;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: var(--q-ink-mute);
+    direction: ltr;
+    /* Gold seal dot (radial gradient circle) painted inside the left pad. */
+    background: radial-gradient(circle at 9px center, #f5d97a 0, var(--q-gold-deep) 6px, transparent 9.5px) no-repeat;
+    box-shadow: inset 1px 0 0 0 rgba(0, 0, 0, 0); /* keeps inset chain consistent */
+  }
+  body::after {
+    content: 'V 1.0.0';
+    position: absolute;
+    top: 24px;
+    right: 22px;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    font-family: var(--f-mono);
+    font-size: 9px;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: var(--q-ink-mute);
+    direction: ltr;
+  }
+
+  /* ── Header — Amiri title with first-word gold, italic Latin tagline ── */
+  #popup-header {
+    position: relative;
+    padding: 24px 0 0;     /* room above the title for the eyebrow row */
+    margin: 0;
+    background: transparent;
+    border: none;
+    text-align: right;
+  }
+  /* Italic Latin tagline below the title. */
+  #popup-header::after {
+    content: 'guard against misquotation';
+    display: block;
+    margin-top: 6px;
+    margin-bottom: 8px;
+    font-family: var(--f-display);
+    font-style: italic;
+    font-weight: 300;
+    font-size: 13px;
+    color: var(--q-ink-mute);
+    direction: ltr;
+    text-align: right;
+  }
+  /* VERBATIM from design/atelier-preview.html PLATE I .popup h1.
+     Don't add font-feature-settings or text-rendering — they make Chromium
+     render Amiri sparser, not better. */
+  #popup-header h1 {
+    margin: 0 0 4px;
+    font-family: var(--f-display-ar);
+    font-weight: 700;
+    font-size: 30px;
+    line-height: 1.1;
+    letter-spacing: 0;
+    color: var(--q-ink);
+    text-align: right;
+  }
+  /* The preview wraps just "صَ" (2 chars) in `.first` and colors that gold.
+     Our markup has the whole word "صَوْنُ" as one span, so we use ::first-letter
+     on the h1 to color just the first character (ص + combining فتحة).
+     Both spans in the h1 stay ink — base popup.css `.gold { color: inherit }`
+     plus our explicit override keeps القُرآن in the default h1 color. */
+  #popup-header h1::first-letter {
+    color: var(--q-gold-deep);
+  }
+  #popup-header h1 .gold { color: inherit; font-weight: inherit; }
+  #popup-header h1 span + span { margin-inline-start: 8px; }
+
+  /* ── Divider — thin gradient hairline (kill the gem) ─────────────────── */
+  .popup-divider-ornament {
+    display: block;
+    height: 1px;
+    background: linear-gradient(to left, transparent, var(--q-rule) 20%, var(--q-rule) 80%, transparent);
+    margin: 16px 0;
+    grid-template-columns: none;
+  }
+  .popup-divider-ornament .line,
+  .popup-divider-ornament .gem { display: none; }
+
+  /* ── Segmented mode control — 1px ink border, parchment, active=black ─ */
+  #trigger-row {
+    position: relative;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    border: 1px solid var(--q-ink);
+    border-radius: 2px;
+    background: var(--q-parchment);
+    overflow: hidden;
+    margin-bottom: 18px;
+    padding: 0;
+  }
+  #trigger-label {
+    position: absolute;
+    width: 1px; height: 1px;
+    padding: 0; margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+  .toggle-option {
+    position: relative;
+    padding: 11px 10px;
+    text-align: center;
+    font-family: var(--f-body-ar);
+    font-size: 14px;
+    color: var(--q-ink-soft);
+    cursor: pointer;
+    transition: color 0.2s, background 0.2s;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+  .toggle-option input {
+    appearance: none;
+    position: absolute;
+    width: 0; height: 0;
+    opacity: 0;
+  }
+  .toggle-option .kbd {
+    display: block;
+    font-family: var(--f-mono);
+    font-size: 8.5px;
+    letter-spacing: 0.18em;
+    margin-top: 3px;
+    opacity: 0.7;
+    direction: ltr;
+    text-transform: uppercase;
+  }
+  .toggle-option:has(input:checked) {
+    color: var(--q-vellum);
+    background: var(--q-ink);
+  }
+
+  /* ── Primary action ── flex space-between with italic arrow ──────────── */
+  #controls {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+  button {
+    appearance: none;
+    cursor: pointer;
+    padding: 11px 16px;
+    font-family: var(--f-body-ar);
+    font-size: 14px;
+    color: var(--q-ink-soft);
+    background: transparent;
+    border: 1px solid var(--q-rule);
+    border-radius: 2px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+  }
+  button:hover { border-color: var(--q-ink); color: var(--q-ink); }
+  button:focus-visible { outline: 2px solid var(--q-focus); outline-offset: 2px; }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  /* Ghost glyph on the right side (Settings-style mark) for #btn-clear / #btn-continue. */
+  #btn-clear::after,
+  #btn-continue::after {
+    content: '✕';
+    font-family: var(--f-display);
+    font-style: italic;
+    color: var(--q-ink-mute);
+    font-size: 14px;
+  }
+  #btn-continue::after { content: '→'; transform: scaleX(-1); }
+
+  #btn-scan {
+    padding: 14px 18px;
+    font-size: 16px;
+    font-weight: 500;
+    color: var(--q-vellum);
+    background: var(--q-ink);
+    border: none;
+  }
+  #btn-scan:hover { background: var(--q-primary-strong); color: var(--q-vellum); }
+  #btn-scan::after {
+    content: '→';
+    font-family: var(--f-display);
+    font-style: italic;
+    color: var(--q-gold-soft);
+    font-size: 18px;
+    transform: scaleX(-1); /* RTL: arrow points left */
+  }
+
+  /* ── Status line ─────────────────────────────────────────────────────── */
+  #status {
+    font-family: var(--f-body-ar);
+    font-size: 13px;
+    color: var(--q-ink-mute);
+    margin: 8px 0 0;
+    text-align: center;
+    min-height: 16px;
+  }
+
+  /* ── Progress note — edge-to-edge, rule-soft borders, big italic count ─ */
+  #progress {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 10px;
+    align-items: center;
+    margin: 14px -22px -2px;       /* edge-to-edge across the body padding */
+    padding: 14px 22px;
+    background: var(--q-parchment-2);
+    border-top: 1px solid var(--q-rule-soft);
+    border-bottom: 1px solid var(--q-rule-soft);
+  }
+  #progress .progress-label {
+    font-family: var(--f-body-ar);
+    font-size: 13px;
+    color: var(--q-ink-soft);
+  }
+  #progress .progress-count-wrap {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 6px;
+    direction: ltr;
+  }
+  #progress-count {
+    font-family: var(--f-display);
+    font-style: italic;
+    font-weight: 400;
+    font-size: 28px;
+    color: var(--q-gold-deep);
+    line-height: 1;
+  }
+  .progress-found {
+    font-family: var(--f-mono);
+    font-size: 9px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--q-ink-mute);
+  }
+  #progress-suffix { display: none; }
+
+  /* ── Data-unavailable error state ────────────────────────────────────── */
+  #data-error {
+    margin: 12px 0 0;
+    padding: 10px 12px;
+    background: rgba(138, 42, 26, 0.06);
+    border: 1px solid rgba(138, 42, 26, 0.3);
+    border-radius: 2px;
+    font-size: 13px;
+    color: #8a2a1a;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  #data-error #btn-retry {
+    align-self: flex-end;
+    padding: 6px 12px;
+    font-size: 13px;
+    border: 1px solid var(--q-ink);
+    background: var(--q-vellum);
+    color: var(--q-ink);
+    border-radius: 2px;
+    display: inline-block;
+    justify-content: initial;
+  }
+  #data-error #btn-retry::after { content: none; }
+
+  /* ── Foot — DM Mono ltr, Settings as underlined ink link ─────────────── */
+  .popup-foot {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 18px;
+    padding-top: 14px;
+    border-top: 1px solid var(--q-rule-soft);
+    font-family: var(--f-mono);
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--q-ink-mute);
+    direction: ltr;
+  }
+  .popup-shortcut { user-select: none; }
+  #btn-settings {
+    appearance: none;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font: inherit;
+    color: var(--q-ink);
+    padding: 4px 0;
+    border-bottom: 1px solid var(--q-ink);
+    border-radius: 0;
+    display: inline-block;
+    justify-content: initial;
+  }
+  #btn-settings::after { content: none; }
+  #btn-settings:hover { background: none; color: var(--q-gold-deep); border-bottom-color: var(--q-gold-deep); }
+
+  /* ── Forced-colors fallback ──────────────────────────────────────────── */
+  @media (forced-colors: active) {
+    & body { background: Canvas; color: CanvasText; }
+    body::before, body::after { color: CanvasText; }
+    #popup-header::before { display: none; }
+    #popup-header::after { color: CanvasText; }
+    #popup-header h1 > span:first-child,
+    #popup-header h1 .gold { color: CanvasText; }
+    .popup-divider-ornament { background: none; border-top: 1px solid CanvasText; }
+    #trigger-row { background: Canvas; border-color: CanvasText; }
+    .toggle-option:has(input:checked) { background: Highlight; color: HighlightText; forced-color-adjust: none; }
+    button { background: ButtonFace; color: ButtonText; border-color: ButtonText; }
+    button::after { color: ButtonText; }
+    #btn-scan { background: Highlight; color: HighlightText; forced-color-adjust: none; }
+    #progress { background: Canvas; border-color: CanvasText; }
+    #progress-count { color: CanvasText; }
+    .popup-foot { border-color: CanvasText; }
+    #btn-settings { color: LinkText; border-bottom-color: LinkText; }
+  }
+}

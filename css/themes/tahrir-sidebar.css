@@ -1,0 +1,87 @@
+@font-face {
+    font-family: "Amiri";
+    src: url("../../resources/fonts/amiri-arabic-400.woff2") format("woff2");
+    font-weight: 400; font-style: normal; font-display: swap;
+  }
+@font-face {
+    font-family: "Amiri";
+    src: url("../../resources/fonts/amiri-arabic-700.woff2") format("woff2");
+    font-weight: 700; font-style: normal; font-display: swap;
+  }
+@font-face {
+    font-family: "DM Mono";
+    src: local("DM Mono"), url("../../resources/fonts/dm-mono-400.woff2") format("woff2");
+    font-weight: 400; font-style: normal; font-display: swap;
+  }
+
+
+/* css/themes/tahrir-sidebar.css — Tahrir theme, sidebar surface (feature 004 amendment).
+ * Verdict color classes preserved. Reuses Mihrab's bundled Amiri files.
+ */
+
+[data-theme="tahrir"] {
+  &.quran-ext-panel,
+  &.quran-ext-panel-tab {
+    --q-primary: #1a1a1a;
+    --q-primary-strong: #000000;
+    --q-on-primary: #ffffff;
+    --q-gold: #0b5d3b;
+    --q-gold-soft: #e6efe9;
+    --q-bg: #f4f0e6;
+    --q-card: #ffffff;
+    --q-border: #1a1a1a;
+    --q-text: #1a1a1a;
+    --q-muted: #6b6b6b;
+    --q-focus: #0b5d3b;
+    font-family: 'Amiri', "Times New Roman", Georgia, serif;
+    background: var(--q-bg);
+    color: var(--q-text);
+  }
+
+  & .panel-header {
+    background: var(--q-card);
+    border-top: 4px solid var(--q-primary);
+    border-bottom: 4px solid var(--q-primary);
+    padding: 14px 16px;
+    position: relative;
+  }
+  & .panel-header::before {
+    content: '';
+    position: absolute; top: 4px; left: 0; right: 0;
+    border-top: 1px solid var(--q-primary);
+  }
+  & .panel-header h1,
+  & .panel-title {
+    font-family: 'Amiri', serif;
+    font-weight: 700;
+    color: var(--q-primary);
+  }
+
+  & .finding,
+  & .finding-card {
+    background: var(--q-card);
+    border: 1px solid var(--q-primary);
+    border-radius: 0;
+    padding: 12px 14px;
+    margin: 0 10px 12px;
+  }
+  & .finding:hover { background: var(--q-gold-soft); }
+
+  & .section-title,
+  & .toc-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: var(--q-muted);
+    border-bottom: 1px dashed var(--q-primary);
+    padding-bottom: 4px;
+  }
+
+  @media (forced-colors: active) {
+    &.quran-ext-panel { background: Canvas; color: CanvasText; }
+    & .panel-header { background: Canvas; border-color: CanvasText; }
+    & .panel-header::before { border-color: CanvasText; }
+    & .finding { background: Canvas; border-color: CanvasText; }
+  }
+}

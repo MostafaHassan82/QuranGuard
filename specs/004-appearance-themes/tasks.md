@@ -201,3 +201,115 @@ The constitution treats theme work as secondary to verifier integrity (Principle
 - [X] `[P]` is used only on tasks that touch different files from other parallel tasks
 - [X] Every task names a concrete file path or test file (exceptions: T030 = manual spot-check, T044 = `python tests/run_tests.py` whole-suite)
 - [X] Dependencies graph is a DAG (no cycles) — verified by inspection of the dependencies block above
+
+---
+
+## Phase 9: Four-theme amendment (2026-06-07) — US4 lived verification
+
+**Amendment goal**: Promote the four preview-only designs (`atelier`, `diwan`, `marakeb`, `tahrir`) into full themes selectable from the Appearance picker. This is the realization of US4 (extensible architecture) and proves SC-007 in lived practice: each new theme requires only its own assets + registry/i18n/manifest/HTML wiring — zero edits to `popup.js`, `options.js`, `sidebar-surface.js`, `bootstrap.js`, `prefs.js`, or the base CSS files.
+
+**Story label**: `[US4]` for all theme-authoring tasks; `[US3]` (default-untouched) is a regression gate revisited at the end.
+
+**Visual sources**: `design/atelier-preview.html`, `design/diwan-preview.html`, `design/marakeb-preview.html`, `design/tahrir-preview.html` (color tokens lifted verbatim from `design/index.html` swatch rows). See `research.md` Decision 9 for the token + font table.
+
+### Phase 9.A — Shared scaffolding (blocks all four themes)
+
+- [X] T048 [US4] Append four descriptors to `js/themes/registry.js` `list` (between the existing `mihrab` entry and the closing bracket): `atelier` (`swatchA:'#1a1410'`, `swatchB:'#b8860b'`), `diwan` (`#0b5d3b`/`#5ba87a`), `marakeb` (`#0a0e0c`/`#6ee7b7`), `tahrir` (`#1a1a1a`/`#0b5d3b`). All four use `defaultFor: 'never'`. Display names per `research.md` Decision 9: Atelier/المصنع (or "أتلييه"), Diwan/الديوان, Marakeb/المراكب, Tahrir/التحرير.
+- [X] T049 [P] [US4] Add eight i18n string pairs to `js/shared/i18n.js` (AR + EN catalogs): `theme_atelier_name`/`theme_atelier_desc`, `theme_diwan_name`/`theme_diwan_desc`, `theme_marakeb_name`/`theme_marakeb_desc`, `theme_tahrir_name`/`theme_tahrir_desc`. Descriptions match the `design/index.html` `.desc` paragraph for each card (one short bilingual sentence).
+- [X] T050 [P] [US4] Bundle hero fonts in `resources/fonts/`:
+  - `fraunces-italic-300.woff2`, `fraunces-italic-400.woff2`, `fraunces-400.woff2` (atelier)
+  - `hanken-grotesk-400.woff2`, `hanken-grotesk-500.woff2`, `hanken-grotesk-600.woff2` (diwan)
+  - `jetbrains-mono-400.woff2`, `jetbrains-mono-700.woff2` (marakeb)
+  - `dm-mono-400.woff2` (shared label face for atelier/diwan/tahrir)
+  Tahrir reuses existing `amiri-arabic-{400,700}.woff2` — no new file. Source: Google Fonts; subset Latin+numerals for non-Arabic faces. Verify each file < 80 KB after subsetting.
+
+### Phase 9.B — Atelier (Editorial · Parchment)
+
+- [X] T051 [P] [US4] Create `css/themes/atelier-popup.css` wrapping every rule in `[data-theme="atelier"] { ... }` using CSS native nesting. `@font-face` for Fraunces (300 italic, 400 italic, 400) and DM Mono with `local()` fallback. Tokens: `--q-primary:#1a1410; --q-gold:#b8860b; --q-bg:#f5efe3; --q-card:#faf6ec; --q-border:#c8b9a3; --q-text:#1a1a1a; --q-muted:#6b6b6b`. Header: framed parchment card with 1px ink hairline border + inner gold-leaf rule + DM Mono uppercase eyebrow caption above the Fraunces-italic title. No clip-path silhouette. End with `@media (forced-colors: active)` block resetting chrome to system colors per Mihrab's pattern.
+- [X] T052 [P] [US4] Create `css/themes/atelier-options.css` — same token block; options-section cards rendered as parchment plates with hairline borders; section titles in Fraunces italic; field labels in DM Mono uppercase. Forced-colors reset.
+- [X] T053 [P] [US4] Create `css/themes/atelier-sidebar.css` — same tokens. Finding cards render as parchment leaves; verdict-class colors untouched. Forced-colors reset.
+- [X] T054 [US4] Wire atelier: add `css/themes/atelier-popup.css` + `atelier-options.css` + `atelier-sidebar.css` to `manifest.json` `content_scripts[0].css`; add `<link rel="stylesheet" href="../css/themes/atelier-popup.css">` to `html/popup.html` head after the existing theme links; add `<link rel="stylesheet" href="../css/themes/atelier-options.css">` to `html/options.html` head likewise.
+
+### Phase 9.C — Diwan (Soft modern · Calm)
+
+- [X] T055 [P] [US4] Create `css/themes/diwan-popup.css` scoped under `[data-theme="diwan"]`. `@font-face` for Hanken Grotesk 400/500/600 and DM Mono. Tokens: `--q-primary:#0b5d3b; --q-gold:#5ba87a; --q-bg-gradient: linear-gradient(160deg,#f0f7f1 0%,#e6f1e3 100%); --q-card:#ffffff; --q-border:#e0ece3; --q-text:#1a2a1f; --q-muted:#7a8a7a`. Header: rounded-22px white panel floating on the mint gradient body; 36px circular gradient icon (135deg from `#5ba87a` to `#0b5d3b`) left of Hanken-Grotesk title; rounded pill status chip in foot. Generous whitespace; corners ≥ 8px. Forced-colors reset.
+- [X] T056 [P] [US4] Create `css/themes/diwan-options.css` — same tokens; sections render as rounded white cards on the mint gradient; pill-shaped toggles; soft sage focus rings.
+- [X] T057 [P] [US4] Create `css/themes/diwan-sidebar.css` — same tokens; finding cards have 14px radius, pale-mint hover state; sticky TOC rendered as pill row.
+- [X] T058 [US4] Wire diwan: 3 manifest CSS entries + 2 HTML link tags (same pattern as T054).
+
+### Phase 9.D — Marakeb (Terminal · Dark)
+
+- [X] T059 [P] [US4] Create `css/themes/marakeb-popup.css` scoped under `[data-theme="marakeb"]`. `@font-face` for JetBrains Mono 400/700 with `local()` fallback. Tokens: `--q-primary:#6ee7b7; --q-gold:#c8a24a; --q-bg:#0a0e0c; --q-card:#13201a; --q-border:#1a2820; --q-text:#e8f0ec; --q-muted:#6a8a76`. Header: three-dot terminal chrome (`●  ●  ●`) top-left in `#555`; title rendered in `> scan_page --auto` style block in JetBrains Mono with text-shadow phosphor glow (`0 0 8px rgba(110,231,183,0.6)`). All non-verdict text in JetBrains Mono. Subtle scanline background via repeating-linear-gradient at 2% opacity. Forced-colors reset MUST drop the dark background to `Canvas` and phosphor color to `CanvasText` — the terminal aesthetic does NOT survive forced-colors and that's correct.
+- [X] T060 [P] [US4] Create `css/themes/marakeb-options.css` — same tokens; section titles rendered as `# section_name` comment-style in JetBrains Mono; checkboxes styled via `::before` as `[x]`/`[ ]` ASCII glyphs; select dropdowns retain native chrome on dark background.
+- [X] T061 [P] [US4] Create `css/themes/marakeb-sidebar.css` — same tokens; finding cards as monospace blocks with `▮` cursor pseudo on the active one. Verdict color classes untouched (the phosphor green is theme chrome, NOT `.v-green`).
+- [X] T062 [US4] Wire marakeb: 3 manifest CSS entries + 2 HTML link tags.
+
+### Phase 9.E — Tahrir (Newspaper · High contrast)
+
+- [X] T063 [P] [US4] Create `css/themes/tahrir-popup.css` scoped under `[data-theme="tahrir"]`. `@font-face` reuses `resources/fonts/amiri-arabic-{400,700}.woff2` (already bundled for Mihrab — no new file) plus `dm-mono-400.woff2`. Tokens: `--q-primary:#1a1a1a; --q-gold:#0b5d3b; --q-bg:#f4f0e6; --q-card:#ffffff; --q-border:#1a1a1a; --q-text:#1a1a1a; --q-muted:#6b6b6b`. Header: heavy double-rule masthead (1px + 4px stacked, top AND bottom of header band, both `#1a1a1a`); large Amiri-700 centered title; DM Mono uppercase "Vol. I · No. NNN — Edition Verified" caption below title; dropline divider via `repeating-linear-gradient(to right, #1a1a1a 0 8px, transparent 8px 12px)`. Single green accent — used ONLY on the "Verified" word in the caption and the active toggle pill. Forced-colors reset.
+- [X] T064 [P] [US4] Create `css/themes/tahrir-options.css` — same tokens; sections separated by full-width dashed dropline dividers; section titles in Amiri-700 with DM Mono uppercase eyebrow caption row.
+- [X] T065 [P] [US4] Create `css/themes/tahrir-sidebar.css` — same tokens; two-column flow when width permits; finding cards have hairline ink borders only (no fill); verdict color classes preserved untouched.
+- [X] T066 [US4] Wire tahrir: 3 manifest CSS entries + 2 HTML link tags.
+
+### Phase 9.F — Regression gates
+
+- [X] T067 [US4] Run `node tests/theme_registry_check.js`. Expected: `OK theme registry — 6 theme(s): default, mihrab, atelier, diwan, marakeb, tahrir`. The pre-existing assertions (single `defaultFor:'fresh-install'`, id regex `^[a-z][a-z0-9-]{1,31}$`, `defaultId()`/`isValidId()`/`get()` round-trip) auto-cover the new entries without modification.
+- [X] T068 [US4] Verdict-taxonomy invariance: grep `\.v-(green|yellow|orange|red|lightBlue|lightGreen)` across `css/themes/{atelier,diwan,marakeb,tahrir}-*.css` — MUST return zero matches. This is the Principle II / FR-008 gate enforced by inspection.
+- [X] T069 [US3] Re-confirm default-untouched: `git diff main -- css/{popup,options,sidebar}.css js/{popup,options,panel/sidebar-surface,storage/prefs}.js html/sidebar.html` MUST still show additions only (or no changes) — no rewrites of pre-existing rules. The four new themes must not have leaked any unscoped rules into the base files.
+- [ ] T070 [US4] DEFERRED — manual MV3 walkthrough required. Load unpacked extension, cycle through all six themes on the options page, confirm popup + options + sidebar each restyle live within one frame and verdict colors remain visually identical across themes. Same harness limitation as T026/T027/T044.
+
+### Phase 9.G — Documentation & polish
+
+- [X] T071 [P] Update `specs/004-appearance-themes/quickstart.md` "What ships" section: change "Two themes" to "Six themes" and list all six with their one-line descriptions from i18n.
+- [X] T072 [P] Update `docs/chrome-web-store.md` if the user-facing feature copy enumerates themes by name (grep first; touch only if it does). PRIVACY.md is unchanged — no new data flow.
+- [X] T073 SC-007 lived-verification note: append to `specs/004-appearance-themes/quickstart.md` confirming this amendment added four themes with zero edits to `popup.js`/`options.js`/`sidebar-surface.js`/`bootstrap.js`/`prefs.js` and zero edits to the base `css/{popup,options,sidebar}.css` files — verified by `git diff main -- <those paths>`.
+
+---
+
+## Phase 9 dependencies
+
+```text
+T048 (registry) ─┐
+T049 (i18n)     ─┼─→ atelier/diwan/marakeb/tahrir families (parallel)
+T050 (fonts)    ─┘
+                       ↓
+   ┌──────────┬────────┴────────┬──────────┐
+   │          │                 │          │
+Atelier    Diwan            Marakeb     Tahrir
+T051‖T052‖T053→T054  T055‖T056‖T057→T058  T059‖T060‖T061→T062  T063‖T064‖T065→T066
+   │          │                 │          │
+   └──────────┴────────┬────────┴──────────┘
+                       ↓
+              T067 → T068 → T069 → T070
+                       ↓
+              T071 ‖ T072 ‖ T073
+```
+
+- T048, T049, T050 can run in parallel (different files).
+- The four theme families (B/C/D/E) are independent of each other once T048-T050 are done.
+- Within each theme family, the three CSS files are `[P]` against each other; the wiring task depends on all three CSS files existing.
+
+## Phase 9 task counts
+
+| Phase | Tasks | Notes |
+|---|---|---|
+| 9.A scaffolding | 3 (T048–T050) | T049+T050 parallel after T048 |
+| 9.B atelier | 4 (T051–T054) | T051/T052/T053 parallel |
+| 9.C diwan | 4 (T055–T058) | T055/T056/T057 parallel |
+| 9.D marakeb | 4 (T059–T062) | T059/T060/T061 parallel |
+| 9.E tahrir | 4 (T063–T066) | T063/T064/T065 parallel |
+| 9.F gates | 4 (T067–T070) | sequential |
+| 9.G docs | 3 (T071–T073) | T071/T072 parallel |
+| **Total** | **26 (T048–T073)** | up to 12 in parallel after T048 |
+
+## Phase 9.H — Post-merge follow-ups (tracked, not blocking)
+
+These items are visual-polish gaps surfaced during the four-theme amendment but deferred so the feature can ship. They are NOT regressions against `main` — the base UI (`default` theme) is untouched (gate T069 holds).
+
+- [ ] T074 [US4] Visual-fidelity audit: each of the four new themes (atelier, diwan, marakeb, tahrir) × three surfaces (popup, options, sidebar) vs. its `design/<theme>-preview.html` PLATE. For each non-matching surface, capture a side-by-side screenshot and file the specific delta (font weight/size, color, layout, ornament). Atelier popup is the only one user-confirmed to match in this session — the other 11 surface/theme pairs need a deliberate pass.
+- [ ] T075 [P] [US4] Verify all bundled woff2 files actually load in MV3 via DevTools Network panel (filter: Font, status 200). Specifically: `el-messiri-arabic-{400,600}.woff2`, `reem-kufi-arabic-600.woff2`, `amiri-arabic-{400,700}.woff2`, `fraunces-{400,italic-300,italic-400}.woff2`, `hanken-grotesk-{400,500,600}.woff2`, `jetbrains-mono-{400,700}.woff2`, `dm-mono-400.woff2`, `noto-naskh-arabic-{400,500}.woff2`. Any 404 or "blocked by web_accessible_resources" failure is a real bug.
+- [ ] T076 [P] [US4] Confirm `manifest.json` `web_accessible_resources` glob (`resources/fonts/*.woff2`) covers all woff2 files added in this branch. Currently 16 files in `resources/fonts/`; glob should match all of them.
+- [ ] T077 [US4] Two trivia from this session that may or may not still apply after T074:
+  - Atelier popup gold-on-`صَ` rule uses `::first-letter` — verify this works correctly for the bilingual title structure (which has `<span>` wrapping). If the H1 inner spans break `::first-letter`, switch back to an explicit `.first` span and update the HTML.
+  - Marakeb phosphor glow on dark — confirm the scanline `repeating-linear-gradient` overlay reads as intended on real Chrome (not just LCD subpixel rendering).
+- [ ] T078 [US4] CRLF/LF normalization: this session's edits in `css/themes/mihrab-*.css` trigger Git's "LF will be replaced by CRLF" warning. Verify `.gitattributes` (or set one) marks `*.css` as `text eol=lf` so cross-platform contributors don't churn line endings.

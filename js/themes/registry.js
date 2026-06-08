@@ -14,6 +14,10 @@ const QuranThemes = (() => {
     // no shared-file edits.
     { id: 'default', displayName: 'Default', displayNameAr: 'الافتراضي', defaultFor: 'fresh-install', swatchA: '#ffffff', swatchB: '#e2e8f0' },
     { id: 'mihrab',  displayName: 'Mihrab',  displayNameAr: 'المحراب',   defaultFor: 'never',         swatchA: '#0a3a26', swatchB: '#c8a24a' },
+    { id: 'atelier', displayName: 'Atelier', displayNameAr: 'الأتلييه',  defaultFor: 'never',         swatchA: '#1a1410', swatchB: '#b8860b' },
+    { id: 'diwan',   displayName: 'Diwan',   displayNameAr: 'الديوان',   defaultFor: 'never',         swatchA: '#0b5d3b', swatchB: '#5ba87a' },
+    { id: 'marakeb', displayName: 'Marakeb', displayNameAr: 'المراكب',   defaultFor: 'never',         swatchA: '#0a0e0c', swatchB: '#6ee7b7' },
+    { id: 'tahrir',  displayName: 'Tahrir',  displayNameAr: 'التحرير',   defaultFor: 'never',         swatchA: '#1a1a1a', swatchB: '#0b5d3b' },
   ];
 
   const ids = new Set(list.map(t => t.id));

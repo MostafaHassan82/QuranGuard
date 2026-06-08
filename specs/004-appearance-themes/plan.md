@@ -1,32 +1,45 @@
 # Implementation Plan: Appearance / Theme System
 
-**Branch**: `004-appearance-themes` | **Date**: 2026-06-06 | **Spec**: [spec.md](./spec.md)
+**Branch**: `004-appearance-themes` | **Date**: 2026-06-06 (amended 2026-06-07) | **Spec**: [spec.md](./spec.md)
 
 **Input**: Feature specification from `specs/004-appearance-themes/spec.md`
 
 ## Summary
 
-Add a small Appearance system that lets the user pick a visual theme for the three extension surfaces (popup, options page, sidebar) and that defaults to today's UI. The system ships with two themes — `default` (the current UI, unchanged) and `mihrab` (the visual treatment already prototyped on this branch under `design/mihrab-preview.html` and partially applied in `css/popup.css`, `css/options.css`, `css/sidebar.css`). The architecture treats themes as data: a registry lists them; each theme owns a single CSS file scoped under a `[data-theme="<id>"]` attribute on `<html>` (popup, options) or on the panel root (sidebar). Adding a future theme means adding a registry entry and a CSS file — no edits to the entry points. Preference rides on the existing `prefs.v1` chrome.storage.local schema (new `appearance.theme` key), inheriting its persistence and Chrome-sync-compatible behavior. FOUC is prevented with an at-`document_start` bootstrap that reads the persisted theme and sets the attribute before first paint; the sidebar applies its theme as part of panel surface construction.
+Add a small Appearance system that lets the user pick a visual theme for the three extension surfaces (popup, options page, sidebar) and that defaults to today's UI. The system ships with two themes — `default` (the current UI, unchanged) and `mihrab` (the visual treatment already prototyped on this branch under `design/mihrab-preview.html` and partially applied in `css/popup.css`, `css/options.css`, `css/sidebar.css`). The architecture treats themes as data: a registry lists them; each theme owns a CSS file per surface scoped under a `[data-theme="<id>"]` attribute on `<html>` (popup, options) or on the panel root (sidebar). Adding a future theme means adding a registry entry and CSS files — no edits to the entry points. Preference rides on the existing `prefs.v1` chrome.storage.local schema (new `appearance.theme` key), inheriting its persistence and Chrome-sync-compatible behavior. FOUC is prevented with an at-`document_start` bootstrap that reads the persisted theme and sets the attribute before first paint; the sidebar applies its theme as part of panel surface construction.
+
+### Amendment — 2026-06-07: four additional themes
+
+The MVP (default + mihrab) shipped with the architecture deliberately built so that further themes are pure data + per-theme CSS. This amendment realizes US4 by promoting the four remaining preview-only designs in `design/` (atelier, diwan, marakeb, tahrir) into full themes selectable from the picker. No architectural change: each theme is a registry entry plus three CSS files (`<id>-popup.css`, `<id>-options.css`, `<id>-sidebar.css`) under `css/themes/`, plus three additions to `manifest.json` `content_scripts[0].css`, plus two `<link>` tags each in `html/popup.html` and `html/options.html`, plus four i18n strings (AR/EN name + AR/EN description). This is the lived verification of SC-007: adding a theme requires changes only within that theme's own asset surface.
+
+Visual reference for each theme is the corresponding HTML in `design/`:
+
+| Theme | Register | Source preview | Palette anchors |
+|---|---|---|---|
+| atelier | Editorial · Parchment | `design/atelier-preview.html` | ink `#1a1410`, gold-leaf `#b8860b`, parchment `#f5efe3` |
+| diwan | Soft modern · Calm | `design/diwan-preview.html` | green `#0b5d3b`, sage `#5ba87a`, mint `#f0f7f1` |
+| marakeb | Terminal · Dark | `design/marakeb-preview.html` | bg `#0a0e0c`, phosphor `#6ee7b7`, brass `#c8a24a` |
+| tahrir | Newspaper · High contrast | `design/tahrir-preview.html` | ink `#1a1a1a`, accent green `#0b5d3b`, broadsheet cream `#f4f0e6` |
 
 ## Technical Context
 
-**Language/Version**: Vanilla JavaScript (ES2020), no build step. CSS3 with attribute selectors and CSS custom properties.
+**Language/Version**: Vanilla JavaScript (ES2020), no build step. CSS3 with attribute selectors, native nesting (Chromium 112+), and CSS custom properties.
 
-**Primary Dependencies**: Chrome Extensions MV3 APIs (`chrome.storage.local`, `chrome.runtime`); no third-party runtime libraries. Tests use Playwright via `tests/run_tests.py`.
+**Primary Dependencies**: Chrome Extensions MV3 APIs (`chrome.storage.local`, `chrome.runtime`); no third-party runtime libraries. Tests use Playwright via `tests/run_tests.py` plus the Node `*_check.js` suite.
 
-**Storage**: `chrome.storage.local` only, key `prefs.v1` (existing). Adds one new top-level field: `appearance: { theme: '<id>' }`. Read/write/migrate via the existing `QuranPrefs` module (`js/storage/prefs.js`).
+**Storage**: `chrome.storage.local` only, key `prefs.v1` (existing). Adds one top-level field: `appearance: { theme: '<id>' }`. Read/write/clamp via `js/storage/prefs.js`. Unknown theme ids silently fall back to default per FR-007.
 
-**Testing**: Playwright fixtures under `tests/fixtures/` exercise the actual extension. Theme-system tests verify (a) picker round-trip in the options page, (b) data-theme attribute is set on first paint for popup/options/sidebar, (c) the existing reader-side and writer-side fixture suites still pass under each shipped theme.
+**Testing**: `tests/theme_registry_check.js` (Node) enforces the registry contract. Playwright fixtures re-run under each shipped theme to validate SC-005 (zero functional regression). Manual MV3 verification of cross-surface live-update gates (the harness lacks an MV3 surface loader — pre-existing limitation, documented in tasks.md T026/T027/T044).
 
-**Target Platform**: Chromium-based browsers, Manifest V3, RTL-first Arabic UI (`<html dir="rtl" lang="ar">` on the three surfaces).
+**Target Platform**: Chromium-based browsers, Manifest V3, RTL-first Arabic UI on the three surfaces.
 
-**Project Type**: Single browser extension. No backend; no frontend/backend split.
+**Project Type**: Single browser extension. No backend.
 
-**Performance Goals**: Theme attribute applied within one frame of opening any surface (no observable flash). Picker change-to-applied across all three surfaces in under 1 s end-to-end (SC-001). No measurable increase in popup or sidebar paint time vs. the default theme.
+**Performance Goals**: Theme attribute applied within one frame of opening any surface (no observable flash). Picker change-to-applied across all three surfaces in under 1 s (SC-001). No measurable popup or sidebar paint regression vs. default theme on any of the six shipped themes.
 
-**Constraints**: No remote font loading (constitution Technology Constraints). No third-party UI framework. CSS only — theme switching must NOT require re-rendering DOM trees, only restyling. Existing verdict color taxonomy and severity ordering MUST survive every theme (constitution Principle II, FR-008).
+**Constraints**: No remote font loading (constitution Technology Constraints). No third-party UI framework. CSS only — theme switching must NOT require re-rendering DOM trees, only restyling. Existing verdict color taxonomy and severity ordering MUST survive every theme (constitution Principle II, FR-008). Each theme's hero font (if any) ships bundled in `resources/fonts/` with a `local()` fallback chain and `font-display: swap`.
 
-**Scale/Scope**: 2 themes in this release (`default`, `mihrab`). Registry sized for ~10 themes without restructuring. Three entry-point surfaces touched (popup, options, sidebar). One new prefs field. One new content-script CSS bundle (the registry + each theme's CSS file) added to `manifest.json`.
+**Scale/Scope**: 6 themes in this release after the amendment (`default`, `mihrab`, `atelier`, `diwan`, `marakeb`, `tahrir`). Registry sized for ~10 themes without restructuring. Three entry-point surfaces touched (popup, options, sidebar). One existing prefs field (no schema delta beyond what the MVP already shipped). Four new content-script CSS bundles added to `manifest.json` (one set of three per new theme).
 
 ## Constitution Check
 
@@ -36,12 +49,12 @@ The constitution (v2.0.0) defines six principles. Theme work is explicitly named
 
 | Principle | Gate | Verdict |
 |---|---|---|
-| I. Integrity Is the Only North Star | Does this feature regress reader-side audit, writer-side autocomplete, or the authentic-text render? | **PASS** — theme system is CSS + a single new pref key; no verifier, normalizer, classifier, or matcher code is touched. SC-005 explicitly gates on "zero functionality regressions" validated by re-running existing fixtures under each theme. |
-| II. Highlight Taxonomy Is Fixed (5 verdicts + 1 provenance) | Does any theme collapse, relabel, or extend the verdict colors? | **PASS** — FR-008 mandates every selectable theme preserve the exact verdict semantics. Themes change hue scaffolding (page chrome, headings, decorative elements) only; the six verdict colors and their meanings are constants validated by the test sweep. |
-| III. Integrity Across Severity (Red > Yellow > Orange) | Does any theme alter severity ordering or visual prominence of severity? | **PASS** — themes do not reorder or de-emphasize verdict cells. Verdict tile grid layout (introduced on this branch for Mihrab) preserves the same severity ordering as the default list view. |
-| IV. Authentic-Text Replacement Is the Default Render | Does any theme alter the replacement behavior or its toggles? | **PASS** — replacement is a behavior in the render pipeline; themes only restyle. The master toggle and per-color overrides in the popup remain functionally identical under every theme. |
-| V. Porting Discipline (advanced copy is read-only reference) | Are we porting code from `QuranChromePlugin`? | **PASS** — the advanced copy has no theme system; nothing to port. The Mihrab CSS was authored fresh on this branch. |
-| VI. Fixtures Are the Quality Gate | Does this feature change fixture pass behavior? | **PASS** — fixture pass rate is invariant under theme choice. SC-005 turns this into a positive gate: existing fixtures run unchanged under each shipped theme. |
+| I. Integrity Is the Only North Star | Does this feature regress reader-side audit, writer-side autocomplete, or the authentic-text render? | **PASS** — theme system is CSS + a single pref key; no verifier, normalizer, classifier, or matcher code is touched. The four new themes add only `css/themes/<id>-*.css` files and registry data. SC-005 explicitly gates on "zero functionality regressions" validated by re-running existing fixtures under each theme. |
+| II. Highlight Taxonomy Is Fixed (5 verdicts + 1 provenance) | Does any theme collapse, relabel, or extend the verdict colors? | **PASS** — FR-008 mandates every selectable theme preserve verdict semantics. Grep-enforced: zero `.v-green`/`.v-yellow`/`.v-orange`/`.v-red`/`.v-lightBlue`/`.v-lightGreen` rules permitted in any theme CSS file. Themes restyle chrome (headers, cards, dividers, ornament); verdict cells inherit the base color taxonomy from `css/popup.css`/`options.css`/`sidebar.css`. |
+| III. Integrity Across Severity (Red > Yellow > Orange) | Does any theme alter severity ordering or visual prominence? | **PASS** — themes never reorder verdict cells. Tile-grid layout (Mihrab) and any new theme layouts must preserve the same severity sort key emitted by the panel model. |
+| IV. Authentic-Text Replacement Is the Default Render | Does any theme alter replacement behavior or its toggles? | **PASS** — replacement is behavior in the render pipeline; themes only restyle. |
+| V. Porting Discipline (advanced copy is read-only reference) | Are we porting code from `QuranChromePlugin`? | **PASS** — the advanced copy has no theme system; nothing to port. The four new themes are authored from the `design/*-preview.html` mock-ups on this branch. |
+| VI. Fixtures Are the Quality Gate | Does this feature change fixture pass behavior? | **PASS** — fixture pass rate is invariant under theme choice. SC-005 turns this into a positive gate. |
 
 **Result**: All gates pass with no violations. Complexity Tracking table is empty.
 
@@ -51,49 +64,62 @@ The constitution (v2.0.0) defines six principles. Theme work is explicitly named
 
 ```text
 specs/004-appearance-themes/
-├── plan.md              # This file
-├── research.md          # Phase 0 — design decisions resolved
-├── data-model.md        # Phase 1 — prefs delta + Theme entity
-├── quickstart.md        # Phase 1 — how to add a theme; how to test
+├── plan.md                  # This file
+├── research.md              # Phase 0 — design decisions resolved
+├── data-model.md            # Phase 1 — prefs delta + Theme entity (unchanged by amendment)
+├── quickstart.md            # Phase 1 — how to add a theme; how to test
 ├── contracts/
 │   ├── theme-registry.md    # How themes register and how the picker discovers them
 │   └── storage-prefs.md     # `prefs.v1.appearance` schema delta
-└── checklists/
-    └── requirements.md   # Spec quality checklist (created by /speckit-specify)
+├── checklists/
+│   └── requirements.md      # Spec quality checklist
+└── tasks.md                 # Phase 2 — task list (extended by amendment with T048+)
 ```
 
 ### Source Code (repository root)
 
 ```text
 QuranAuditPlugin/
-├── manifest.json                       # MODIFIED — add theme CSS files to content_scripts.css
+├── manifest.json                       # MODIFIED — add 4 × 3 theme CSS files to content_scripts.css
 ├── html/
-│   ├── popup.html                      # MODIFIED — link theme registry CSS + bootstrap
-│   ├── options.html                    # MODIFIED — link theme registry CSS + bootstrap + add Appearance section
-│   └── sidebar.html                    # MODIFIED — link theme registry CSS (the dev preview file; runtime sidebar is injected by content script)
+│   ├── popup.html                      # MODIFIED — 4 new <link> tags (one per new theme's popup CSS)
+│   ├── options.html                    # MODIFIED — 4 new <link> tags (one per new theme's options CSS)
+│   └── sidebar.html                    # unchanged — sidebar is content-injected, themed via sidebar-surface.js
 ├── css/
-│   ├── popup.css                       # MODIFIED — remove Mihrab-only rules; keep default; Mihrab-only rules move to themes/mihrab.css
-│   ├── options.css                     # MODIFIED — same
-│   ├── sidebar.css                     # MODIFIED — same
+│   ├── popup.css                       # unchanged — base/default styling
+│   ├── options.css                     # unchanged
+│   ├── sidebar.css                     # unchanged
 │   └── themes/
-│       ├── mihrab.css                  # NEW — every Mihrab rule, scoped under [data-theme="mihrab"] selectors
-│       └── (future) atelier.css, diwan.css, marakeb.css, tahrir.css
+│       ├── mihrab-popup.css            # unchanged
+│       ├── mihrab-options.css          # unchanged
+│       ├── mihrab-sidebar.css          # unchanged
+│       ├── atelier-popup.css           # NEW
+│       ├── atelier-options.css         # NEW
+│       ├── atelier-sidebar.css         # NEW
+│       ├── diwan-popup.css             # NEW
+│       ├── diwan-options.css           # NEW
+│       ├── diwan-sidebar.css           # NEW
+│       ├── marakeb-popup.css           # NEW
+│       ├── marakeb-options.css         # NEW
+│       ├── marakeb-sidebar.css         # NEW
+│       ├── tahrir-popup.css            # NEW
+│       ├── tahrir-options.css          # NEW
+│       └── tahrir-sidebar.css          # NEW
 ├── js/
 │   ├── themes/
-│   │   ├── registry.js                 # NEW — list of theme descriptors (id, displayName, asset hints)
-│   │   └── bootstrap.js                # NEW — at-document_start bootstrap: read prefs, set data-theme on documentElement (popup, options) or on panel root (sidebar surface)
-│   ├── storage/prefs.js                # MODIFIED — add `appearance: { theme }` field with default-fill + clamp
-│   ├── options.js                      # MODIFIED — render Appearance picker; wire change → QuranPrefs.patch
-│   ├── popup.js                        # MODIFIED — call bootstrap on load
-│   └── panel/sidebar-surface.js        # MODIFIED — apply data-theme to the panel root element from prefs
-├── resources/fonts/
-│   ├── amiri-arabic-400.woff2          # already present (untracked) — ships with Mihrab
-│   └── amiri-arabic-700.woff2          # already present (untracked) — ships with Mihrab
+│   │   ├── registry.js                 # MODIFIED — append 4 descriptors (id, displayName{Ar}, swatchA, swatchB)
+│   │   └── bootstrap.js                # unchanged
+│   ├── storage/prefs.js                # unchanged
+│   ├── shared/i18n.js                  # MODIFIED — 16 new strings (4 themes × {name, desc} × {AR, EN})
+│   ├── options.js                      # unchanged (loops over QuranThemes.list)
+│   ├── popup.js                        # unchanged
+│   └── panel/sidebar-surface.js        # unchanged
+├── resources/fonts/                    # MODIFIED — one bundled hero face per theme (see research.md fonts table)
 └── tests/
-    └── fixtures/                       # existing fixtures re-run under each theme (SC-005)
+    └── theme_registry_check.js         # unchanged — assertion auto-covers new entries via list length + id regex
 ```
 
-**Structure Decision**: A single browser-extension project. No new top-level directories. Two small additions: `css/themes/` for per-theme stylesheets, `js/themes/` for the registry and bootstrap. Everything else is in-place edits. This matches the project's vanilla-JS no-build-step convention and keeps the theme system inspectable in the Chrome devtools sources panel.
+**Structure Decision**: No new directories. The amendment is additive — twelve new CSS files in the existing `css/themes/` folder, four new lines in the registry, sixteen new i18n strings, four-times-three new manifest entries, eight new HTML `<link>` tags. Confirms SC-007 in lived practice: zero edits to `popup.js`, `options.js`, `sidebar-surface.js`, `bootstrap.js`, `prefs.js`, or the base CSS files.
 
 ## Complexity Tracking
 

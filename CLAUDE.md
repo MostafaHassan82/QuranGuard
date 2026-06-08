@@ -1,5 +1,5 @@
 <!-- SPECKIT START -->
-Active feature: **004-appearance-themes**. Foundation: 001 (reader-side V1, shipped), 002 (correction/autocorrect, shipped), 003 (writer-side ayah autocomplete, shipped). 004 is a UI-only feature: an opt-in theme system defaulting to today's UI; ships `default` and `mihrab` themes; no verifier, classifier, or matcher code is touched.
+Active feature: **004-appearance-themes**. Foundation: 001 (reader-side V1, shipped), 002 (correction/autocorrect, shipped), 003 (writer-side ayah autocomplete, shipped). 004 is a UI-only feature: an opt-in theme system defaulting to today's UI; ships six themes (`default`, `mihrab`, plus `atelier`, `diwan`, `marakeb`, `tahrir` added on the 2026-06-07 amendment); no verifier, classifier, or matcher code is touched.
 
 Read the implementation plan and supporting artifacts before making non-trivial changes:
 

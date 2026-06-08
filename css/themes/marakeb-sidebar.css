@@ -1,0 +1,99 @@
+@font-face {
+    font-family: "JetBrains Mono";
+    src: local("JetBrains Mono"), url("../../resources/fonts/jetbrains-mono-400.woff2") format("woff2");
+    font-weight: 400; font-style: normal; font-display: swap;
+  }
+@font-face {
+    font-family: "JetBrains Mono";
+    src: local("JetBrains Mono Bold"), url("../../resources/fonts/jetbrains-mono-700.woff2") format("woff2");
+    font-weight: 700; font-style: normal; font-display: swap;
+  }
+
+
+/* css/themes/marakeb-sidebar.css — Marakeb theme, sidebar surface (feature 004 amendment).
+ * Verdict color classes preserved.
+ */
+
+[data-theme="marakeb"] {
+  &.quran-ext-panel,
+  &.quran-ext-panel-tab {
+    --q-primary: #6ee7b7;
+    --q-primary-strong: #4dd1a0;
+    --q-primary-mute: #3c8a6a;
+    --q-on-primary: #0a0e0c;
+    --q-gold: #c8a24a;
+    --q-bg: #0a0e0c;
+    --q-card: #13201a;
+    --q-border: #1a2820;
+    --q-text: #e8f0ec;
+    --q-muted: #6a8a76;
+    --q-focus: #6ee7b7;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    background: var(--q-bg);
+    color: var(--q-text);
+  }
+
+  & .panel-header {
+    background: var(--q-card);
+    border-bottom: 1px solid var(--q-border);
+    padding: 24px 14px 12px;
+    position: relative;
+  }
+  & .panel-header::before {
+    content: '●  ●  ●';
+    position: absolute;
+    top: 6px; left: 12px;
+    color: #555;
+    font-size: 10px;
+    letter-spacing: 4px;
+  }
+  & .panel-header h1,
+  & .panel-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    color: var(--q-primary);
+    text-shadow: 0 0 8px rgba(110, 231, 183, 0.5);
+    direction: ltr;
+  }
+  & .panel-header h1::before,
+  & .panel-title::before { content: '> '; color: var(--q-muted); }
+
+  & .finding,
+  & .finding-card {
+    background: var(--q-card);
+    border: 1px solid var(--q-border);
+    border-radius: 0;
+    padding: 10px 12px;
+    margin: 6px 8px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+  }
+  & .finding:hover,
+  & .finding.is-active {
+    border-color: var(--q-primary);
+    box-shadow: inset 0 0 0 1px var(--q-primary);
+  }
+  & .finding.is-active::after {
+    content: '▮';
+    color: var(--q-primary);
+    margin-inline-start: 4px;
+  }
+
+  & .section-title,
+  & .toc-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--q-muted);
+    text-transform: uppercase;
+  }
+  & .section-title::before,
+  & .toc-label::before { content: '# '; }
+
+  @media (forced-colors: active) {
+    &.quran-ext-panel { background: Canvas; color: CanvasText; }
+    & .panel-header { background: Canvas; border-color: CanvasText; }
+    & .panel-header::before { display: none; }
+    & .panel-header h1, & .panel-title { color: CanvasText; text-shadow: none; }
+    & .finding { background: Canvas; border-color: CanvasText; }
+  }
+}

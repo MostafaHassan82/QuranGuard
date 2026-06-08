@@ -1,0 +1,89 @@
+@font-face {
+    font-family: "Fraunces";
+    src: local("Fraunces"), url("../../resources/fonts/fraunces-400.woff2") format("woff2");
+    font-weight: 400; font-style: normal; font-display: swap;
+  }
+@font-face {
+    font-family: "Fraunces";
+    src: local("Fraunces Italic"), url("../../resources/fonts/fraunces-italic-400.woff2") format("woff2");
+    font-weight: 400; font-style: italic; font-display: swap;
+  }
+@font-face {
+    font-family: "DM Mono";
+    src: local("DM Mono"), url("../../resources/fonts/dm-mono-400.woff2") format("woff2");
+    font-weight: 400; font-style: normal; font-display: swap;
+  }
+
+
+/* css/themes/atelier-sidebar.css — Atelier theme, sidebar surface (feature 004 amendment).
+ * The base sidebar.css handles layout; this file retints via token redefinition
+ * and adjusts the header chrome. Verdict color classes are PRESERVED.
+ */
+
+[data-theme="atelier"] {
+  &.quran-ext-panel,
+  &.quran-ext-panel-tab {
+    --q-primary: #1a1410;
+    --q-primary-strong: #0a0604;
+    --q-primary-mute: #3a2e24;
+    --q-on-primary: #faf6ec;
+    --q-gold: #b8860b;
+    --q-gold-soft: #ede0bc;
+    --q-bg: #f5efe3;
+    --q-card: #faf6ec;
+    --q-border: #c8b9a3;
+    --q-text: #1a1a1a;
+    --q-muted: #6b6b6b;
+    --q-focus: #b8860b;
+    font-family: 'Fraunces', "Times New Roman", Georgia, serif;
+  }
+
+  /* Panel header rendered as parchment masthead. */
+  & .panel-header {
+    background: var(--q-card);
+    border-bottom: 1px solid var(--q-primary);
+    padding: 18px 16px;
+    position: relative;
+  }
+  & .panel-header::before {
+    content: '';
+    position: absolute; left: 8px; right: 8px; top: 6px; bottom: 6px;
+    border: 1px solid var(--q-gold);
+    pointer-events: none;
+  }
+  & .panel-header h1,
+  & .panel-title {
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-weight: 300;
+    color: var(--q-primary);
+  }
+
+  /* Finding cards as parchment leaves with hairline ink border. */
+  & .finding,
+  & .finding-card {
+    background: var(--q-card);
+    border: 1px solid var(--q-border);
+    border-radius: 0;
+    padding: 12px 14px;
+    margin-bottom: 10px;
+  }
+  & .finding:hover { background: var(--q-gold-soft); }
+
+  /* Section/TOC labels in DM Mono uppercase. */
+  & .section-title,
+  & .toc-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: var(--q-muted);
+  }
+
+  @media (forced-colors: active) {
+    &.quran-ext-panel { background: Canvas; color: CanvasText; }
+    & .panel-header { background: Canvas; border-color: CanvasText; }
+    & .panel-header::before { display: none; }
+    & .finding { background: Canvas; border-color: CanvasText; }
+  }
+}

@@ -1,0 +1,81 @@
+@font-face {
+    font-family: "Hanken Grotesk";
+    src: local("Hanken Grotesk"), url("../../resources/fonts/hanken-grotesk-400.woff2") format("woff2");
+    font-weight: 400; font-style: normal; font-display: swap;
+  }
+@font-face {
+    font-family: "Hanken Grotesk";
+    src: local("Hanken Grotesk SemiBold"), url("../../resources/fonts/hanken-grotesk-600.woff2") format("woff2");
+    font-weight: 600; font-style: normal; font-display: swap;
+  }
+
+
+/* css/themes/diwan-sidebar.css — Diwan theme, sidebar surface (feature 004 amendment).
+ * Verdict color classes preserved.
+ */
+
+[data-theme="diwan"] {
+  &.quran-ext-panel,
+  &.quran-ext-panel-tab {
+    --q-primary: #0b5d3b;
+    --q-primary-strong: #084428;
+    --q-primary-mute: #5ba87a;
+    --q-on-primary: #ffffff;
+    --q-gold: #5ba87a;
+    --q-gold-soft: #d8ecde;
+    --q-bg: linear-gradient(160deg, #f0f7f1 0%, #e6f1e3 100%);
+    --q-card: #ffffff;
+    --q-border: #e0ece3;
+    --q-text: #1a2a1f;
+    --q-muted: #7a8a7a;
+    --q-focus: #5ba87a;
+    font-family: 'Hanken Grotesk', "Segoe UI", system-ui, sans-serif;
+    background: linear-gradient(160deg, #f0f7f1 0%, #e6f1e3 100%);
+  }
+
+  & .panel-header {
+    background: var(--q-card);
+    border: none;
+    border-bottom: 1px solid var(--q-border);
+    padding: 18px 16px;
+    box-shadow: 0 6px 16px -12px rgba(11, 93, 59, 0.18);
+  }
+  & .panel-header h1,
+  & .panel-title {
+    font-family: 'Hanken Grotesk', sans-serif;
+    font-weight: 600;
+    color: var(--q-primary);
+  }
+
+  & .finding,
+  & .finding-card {
+    background: var(--q-card);
+    border: 1px solid var(--q-border);
+    border-radius: 14px;
+    padding: 12px 14px;
+    margin: 0 10px 10px;
+    box-shadow: 0 4px 12px -10px rgba(11, 93, 59, 0.15);
+  }
+  & .finding:hover { background: var(--q-gold-soft); }
+
+  & .toc,
+  & .toc-row {
+    background: var(--q-card);
+    border-radius: 999px;
+    padding: 6px 10px;
+    box-shadow: 0 4px 14px -10px rgba(11, 93, 59, 0.18);
+  }
+  & .section-title,
+  & .toc-label {
+    font-family: 'Hanken Grotesk', sans-serif;
+    font-weight: 500;
+    font-size: 12px;
+    color: var(--q-primary);
+  }
+
+  @media (forced-colors: active) {
+    &.quran-ext-panel { background: Canvas; color: CanvasText; }
+    & .panel-header { background: Canvas; box-shadow: none; border-color: CanvasText; }
+    & .finding { background: Canvas; border-color: CanvasText; border-radius: 0; box-shadow: none; }
+  }
+}

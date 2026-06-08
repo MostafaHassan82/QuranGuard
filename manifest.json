@@ -40,7 +40,7 @@
         "js/compose/render-editable.js",
         "js/compose/index.js"
       ],
-      "css": ["css/content.css", "css/sidebar.css", "css/compose.css", "css/themes/mihrab-sidebar.css"],
+      "css": ["css/content.css", "css/sidebar.css", "css/compose.css", "css/themes/mihrab-sidebar.css", "css/themes/atelier-sidebar.css", "css/themes/diwan-sidebar.css", "css/themes/marakeb-sidebar.css", "css/themes/tahrir-sidebar.css"],
       "run_at": "document_start",
       "all_frames": true
     }

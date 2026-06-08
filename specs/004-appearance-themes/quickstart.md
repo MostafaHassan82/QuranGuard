@@ -2,9 +2,22 @@
 
 ## What ships
 
-- Two themes selectable in the **Appearance** section of the options page:
-  `default` (today's UI, byte-additive over `main`) and `mihrab` (arched
-  green-and-gold treatment with Amiri Arabic script).
+- Six themes selectable in the **Appearance** section of the options page:
+  - `default` — today's UI, byte-additive over `main`.
+  - `mihrab` — arched green-and-gold treatment with Amiri Arabic script.
+  - `atelier` — editorial manuscript: parchment, ink, restrained gold leaf.
+  - `diwan` — soft modern: rounded corners, mint pastels, generous whitespace.
+  - `marakeb` — terminal: phosphor green on near-black, monospace throughout.
+  - `tahrir` — Arabic broadsheet: heavy mastheads, high contrast, single green accent.
+
+  The four themes added on the 2026-06-07 amendment (atelier, diwan, marakeb,
+  tahrir) were each added as registry data + three per-surface CSS files +
+  wiring (manifest CSS entry, HTML link tags, i18n strings) — **zero edits**
+  to `popup.js`, `options.js`, `sidebar-surface.js`, `bootstrap.js`,
+  `prefs.js`, or any of `css/{popup,options,sidebar}.css`. This is SC-007
+  lived in practice. Verify with:
+  `git diff main -- css/{popup,options,sidebar}.css js/{popup,options,storage/prefs,themes/bootstrap,panel/sidebar-surface}.js`
+  (changes in those files date to the MVP, not to any subsequent theme.)
 - Choice persists across browser restarts in `chrome.storage.local` under
   `prefs.v1.appearance.theme`. The schema is the same one Chrome's user-pref
   sync can mirror; we do not write to `chrome.storage.sync` directly.
