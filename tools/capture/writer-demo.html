@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>محرر المحتوى</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', 'Arial', sans-serif;
+      background: #f0ede8;
+      color: #222;
+      min-height: 100vh;
+    }
+
+    .editor-bar {
+      background: #fff;
+      border-bottom: 2px solid #c8b97a;
+      padding: 10px 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .editor-bar .brand {
+      font-size: 15px;
+      font-weight: 600;
+      color: #555;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .editor-bar .brand span {
+      width: 28px; height: 28px;
+      background: #1a5c2a;
+      border-radius: 4px;
+      display: flex; align-items: center; justify-content: center;
+      color: #fff; font-size: 14px;
+    }
+    .editor-bar .actions { display: flex; gap: 8px; }
+    .editor-bar .btn {
+      background: none; border: 1px solid #ccc; border-radius: 4px;
+      padding: 5px 14px; font-size: 13px; cursor: pointer; color: #555; font-family: inherit;
+    }
+    .editor-bar .btn-primary { background: #1a5c2a; border-color: #1a5c2a; color: #fff; }
+
+    .editor-wrap {
+      max-width: 780px;
+      margin: 24px auto;
+      padding: 0 16px;
+    }
+
+    .meta-row {
+      display: flex; gap: 12px; margin-bottom: 10px;
+      align-items: center; font-size: 13px; color: #888;
+    }
+    .meta-row .tag {
+      background: #e8f4ec; color: #2a6c3a;
+      border-radius: 12px; padding: 2px 10px; font-size: 12px;
+    }
+
+    .editor-card {
+      background: #fff;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 20px 28px 14px;
+      box-shadow: 0 2px 12px rgba(0,0,0,.06);
+    }
+
+    .article-title {
+      width: 100%; background: transparent; border: none;
+      border-bottom: 2px solid #e0d9c8;
+      padding: 8px 0; font-size: 24px; font-weight: bold; color: #111;
+      outline: none;
+      font-family: 'Traditional Arabic', 'Arial', sans-serif;
+      margin-bottom: 14px;
+    }
+
+    .fmt-bar {
+      display: flex; gap: 4px; margin-bottom: 12px;
+      padding-bottom: 10px; border-bottom: 1px solid #ddd;
+    }
+    .fmt-bar button {
+      background: none; border: 1px solid #e0e0e0; border-radius: 3px;
+      padding: 4px 10px; font-size: 13px; cursor: pointer; color: #555;
+    }
+    .fmt-bar button:hover { background: #f5f5f5; }
+
+    /* Editor body — intentionally plain sans-serif so the ornate Quran fonts
+       do NOT apply here. ﴿ renders as a simple bracket. Uthmani script is
+       reserved for the autocomplete dropdown candidates (.quran-ac-ayah). */
+    .article-body {
+      width: 100%;
+      min-height: 180px;
+      max-height: 200px;
+      overflow-y: auto;
+      outline: none;
+      font-size: 19px;
+      line-height: 2.0;
+      color: #1a1a1a;
+      font-family: 'Segoe UI', 'Calibri', 'Arial', sans-serif;
+      word-break: break-word;
+      white-space: pre-wrap;
+    }
+    /* show a placeholder when empty */
+    .article-body:empty::before {
+      content: attr(data-placeholder);
+      color: #bbb;
+    }
+
+    .status-bar {
+      display: flex; justify-content: space-between;
+      font-size: 12px; color: #aaa;
+      padding: 10px 0; border-top: 1px solid #e8e8e8; margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="editor-bar">
+    <div class="brand">
+      <span>✎</span>
+      محرر المقالات
+    </div>
+    <div class="actions">
+      <button class="btn">معاينة</button>
+      <button class="btn">حفظ مسودة</button>
+      <button class="btn btn-primary">نشر</button>
+    </div>
+  </div>
+
+  <div class="editor-wrap">
+    <div class="meta-row">
+      <span class="tag">التفسير والعلوم الشرعية</span>
+      <span>•</span>
+      <span>مقال في التحرير</span>
+    </div>
+
+    <div class="editor-card">
+      <input
+        class="article-title"
+        type="text"
+        id="article-title"
+        value="فضائل الاستعاذة وأثرها في حياة المسلم"
+      />
+
+      <div class="fmt-bar">
+        <button>B</button><button>I</button><button>U</button>
+        <button>H2</button><button>H3</button>
+        <button>اقتباس</button>
+      </div>
+
+      <!-- contenteditable so caretRect() uses Selection.getBoundingClientRect()
+           → dropdown anchors to the exact cursor glyph, not the element bottom. -->
+      <div
+        class="article-body"
+        id="article-body"
+        contenteditable="true"
+        dir="rtl"
+        data-placeholder="اكتب محتوى المقال هنا…"
+      >الحمد لله رب العالمين، وبعد:
+فإن الاستعاذة من أعظم ما شرعه الله للمؤمن، وقد أمر الله نبيه بها قبل تلاوة القرآن الكريم.
+واستدل أهل العلم على مشروعيتها بقوله تعالى: ﴿</div>
+
+      <div class="status-bar">
+        <span id="word-count">عدد الكلمات: 0</span>
+        <span>آخر حفظ: منذ دقيقتين</span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const body = document.getElementById('article-body');
+    const wc   = document.getElementById('word-count');
+    function updateCount() {
+      const t = (body.textContent || '').trim();
+      wc.textContent = `عدد الكلمات: ${t ? t.split(/\s+/).length : 0}`;
+    }
+    body.addEventListener('input', updateCount);
+    updateCount();
+
+    // Place caret at the very end of the content on load
+    window.addEventListener('load', () => {
+      body.focus();
+      const range = document.createRange();
+      range.selectNodeContents(body);
+      range.collapse(false);          // collapse to end
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,135 @@
+1
+00:00:00,000 --> 00:00:06,000
+QuranGuard — A Quran Citation Auditor for Chrome
+
+2
+00:00:06,500 --> 00:00:14,000
+Millions of Islamic articles cite Quran verses — but errors are common
+
+3
+00:00:14,500 --> 00:00:22,000
+Wrong verse text, wrong reference numbers, corrupted wording...
+
+4
+00:00:22,500 --> 00:00:30,000
+QuranGuard detects and fixes all of them, automatically
+
+5
+00:00:35,000 --> 00:00:42,000
+Click the QuranGuard icon to open the extension
+
+6
+00:00:42,500 --> 00:00:50,000
+Click "فحص الصفحة" (Scan Page) to audit every citation
+
+7
+00:00:55,000 --> 00:01:05,000
+The extension scans every Quranic citation on the page
+
+8
+00:01:05,500 --> 00:01:15,000
+Results appear as colored highlights directly on the text
+
+9
+00:01:20,000 --> 00:01:28,000
+GREEN — Citation is correct, reference verified ✓
+
+10
+00:01:28,500 --> 00:01:36,000
+LIGHT BLUE — Text matches Quran but no reference was cited
+
+11
+00:01:36,500 --> 00:01:44,000
+YELLOW — Word-level mismatch between cited text and the mushaf
+
+12
+00:01:44,500 --> 00:01:52,000
+ORANGE — Text is correct but the cited reference is wrong
+
+13
+00:01:52,500 --> 00:02:00,000
+RED — Text was not found in the Quran at all
+
+14
+00:02:05,000 --> 00:02:13,000
+Click any highlight to see the details and the authentic mushaf text
+
+15
+00:02:20,000 --> 00:02:28,000
+The results panel appears on the side — all findings at a glance
+
+16
+00:02:28,500 --> 00:02:36,000
+Filter by category, jump to any finding, or copy the details
+
+17
+00:02:40,000 --> 00:02:48,000
+Click "تصحيح في المكان" (Correct in Place) to replace with the authentic text
+
+18
+00:02:48,500 --> 00:02:56,000
+The highlight turns light green — correction applied and logged
+
+19
+00:03:00,000 --> 00:03:08,000
+The panel gives you full control over what's displayed
+
+20
+00:03:08,500 --> 00:03:16,000
+Toggle each color category on or off
+
+21
+00:03:16,500 --> 00:03:24,000
+Switch between highlight mode, underline mode, or turn off visuals entirely
+
+22
+00:03:24,500 --> 00:03:32,000
+Enable Quran fonts to display authentic Uthmani script styling
+
+23
+00:03:38,000 --> 00:03:46,000
+Open Settings (⚙ الإعدادات) for persistent preferences
+
+24
+00:03:46,500 --> 00:03:54,000
+Choose your language, default font, highlight behavior, and more
+
+25
+00:03:54,500 --> 00:04:02,000
+Autocomplete settings control how the writer-side feature behaves
+
+26
+00:04:08,000 --> 00:04:16,000
+The writer-side feature works on any website where you type text
+
+27
+00:04:16,500 --> 00:04:24,000
+As you type a Quranic citation, QuranGuard suggests the authentic text
+
+28
+00:04:24,500 --> 00:04:32,000
+Works on any text input — blogs, CMS editors, comment boxes, email
+
+29
+00:04:35,000 --> 00:04:40,000
+Press Tab or Enter to accept the suggestion
+
+30
+00:04:40,500 --> 00:04:48,000
+The authentic Uthmani wording is inserted — correctly, every time
+
+31
+00:04:53,000 --> 00:05:00,000
+Six themes — choose the look that fits your browser
+
+32
+00:05:00,500 --> 00:05:06,000
+Default · Mihrab · Atelier · Diwan · Marakeb · Tahrir
+
+33
+00:05:10,000 --> 00:05:18,000
+QuranGuard — protecting Quranic integrity, one citation at a time
+
+34
+00:05:18,500 --> 00:05:24,000
+Available on the Chrome Web Store
