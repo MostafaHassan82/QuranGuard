@@ -1,26 +1,29 @@
 'use strict';
 /**
- * QuranGuard promo video ENGINE — executes the shot list in promo-script.js.
+ * Generic scripted screen-recording ENGINE.
+ *
+ * Records the real Chrome window (extension loaded) while executing a
+ * declarative video script, then post-produces a polished MP4. Knows nothing
+ * about any particular video — everything content-specific (URLs, prefs,
+ * scenes, copy, card design, caption style, output name) comes from the
+ * script module. See promo-script.js for the script interface and an example.
  *
  * Usage:
- *   node tools/capture/promo.js --lang ar|en      Record + render the promo
- *   node tools/capture/promo.js --validate        Static-check the script (no browser)
+ *   node tools/capture/record.js [script.js] --lang <lang>   Record + render
+ *   node tools/capture/record.js [script.js] --validate      Static-check only
  *
- * This is the scripted successor of run.js's `--video promo-screen` path
- * (run.js is kept untouched as the reference implementation). The recording
- * pipeline is identical: FFmpeg gdigrab captures the real Chrome window at
- * device pixels; scene events (caption cues, load-interval cuts, zoom
- * keyframes) are recorded as wall-clock times and anchored to the video clock
- * after capture (t0 ≈ qWall − duration); post-production trims the cuts,
- * applies animated zoompan, overlays browser-rendered caption pills, and
- * sandwiches the result between branded intro/outro cards.
+ *   script.js  path relative to tools/capture (default: promo-script.js)
+ *   --lang     one of the script's `languages` (default: the first one)
  *
- * To change WHAT happens on screen, edit promo-script.js — not this file.
- * This file owns HOW each verb executes (the ACTIONS table), the named
- * element resolvers (RESOLVERS), and all capture/post-production machinery.
+ * Pipeline: FFmpeg gdigrab captures the Chrome window at device pixels; scene
+ * events (caption cues, load-interval cuts, zoom keyframes) are recorded as
+ * wall-clock times and anchored to the video clock after capture
+ * (t0 ≈ qWall − duration); post-production trims the cuts, applies animated
+ * zoompan, overlays browser-rendered caption pills, and sandwiches the result
+ * between the script's intro/outro cards.
  *
- * Verbs:
- *   cue            { text }                        show caption (key into PROMO_COPY)
+ * ── Verb reference (the ACTIONS table) ──────────────────────────────────────
+ *   cue            { text }                        show caption (key into script copy)
  *   zoom           { z, cx, cy, dur } or { z, target, dur }   animate camera (post)
  *   wait           { ms }
  *   mouse          { x, y }                        CDP cursor move (in-page)
@@ -31,8 +34,8 @@
  *   nativeKey      { vk }                          OS key press (0x1B = Escape)
  *   nativeClick    { x, y }                        OS click
  *   openPopup      {}                              chrome.action.openPopup; sets state.popupShown
- *   setScanTrigger { value }                       prefs.v1.scanTrigger
- *   goto           { url, waitUntil?, timeout?, dismissOverlays? }  url = key in ctx.urls or literal
+ *   setPref        { key, value }                  merge one key into prefs.v1
+ *   goto           { url, waitUntil?, timeout?, dismissOverlays? }  url = script urls key or literal
  *   waitFor        { sel, timeout?, optional? }
  *   waitForPanel   {}
  *   spotlight      { target, pad?, holdMs, scrollIntoView?, settleMs? }   on → hold → off
@@ -52,29 +55,30 @@ const fs   = require('fs');
 const { chromium } = require('playwright');
 const { serve } = require('./server.js');
 
-const buildPromoScript = require('./promo-script.js');
-const PROMO_COPY = buildPromoScript.PROMO_COPY;
-
-// ── Paths / URLs (same as run.js) ─────────────────────────────────────────────
+// ── Paths ─────────────────────────────────────────────────────────────────────
 
 const PROJECT_ROOT = path.resolve(__dirname, '../..');
 const EXT_PATH     = PROJECT_ROOT;
 const OUTPUT_DIR   = path.join(__dirname, 'output');
 const VIDEO_DIR    = path.join(OUTPUT_DIR, 'video');
 
-// Real source URLs — navigated directly so the extension runs on the live
-// site exactly as end users experience it.
-const URL_COLORS = 'https://www.islamweb.net/ar/article/241627/%D8%AD%D8%B0%D9%81-%D8%A7%D9%84%D8%AA%D9%86%D9%88%D9%8A%D9%86-%D8%AA%D8%AE%D9%81%D9%8A%D9%81%D8%A7%D9%8B';
-const URL_ERRORS = 'https://www.islamweb.net/ar/article/220324/%D8%AC%D9%85%D9%88%D8%B9-%D8%A7%D9%84%D8%AA%D9%83%D8%B3%D9%8A%D8%B1-%D9%81%D9%8A-%D8%A7%D9%84%D9%82%D8%B1%D8%A2%D9%86-%D8%A7%D9%84%D9%83%D8%B1%D9%8A%D9%85-%D8%AC%D9%85%D9%88%D8%B9-%D8%A7%D9%84%D9%83%D8%AB%D8%B1%D8%A9-8';
-
 // ── CLI args ──────────────────────────────────────────────────────────────────
 
 const args = process.argv.slice(2);
-const _langIdx = args.indexOf('--lang');
-const VIDEO_LANG  = _langIdx >= 0 && ['ar', 'en'].includes(args[_langIdx + 1]) ? args[_langIdx + 1] : 'en';
-const DO_VALIDATE = args.includes('--validate');
+let LANG_ARG = null, DO_VALIDATE = false, scriptPath = 'promo-script.js';
+for (let i = 0; i < args.length; i++) {
+  if (args[i] === '--lang')     { LANG_ARG = args[++i]; continue; }
+  if (args[i] === '--validate') { DO_VALIDATE = true; continue; }
+  scriptPath = args[i];
+}
 
-// ── Generic helpers (transplanted from run.js) ────────────────────────────────
+const script = require(path.resolve(__dirname, scriptPath));
+const LANG = script.languages.includes(LANG_ARG) ? LANG_ARG : script.languages[0];
+if (LANG_ARG && LANG !== LANG_ARG) {
+  console.warn(`unknown --lang ${LANG_ARG} (script supports: ${script.languages.join(', ')}) — using ${LANG}`);
+}
+
+// ── Generic helpers ───────────────────────────────────────────────────────────
 
 function ensureDir(d) { fs.mkdirSync(d, { recursive: true }); }
 function sleep(ms)    { return new Promise(r => setTimeout(r, ms)); }
@@ -119,40 +123,13 @@ async function launchWithExtension({ winW = 1280, winH = 800 } = {}) {
   return { context, extensionId, popupUrl, optionsUrl, sw };
 }
 
-// Set scanTrigger in prefs.v1 so content scripts autoscan on page load.
-async function setScanTrigger(sw, value) {
-  return sw.evaluate(async (v) => {
-    const data   = await chrome.storage.local.get('prefs.v1');
-    const prefs  = data['prefs.v1'] || {};
-    const prev   = prefs.scanTrigger || 'manual';
-    prefs.scanTrigger = v;
-    await chrome.storage.local.set({ 'prefs.v1': prefs });
-    return prev;
-  }, value);
-}
-
-// Set the extension UI language (prefs.v1.lang: 'ar' | 'en'). Must run before
-// any extension surface renders so popup/panel/options come up in that language.
-async function setLang(sw, lang) {
-  await sw.evaluate(async (l) => {
+// Merge keys into chrome.storage.local 'prefs.v1'.
+async function setPrefs(sw, patch) {
+  await sw.evaluate(async (p) => {
     const data  = await chrome.storage.local.get('prefs.v1');
-    const prefs = data['prefs.v1'] || {};
-    prefs.lang = l;
+    const prefs = Object.assign(data['prefs.v1'] || {}, p);
     await chrome.storage.local.set({ 'prefs.v1': prefs });
-  }, lang);
-}
-
-// Set panel prefs for capture: all categories visible, panel floats on the left
-// so it doesn't squeeze the page text (float = overlay, not side-by-side).
-async function setCapturePanelPrefs(sw) {
-  await sw.evaluate(async () => {
-    const data  = await chrome.storage.local.get('prefs.v1');
-    const prefs = data['prefs.v1'] || {};
-    prefs.panelFilter   = { orange: true, green: true, lightBlue: true, lightGreen: true, yellow: true, red: true };
-    prefs.panelPosition = 'float';
-    prefs.floatAnchor   = 'left';
-    await chrome.storage.local.set({ 'prefs.v1': prefs });
-  });
+  }, patch);
 }
 
 // Wait for the sidebar panel to appear (best-effort).
@@ -285,11 +262,11 @@ ${click ? '[NC]::mouse_event(2, 0, 0, 0, 0)\nStart-Sleep -Milliseconds 40\n[NC]:
 
 async function _nativeClick(x, y) { return _nativeMouse([[x, y]], { click: true }); }
 
-// ── In-page promo effects (spotlight, click ripple) ──────────────────────────
-// Visual emphasis for the promo video: the spotlight dims the page and draws a
-// pulsing ring around one element; the ripple marks clicks. Both are injected
-// as the LAST children of <html> at max z-index so they paint above the
-// extension panel (which also uses 2147483647).
+// ── In-page effects (spotlight, click ripple) ────────────────────────────────
+// Visual emphasis: the spotlight dims the page and draws a pulsing ring around
+// one element; the ripple marks clicks. Both are injected as the LAST children
+// of <html> at max z-index so they paint above the extension panel (which also
+// uses 2147483647).
 
 // target: selector string, ElementHandle, or a plain {x, y, width, height}
 // box in viewport coordinates.
@@ -433,7 +410,7 @@ const RESOLVERS = {
     _nearestLightGreen(ctx.page, ctx.saved[(spec && spec.arg) || 'orangeBox'] || null),
 };
 
-// Resolve a script target spec (see promo-script.js header) to an ElementHandle.
+// Resolve a script target spec (see the header) to an ElementHandle.
 async function resolveTarget(ctx, spec) {
   if (!spec) return null;
   if (Array.isArray(spec)) {
@@ -520,7 +497,7 @@ const ACTIONS = {
     }
   },
 
-  setScanTrigger: (ctx, step) => setScanTrigger(ctx.sw, step.value),
+  setPref: (ctx, step) => setPrefs(ctx.sw, { [step.key]: step.value }),
 
   goto: async (ctx, step) => {
     const url = ctx.urls[step.url] || step.url;
@@ -614,7 +591,7 @@ async function execStep(ctx, step) {
 
 // ── Static validation (--validate) ────────────────────────────────────────────
 // Catches script mistakes without launching anything: unknown verbs, cue keys
-// missing from PROMO_COPY, cuts entered while zoomed, nested cuts, `when:
+// missing from the copy, cuts entered while zoomed, nested cuts, `when:
 // popupShown` before any openPopup.
 
 function validateScript(scenes, copy) {
@@ -630,7 +607,7 @@ function validateScript(scenes, copy) {
       }
       if (step.do === 'cue') {
         for (const l of langs) {
-          if (!copy[l][step.text]) errors.push(`${where}: cue key "${step.text}" missing in PROMO_COPY.${l}`);
+          if (!copy[l][step.text]) errors.push(`${where}: cue key "${step.text}" missing in copy.${l}`);
         }
       }
       if (step.do === 'zoom') z = step.z;
@@ -650,21 +627,19 @@ function validateScript(scenes, copy) {
 }
 
 // ── Main recording flow ───────────────────────────────────────────────────────
-// Setup, anchoring, and post-production are identical to run.js's
-// recordPromoVideoScreen; the inline scenes are replaced by the interpreter.
 
-async function runPromoScript(srv, scenes) {
+async function runRecording(srv, lang) {
   ensureDir(VIDEO_DIR);
-  console.log('\n── Promo video [scripted, screen capture] ──────────────────────');
+  const scenes = script.scenes({ lang });
+  console.log(`\n── ${script.name} [scripted, screen capture] ────────────────────`);
   console.log('  Recording… (do not interact with the browser window)');
 
   const W = 1280, H = 800;
-  const lang = VIDEO_LANG;
-  const rawPath = path.join(VIDEO_DIR, `promo-screen-raw-${lang}.mp4`);
+  const rawPath = path.join(VIDEO_DIR, `${script.name}-raw-${lang}.mp4`);
   console.log(`  Language: ${lang}  ·  ${scenes.length} scenes`);
 
-  // Branded intro/outro cards, rendered off-screen before recording starts.
-  const { introPng, outroPng } = await _makePromoCards(lang);
+  // The script's intro/outro cards, rendered off-screen before recording starts.
+  const { introPng, outroPng } = await _renderCards(lang);
   console.log('  ✓ intro/outro cards rendered');
 
   const { context, popupUrl, optionsUrl, extensionId, sw } = await launchWithExtension({ winW: W, winH: H });
@@ -673,7 +648,7 @@ async function runPromoScript(srv, scenes) {
   const page = context.pages()[0] || await context.newPage();
   await page.bringToFront();
 
-  // Pin outer window to exactly 1280×800 at (0,0). --window-size sets the
+  // Pin outer window to exactly W×H at (0,0). --window-size sets the
   // *viewport* in Chromium; Browser.setWindowBounds forces the OUTER window.
   try {
     const cdp = await context.newCDPSession(page);
@@ -689,13 +664,14 @@ async function runPromoScript(srv, scenes) {
   }
   await sleep(500);
 
-  await setScanTrigger(sw, 'manual');
-  await setCapturePanelPrefs(sw);
-  await setLang(sw, lang); // extension UI language — before any surface renders
+  // Script prefs — before any extension surface renders.
+  await setPrefs(sw, script.prefs(lang));
 
-  // Load the first article fully before recording starts so frame 1 is a
-  // clean, fully-rendered page (not the desktop or a half-painted load).
-  await page.goto(URL_COLORS, { waitUntil: 'load', timeout: 30_000 });
+  const urls = script.urls({ srv, popupUrl, optionsUrl, extensionId });
+
+  // Load the start page fully before recording starts so frame 1 is a clean,
+  // fully-rendered page (not the desktop or a half-painted load).
+  await page.goto(urls[script.startUrl] || script.startUrl, { waitUntil: 'load', timeout: 30_000 });
   await _dismissOverlays(page);
 
   // CDP setWindowBounds uses CSS pixels but gdigrab captures *device* pixels:
@@ -730,14 +706,8 @@ async function runPromoScript(srv, scenes) {
   let qWall = null;
 
   const ctx = {
-    page, sw, context, lang, extensionId, popupUrl, optionsUrl,
-    copy: PROMO_COPY[lang],
-    urls: {
-      colors:     URL_COLORS,
-      errors:     URL_ERRORS,
-      writerDemo: `${srv.base}/writer-demo`,
-      options:    optionsUrl,
-    },
+    page, sw, context, lang, extensionId, popupUrl, optionsUrl, urls,
+    copy: script.copy[lang],
     state: {},   // runtime flags for `when:` gates (popupShown, …)
     saved: {},   // boxes stored by saveBox, read by resolvers
     zoomZ: 1,
@@ -771,7 +741,7 @@ async function runPromoScript(srv, scenes) {
     // Stop the recording BEFORE closing Chrome — the reverse order leaves the
     // bare desktop in the last seconds of the video.
     qWall = await _stopScreenCapture(ffproc);
-    await setScanTrigger(sw, 'manual').catch(() => {});
+    if (script.cleanupPrefs) await setPrefs(sw, script.cleanupPrefs).catch(() => {});
     await context.close();
   }
 
@@ -854,74 +824,40 @@ async function runPromoScript(srv, scenes) {
   }
 
   // Captions land on the final timeline: shifted right by the intro card.
-  const INTRO_DUR = 2.8, OUTRO_DUR = 3.6, XF = 0.5;
-  const capOff = INTRO_DUR - XF;
+  const { introDur, outroDur, xf } = script.timing;
+  const capOff = introDur - xf;
   const finalCues = cues.map(c => ({
     text:  c.text,
     start: +(c.start + capOff).toFixed(3),
     end:   +(c.end + capOff).toFixed(3),
   }));
   fs.writeFileSync(
-    path.join(VIDEO_DIR, `promo-screen-${lang}.cues.json`),
+    path.join(VIDEO_DIR, `${script.name}-${lang}.cues.json`),
     JSON.stringify(finalCues, null, 2));
   const capPngs = await _makeCaptionPngs(finalCues, lang);
   const captions = finalCues.map((c, i) => ({ png: capPngs[i], start: c.start, end: c.end }));
   console.log(`  Captions: ${captions.length} pills rendered (${lang})`);
   console.log(`  Cutting ${cuts.length} load interval(s): ${D.toFixed(1)}s → ${editedDur.toFixed(1)}s + cards`);
 
-  await _renderMarketingPromo({
+  await _renderFinal({
     rawPath,
-    outPath: path.join(VIDEO_DIR, `promo-screen-${lang}.mp4`),
+    outPath: path.join(VIDEO_DIR, `${script.name}-${lang}.mp4`),
     segs, captions, introPng, outroPng,
-    introDur: INTRO_DUR, outroDur: OUTRO_DUR, xf: XF, editedDur,
+    introDur, outroDur, xf, editedDur,
   });
 }
 
-// ── Post-production (transplanted from run.js) ────────────────────────────────
+// ── Post-production ───────────────────────────────────────────────────────────
 
-// Render the branded intro/outro cards (1600×1000 PNG) from styled HTML via a
-// separate headless browser — never visible to the screen recording.
-async function _makePromoCards(lang = 'en') {
-  const iconB64 = fs.readFileSync(path.join(PROJECT_ROOT, 'icons', 'icon-128.png')).toString('base64');
-  const star = encodeURIComponent(
-    "<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'>" +
-    "<g fill='none' stroke='#ffffff' stroke-width='1'>" +
-    "<path d='M60 6l14 40 40 14-40 14-14 40-14-40-40-14 40-14z'/><circle cx='60' cy='60' r='4'/></g></svg>");
-  const card = (body) => `<!doctype html><html><head><meta charset="utf-8"><style>
-    *{margin:0;padding:0;box-sizing:border-box}
-    body{width:1600px;height:1000px;display:flex;align-items:center;justify-content:center;
-      font-family:'Segoe UI',system-ui,sans-serif;color:#f3faf5;overflow:hidden;
-      background:radial-gradient(1200px 800px at 50% 38%,#11402a 0%,#0a2719 52%,#051710 100%)}
-    .pattern{position:fixed;inset:0;opacity:.06;background-image:url("data:image/svg+xml,${star}")}
-    .wrap{position:relative;text-align:center}
-    .kicker{font-size:30px;letter-spacing:.38em;color:#7fd6a4;text-transform:uppercase;font-weight:600}
-    .ar{font-size:96px;font-weight:700;font-family:'Traditional Arabic','Amiri',serif;margin-top:6px}
-    .tag{font-size:34px;color:#cfe9da;font-weight:300;margin-top:16px}
-    .rule{width:120px;height:2px;background:linear-gradient(90deg,transparent,#34c759,transparent);margin:26px auto 0}
-    .pill{display:inline-block;margin-top:34px;padding:16px 44px;border-radius:999px;background:#f3faf5;
-      color:#0a2719;font-size:28px;font-weight:600}
-    img.logo{width:118px;height:118px;filter:drop-shadow(0 12px 32px rgba(0,0,0,.5))}
-  </style></head><body><div class="pattern"></div><div class="wrap">${body}</div></body></html>`;
-
-  const c = PROMO_COPY[lang];
-  const dir = lang === 'ar' ? 'rtl' : 'ltr';
-  const introHtml = card(`
-    <img class="logo" src="data:image/png;base64,${iconB64}">
-    <div class="kicker" style="margin-top:34px">${c.cardKicker}</div>
-    <div class="ar">صَوْنُ القُرْآن</div>
-    <div class="rule"></div>
-    <div class="tag" dir="${dir}">${c.cardTag}</div>`);
-  const outroHtml = card(`
-    <img class="logo" src="data:image/png;base64,${iconB64}">
-    <div class="kicker" style="margin-top:34px">${c.outroKicker}</div>
-    <div class="tag" dir="${dir}" style="margin-top:22px">${c.outroTag}</div>
-    <div class="pill" dir="${dir}">${c.outroPill}</div>`);
-
-  const introPng = path.join(VIDEO_DIR, `card-intro-${lang}.png`);
-  const outroPng = path.join(VIDEO_DIR, `card-outro-${lang}.png`);
+// Render the script's intro/outro cards to PNG via a separate headless
+// browser — never visible to the screen recording.
+async function _renderCards(lang) {
+  const { introHtml, outroHtml, viewport } = script.cards(lang);
+  const introPng = path.join(VIDEO_DIR, `${script.name}-card-intro-${lang}.png`);
+  const outroPng = path.join(VIDEO_DIR, `${script.name}-card-outro-${lang}.png`);
   const browser = await chromium.launch({ headless: true });
   try {
-    const pg = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
+    const pg = await browser.newPage({ viewport });
     await pg.setContent(introHtml, { waitUntil: 'networkidle' });
     await pg.screenshot({ path: introPng });
     await pg.setContent(outroHtml, { waitUntil: 'networkidle' });
@@ -937,23 +873,14 @@ async function _makePromoCards(lang = 'en') {
 // ffmpeg-static does not. Rendered at 2× and downscaled in FFmpeg for crisp
 // text. Returns one PNG path per cue.
 async function _makeCaptionPngs(cues, lang) {
-  const dir = lang === 'ar' ? 'rtl' : 'ltr';
   const browser = await chromium.launch({ headless: true });
   const out = [];
   try {
     const pg = await browser.newPage({ viewport: { width: 1280, height: 240 }, deviceScaleFactor: 2 });
     for (let i = 0; i < cues.length; i++) {
-      await pg.setContent(`<!doctype html><meta charset="utf-8"><style>
-        body{margin:0;display:flex;align-items:flex-start;justify-content:center;background:transparent}
-        .pill{display:inline-block;max-width:1100px;margin-top:8px;padding:14px 30px;border-radius:14px;
-          background:rgba(7,18,11,.88);box-shadow:0 6px 22px rgba(0,0,0,.35);
-          font:600 28px 'Segoe UI',system-ui,sans-serif;color:#fff;text-align:center;
-          direction:${dir};line-height:1.45}
-        .pill .g{color:#34c759;font-weight:700}
-        .pill .r{color:#ff6b5e;font-weight:700}
-      </style><body><div class="pill">${cues[i].text}</div>`);
-      const el = await pg.$('.pill');
-      const png = path.join(VIDEO_DIR, `cap-${lang}-${String(i).padStart(2, '0')}.png`);
+      await pg.setContent(script.captionHtml(cues[i].text, lang));
+      const el = await pg.$('body > *');
+      const png = path.join(VIDEO_DIR, `${script.name}-cap-${lang}-${String(i).padStart(2, '0')}.png`);
       await el.screenshot({ path: png, omitBackground: true });
       out.push(png);
     }
@@ -985,13 +912,13 @@ function _zoomExprs(kfs) {
   };
 }
 
-// Final marketing render in one FFmpeg pass:
+// Final render in one FFmpeg pass:
 //   intro card ⟶ xfade ⟶ [per-segment trim + animated zoom] concat,
 //   light color grade, xfade ⟶ outro card, caption-pill overlays (timed,
 //   alpha-faded), fade to black.
 // Zoomed segments are 2× supersampled before zoompan to avoid zoom jitter.
 // captions: [{ png, start, end }] on the FINAL timeline (intro included).
-function _renderMarketingPromo({ rawPath, outPath, segs, captions, introPng, outroPng, introDur, outroDur, xf, editedDur }) {
+function _renderFinal({ rawPath, outPath, segs, captions, introPng, outroPng, introDur, outroDur, xf, editedDur }) {
   const { execFile } = require('child_process');
   const parts = [];
 
@@ -1080,8 +1007,8 @@ function _findFfmpeg() {
 (async () => {
   if (DO_VALIDATE) {
     let failed = false;
-    for (const l of ['en', 'ar']) {
-      const { errors, steps, scenes } = validateScript(buildPromoScript({ lang: l }), PROMO_COPY);
+    for (const l of script.languages) {
+      const { errors, steps, scenes } = validateScript(script.scenes({ lang: l }), script.copy);
       console.log(`[${l}] ${scenes} scenes, ${steps} steps — ${errors.length ? errors.length + ' error(s)' : 'OK'}`);
       for (const e of errors) console.log(`  ✗ ${e}`);
       if (errors.length) failed = true;
@@ -1089,17 +1016,16 @@ function _findFfmpeg() {
     process.exit(failed ? 1 : 0);
   }
 
-  ensureDir(OUTPUT_DIR);
-  const scenes = buildPromoScript({ lang: VIDEO_LANG });
-  const { errors } = validateScript(scenes, PROMO_COPY);
+  const { errors } = validateScript(script.scenes({ lang: LANG }), script.copy);
   if (errors.length) {
     for (const e of errors) console.error(`  ✗ ${e}`);
-    throw new Error('script validation failed — fix promo-script.js');
+    throw new Error(`script validation failed — fix ${scriptPath}`);
   }
 
+  ensureDir(OUTPUT_DIR);
   const srv = await serve(7331);
   try {
-    await runPromoScript(srv, scenes);
+    await runRecording(srv, LANG);
   } finally {
     srv.server.close();
   }
