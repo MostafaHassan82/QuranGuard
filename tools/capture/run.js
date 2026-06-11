@@ -7,7 +7,9 @@
  *   node tools/capture/run.js --screenshots --screen   All 7 screenshots via gdigrab (real Chrome window)
  *   node tools/capture/run.js --tiles                  Small (440x280) + Marquee (1400x560) tiles
  *   node tools/capture/run.js --video promo            Record ~75s promo video (Playwright webm)
- *   node tools/capture/run.js --video promo-screen     Record ~75s promo video via gdigrab (real Chrome)
+ *   node tools/capture/run.js --video promo-screen     Record marketing promo via gdigrab (real Chrome)
+ *   node tools/capture/run.js --video promo-screen --lang ar
+ *                                                      Same, fully in Arabic (extension UI, captions, cards)
  *   node tools/capture/run.js --video promo --screen   Same as --video promo-screen
  *   node tools/capture/run.js --video tutorial         Record ~5-min tutorial video (webm)
  *   node tools/capture/run.js --all                    All of the above (Playwright mode)
@@ -64,13 +66,22 @@ const doPromo       = (videoArg >= 0 && args[videoArg + 1] === 'promo')    || ar
 const doPromoScreen = (videoArg >= 0 && args[videoArg + 1] === 'promo-screen') ||
                       (doPromo && doScreen);
 const doTutorial    = (videoArg >= 0 && args[videoArg + 1] === 'tutorial') || args.includes('--all');
-const doShotsScreen = doShots && doScreen;
+// gdigrab captures physical Chrome-window pixels (toolbar included) and
+// cannot open chrome-extension:// popup windows — Playwright page.screenshot()
+// gives cleaner, DPI-correct, content-only shots for CWS assets.
+// --screen applies only to video; for screenshots it is intentionally ignored.
+const doShotsScreen = false; // reserved; always use Playwright for screenshots
 
 // Story / shot selectors — apply only to --screenshots.
 // --story N,M  : run only those stories; absent = run all
 // --skip-story : exclude those stories
 // --shot N,M   : run only those shots; absent = run all
 // --skip-shot  : exclude those shots
+// --lang ar|en — language for the promo-screen video: extension UI (prefs.v1
+// .lang), caption copy, and intro/outro cards all follow it. Default: en.
+const _langIdx  = args.indexOf('--lang');
+const VIDEO_LANG = _langIdx >= 0 && ['ar', 'en'].includes(args[_langIdx + 1]) ? args[_langIdx + 1] : 'en';
+
 const _storyIdx      = args.indexOf('--story');
 const _skipStoryIdx  = args.indexOf('--skip-story');
 const _shotIdx       = args.indexOf('--shot');
@@ -141,7 +152,17 @@ async function launchWithExtension({ recordVideo, screenCapture, winW = 1280, wi
     };
   }
 
-  const context = await chromium.launchPersistentContext('', ctxOpts);
+  // Seed a temp profile with translate disabled — Arabic pages otherwise pop
+  // Chrome's "Translate this page?" bubble over the toolbar mid-recording.
+  // (A --disable-features flag doesn't survive Playwright's own flag merging.)
+  const userDataDir = fs.mkdtempSync(path.join(require('os').tmpdir(), 'qg-capture-'));
+  fs.mkdirSync(path.join(userDataDir, 'Default'), { recursive: true });
+  fs.writeFileSync(
+    path.join(userDataDir, 'Default', 'Preferences'),
+    JSON.stringify({ translate: { enabled: false }, translate_blocked_languages: ['ar'] })
+  );
+
+  const context = await chromium.launchPersistentContext(userDataDir, ctxOpts);
 
   // Wait for the MV3 service worker so we can read the extension ID.
   let [sw] = context.serviceWorkers();
@@ -163,6 +184,17 @@ async function setScanTrigger(sw, value) {
     await chrome.storage.local.set({ 'prefs.v1': prefs });
     return prev;
   }, value);
+}
+
+// Set the extension UI language (prefs.v1.lang: 'ar' | 'en'). Must run before
+// any extension surface renders so popup/panel/options come up in that language.
+async function setLang(sw, lang) {
+  await sw.evaluate(async (l) => {
+    const data  = await chrome.storage.local.get('prefs.v1');
+    const prefs = data['prefs.v1'] || {};
+    prefs.lang = l;
+    await chrome.storage.local.set({ 'prefs.v1': prefs });
+  }, lang);
 }
 
 // Set panel prefs for capture: all categories visible, panel floats on the left
@@ -206,14 +238,14 @@ async function waitForPanel(page, timeout = 18_000) {
 
 // Start FFmpeg gdigrab recording of the desktop region 0,0 → W×H.
 // Returns the child process. Call _stopScreenCapture() when done.
-function _startScreenCapture(outPath, w, h) {
+function _startScreenCapture(outPath, w, h, offsetX = 0, offsetY = 0) {
   const { spawn } = require('child_process');
   const ffmpeg = _findFfmpeg();
   const proc = spawn(ffmpeg, [
     '-f', 'gdigrab',
     '-framerate', '30',
-    '-offset_x', '0',
-    '-offset_y', '0',
+    '-offset_x', String(offsetX),
+    '-offset_y', String(offsetY),
     '-video_size', `${w}x${h}`,
     '-i', 'desktop',
     '-c:v', 'libx264',
@@ -233,11 +265,28 @@ function _startScreenCapture(outPath, w, h) {
 }
 
 // Stop FFmpeg gracefully by sending 'q' to stdin; waits for process to exit.
+// Resolves with the wall-clock ms timestamp at which 'q' was sent — i.e. the
+// approximate wall time of the video's LAST frame.  recordPromoVideoScreen
+// anchors its scene timeline with it: videoT0 ≈ qWall − durationMs.
 function _stopScreenCapture(proc) {
   return new Promise((resolve) => {
-    const timer = setTimeout(() => { proc.kill('SIGTERM'); resolve(); }, 10_000);
-    proc.on('close', () => { clearTimeout(timer); resolve(); });
+    const qWall = Date.now();
+    const timer = setTimeout(() => { proc.kill('SIGTERM'); resolve(qWall); }, 10_000);
+    proc.on('close', () => { clearTimeout(timer); resolve(qWall); });
     try { proc.stdin.write('q'); proc.stdin.end(); } catch (_) {}
+  });
+}
+
+// Parse "Duration: HH:MM:SS.cc" from `ffmpeg -i file` stderr (no ffprobe in
+// ffmpeg-static). ffmpeg exits non-zero without an output file — that's fine.
+function _probeDurationSec(file) {
+  const { execFile } = require('child_process');
+  return new Promise((resolve) => {
+    execFile(_findFfmpeg(), ['-i', file], { timeout: 15_000 }, (_err, _o, stderr) => {
+      const m = /Duration:\s*(\d+):(\d+):(\d+)\.(\d+)/.exec(stderr || '');
+      if (!m) return resolve(null);
+      resolve(+m[1] * 3600 + +m[2] * 60 + +m[3] + +m[4] / 100);
+    });
   });
 }
 
@@ -262,30 +311,186 @@ async function _captureScreenFrame(x, y, w, h, outPath) {
   });
 }
 
-// Open the extension popup as a real floating window using a Playwright-synthesized
-// click (which counts as a user gesture, allowing window.open to create a popup).
-// Returns the new page, or null on failure.
-async function _openPopupWindow(context, page, popupUrl) {
-  // Inject a tiny invisible button whose click handler opens the popup window.
-  await page.evaluate((url) => {
-    const btn = document.createElement('button');
-    btn.id = '__qg_popup_trigger';
-    btn.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;pointer-events:all;z-index:99999';
-    btn.onclick = () => window.open(url, 'qgpopup',
-      'width=380,height=560,left=880,top=50,resizable=no,menubar=no,toolbar=no,location=no,status=no');
-    document.body.appendChild(btn);
-  }, popupUrl);
+// Send a real OS-level key press (keybd_event).  Playwright keyboard events go
+// through CDP to a page target — they can't reach a native extension-action
+// popup window.  vk 0x1B = Escape (closes the action popup).
+async function _nativeKey(vk) {
+  const os  = require('os');
+  const tmp = path.join(os.tmpdir(), '_qg_key.ps1');
+  fs.writeFileSync(tmp,
+`$sig = @'
+using System; using System.Runtime.InteropServices;
+public class NK { [DllImport("user32.dll")] public static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, int dwExtraInfo); }
+'@
+Add-Type -TypeDefinition $sig -Language CSharp
+[NK]::keybd_event(${vk}, 0, 0, 0)
+Start-Sleep -Milliseconds 40
+[NK]::keybd_event(${vk}, 0, 2, 0)
+`);
+  require('child_process').execSync(
+    `powershell -NoProfile -ExecutionPolicy Bypass -File "${tmp}"`,
+    { stdio: 'ignore' }
+  );
+  await sleep(80);
+}
 
-  const [popupPage] = await Promise.all([
-    context.waitForEvent('page', { timeout: 6000 }).catch(() => null),
-    page.click('#__qg_popup_trigger'),
-  ]);
+// Real OS-level mouse choreography in ONE PowerShell invocation: glide the
+// cursor through `points`, optionally ending with a left click. A single
+// process per gesture keeps timing tight (each spawn costs ~1s of Add-Type).
+// OS clicks move real focus, unlike CDP clicks, so they reach native popups.
+async function _nativeMouse(points, { click = false } = {}) {
+  const os  = require('os');
+  const tmp = path.join(os.tmpdir(), '_qg_mouse.ps1');
+  const moves = points.map(([x, y]) =>
+    `[NC]::SetCursorPos(${x}, ${y})\nStart-Sleep -Milliseconds 180`).join('\n');
+  fs.writeFileSync(tmp,
+`$sig = @'
+using System; using System.Runtime.InteropServices;
+public class NC {
+  [DllImport("user32.dll")] public static extern bool SetCursorPos(int x, int y);
+  [DllImport("user32.dll")] public static extern void mouse_event(uint dwFlags, uint dx, uint dy, uint dwData, int dwExtraInfo);
+}
+'@
+Add-Type -TypeDefinition $sig -Language CSharp
+${moves}
+${click ? '[NC]::mouse_event(2, 0, 0, 0, 0)\nStart-Sleep -Milliseconds 40\n[NC]::mouse_event(4, 0, 0, 0, 0)' : ''}
+`);
+  require('child_process').execSync(
+    `powershell -NoProfile -ExecutionPolicy Bypass -File "${tmp}"`,
+    { stdio: 'ignore' }
+  );
+  await sleep(80);
+}
 
-  await page.evaluate(() => document.getElementById('__qg_popup_trigger')?.remove());
-  if (popupPage) {
-    await popupPage.waitForLoadState('domcontentloaded').catch(() => {});
+async function _nativeClick(x, y) { return _nativeMouse([[x, y]], { click: true }); }
+
+// ── In-page promo effects (spotlight, click ripple) ──────────────────────────
+// Visual emphasis for the promo video: the spotlight dims the page and draws a
+// pulsing ring around one element; the ripple marks clicks. Both are injected
+// as the LAST children of <html> at max z-index so they paint above the
+// extension panel (which also uses 2147483647).
+
+// target: selector string, ElementHandle, or a plain {x, y, width, height}
+// box in viewport coordinates.
+async function _spotlightOn(page, target, { pad = 10 } = {}) {
+  let box = null;
+  if (target && typeof target === 'object' && typeof target.x === 'number') {
+    box = target;
+  } else {
+    const el = typeof target === 'string' ? await page.$(target) : target;
+    if (!el) return false;
+    // For inline elements that wrap across lines, boundingBox() is the union
+    // of the line fragments — a tall rect offset from the visible text.
+    // Spotlight the largest fragment instead.
+    box = await el.evaluate((node) => {
+      const rects = Array.from(node.getClientRects());
+      if (!rects.length) return null;
+      const r = rects.reduce((a, b) => (b.width * b.height > a.width * a.height ? b : a));
+      return { x: r.x, y: r.y, width: r.width, height: r.height };
+    }).catch(() => null);
+    if (!box) box = await el.boundingBox().catch(() => null);
   }
-  return popupPage;
+  if (!box) return false;
+  await page.evaluate(({ box, pad }) => {
+    // Clamp to the viewport: full-height elements (the panel) would otherwise
+    // put every ring edge offscreen.
+    const vw = window.innerWidth, vh = window.innerHeight;
+    const L = Math.max(box.x - pad, 6), T = Math.max(box.y - pad, 6);
+    const R = Math.min(box.x + box.width + pad, vw - 6);
+    const B = Math.min(box.y + box.height + pad, vh - 6);
+    const hole = (l, t, r, b) =>
+      `polygon(evenodd, 0 0, ${vw}px 0, ${vw}px ${vh}px, 0 ${vh}px, 0 0, ` +
+      `${l}px ${t}px, ${r}px ${t}px, ${r}px ${b}px, ${l}px ${b}px, ${l}px ${t}px)`;
+
+    let dim = document.getElementById('__qg_dim');
+    let ring = document.getElementById('__qg_spot');
+    if (!dim) {
+      const st = document.createElement('style');
+      st.id = '__qg_spot_css';
+      st.textContent = `
+        #__qg_dim{position:fixed;inset:0;z-index:2147483647;pointer-events:none;
+          background:rgba(2,10,6,.45);opacity:0;
+          transition:opacity .45s ease,clip-path .55s cubic-bezier(.4,0,.2,1)}
+        #__qg_spot{position:fixed;z-index:2147483647;pointer-events:none;
+          border:3px solid #22c55e;border-radius:12px;
+          box-shadow:0 0 0 6px rgba(34,197,94,.28),0 0 18px rgba(34,197,94,.45);
+          opacity:0;transition:all .5s cubic-bezier(.4,0,.2,1)}
+        #__qg_spot::after{content:'';position:absolute;inset:-3px;border-radius:12px;
+          border:3px solid rgba(34,197,94,.9);animation:__qgp 1.5s ease-out infinite}
+        @keyframes __qgp{0%{transform:scale(1);opacity:.9}100%{transform:scale(1.1);opacity:0}}
+      `;
+      document.documentElement.appendChild(st);
+      dim = document.createElement('div');
+      dim.id = '__qg_dim';
+      dim.style.clipPath = hole(0, 0, vw, vh); // start fully open so the hole animates shut
+      document.documentElement.appendChild(dim);
+      ring = document.createElement('div');
+      ring.id = '__qg_spot';
+      document.documentElement.appendChild(ring);
+      void dim.offsetWidth; // commit initial styles so the first show transitions
+    }
+    dim.style.clipPath = hole(L, T, R, B);
+    dim.style.opacity = '1';
+    ring.style.left   = L + 'px';
+    ring.style.top    = T + 'px';
+    ring.style.width  = (R - L) + 'px';
+    ring.style.height = (B - T) + 'px';
+    ring.style.opacity = '1';
+  }, { box, pad });
+  return true;
+}
+
+async function _spotlightOff(page) {
+  await page.evaluate(() => {
+    const dim = document.getElementById('__qg_dim');
+    const ring = document.getElementById('__qg_spot');
+    if (dim) dim.style.opacity = '0';
+    if (ring) ring.style.opacity = '0';
+  }).catch(() => {});
+  await sleep(480);
+}
+
+async function _ripple(page, x, y) {
+  await page.evaluate(({ x, y }) => {
+    if (!document.getElementById('__qg_rip_css')) {
+      const st = document.createElement('style');
+      st.id = '__qg_rip_css';
+      st.textContent = '@keyframes __qgr{0%{transform:translate(-50%,-50%) scale(.4);opacity:.85}100%{transform:translate(-50%,-50%) scale(2.6);opacity:0}}';
+      document.documentElement.appendChild(st);
+    }
+    const d = document.createElement('div');
+    d.style.cssText = `position:fixed;left:${x}px;top:${y}px;width:34px;height:34px;` +
+      'border-radius:50%;border:3px solid #22c55e;background:rgba(34,197,94,.25);' +
+      'z-index:2147483647;pointer-events:none;animation:__qgr .65s ease-out forwards';
+    document.documentElement.appendChild(d);
+    setTimeout(() => d.remove(), 700);
+  }, { x, y }).catch(() => {});
+}
+
+// First <button> inside a panel row matching rowSel whose label matches re.
+// Matched by class + label regex so it works in both UI languages.
+async function _findRowButton(page, rowSel, re) {
+  for (const h of await page.$$(`${rowSel} button`)) {
+    const txt = await h.innerText().catch(() => '');
+    if (re.test(txt)) return h;
+  }
+  return null;
+}
+
+// The corrected (light-green) highlight closest vertically to `box` — used to
+// tell apart multiple corrections on the same page.
+async function _nearestLightGreen(page, box) {
+  const els = await page.$$('.quran-lightgreen');
+  if (!els.length) return null;
+  if (!box) return els[0];
+  let best = null, bestD = Infinity;
+  for (const el of els) {
+    const b = await el.boundingBox().catch(() => null);
+    if (!b) continue;
+    const d = Math.abs(b.y - box.y);
+    if (d < bestD) { bestD = d; best = el; }
+  }
+  return best || els[0];
 }
 
 // ── Screenshot capture (Playwright) ──────────────────────────────────────────
@@ -838,114 +1043,767 @@ async function recordPromoVideo(srv) {
 
 async function recordPromoVideoScreen(srv) {
   ensureDir(VIDEO_DIR);
-  console.log('\n── Promo video [screen capture] (~75 sec) ──────────────────────');
+  console.log('\n── Promo video [screen capture] (~80 sec) ──────────────────────');
   console.log('  Recording… (do not interact with the browser window)');
 
   const W = 1280, H = 800;
-  const rawPath = path.join(VIDEO_DIR, 'promo-screen-raw.mp4');
+  const lang = VIDEO_LANG;
+  const C = PROMO_COPY[lang];
+  const rawPath = path.join(VIDEO_DIR, `promo-screen-raw-${lang}.mp4`);
+  console.log(`  Language: ${lang}`);
 
-  // Start FFmpeg before the browser opens so frame 1 captures the blank desktop,
-  // then the Chrome window appears naturally.
-  const ffproc = _startScreenCapture(rawPath, W, H);
-  await sleep(1500); // let FFmpeg settle before Chrome paints
+  // Branded intro/outro cards, rendered off-screen before recording starts.
+  const { introPng, outroPng } = await _makePromoCards(lang);
+  console.log('  ✓ intro/outro cards rendered');
 
-  const { context, popupUrl, optionsUrl, sw } = await launchWithExtension({ screenCapture: true, winW: W, winH: H });
-  const page = await context.newPage();
+  // Chrome window is at (0,0), outer size 1280×800.
+  // Tab row: y≈0–35.  Toolbar (address bar + icons): y≈35–75, center y≈55.
+  // With only our extension loaded, the action icon sits just left of the
+  // profile button at approximately x≈1205.
+  const EXT_ICON_X = 1205, EXT_ICON_Y = 55;
+
+  // ── Launch Chrome, pin outer window to EXACTLY 1280×800 via CDP, then load
+  // the first page before FFmpeg starts.
+  //
+  // Why CDP setWindowBounds: --window-size=W,H sets the *viewport* (inner
+  // content area) in Chromium, not the outer window.  The outer window is
+  // viewport + Chrome UI (tab bar ~35 + toolbar ~51 ≈ 86 px taller), so a
+  // 1280×800 gdigrab clip would shave the bottom ~86 px off the page.
+  // Browser.setWindowBounds forces the *outer* window to exactly W×H.
+  //
+  // Why page-load first: starting FFmpeg before Chrome is positioned shows
+  // whatever was previously at (0,0) on screen for the first few seconds.
+  // We load the article page fully, wait 5 s, then start the capture so
+  // frame 1 is a clean, fully-rendered page.
+  const { context, popupUrl, optionsUrl, extensionId, sw } = await launchWithExtension({ screenCapture: true, winW: W, winH: H });
+  // Reuse the persistent context's initial about:blank tab — opening a second
+  // page leaves a stray "about:blank" tab visible in the tab strip on camera.
+  const page = context.pages()[0] || await context.newPage();
   await page.bringToFront();
-  await sleep(1500); // let Chrome render its initial frame
+
+  // Pin outer window to exactly 1280×800 at (0,0).
+  try {
+    const cdp = await context.newCDPSession(page);
+    const { windowId } = await cdp.send('Browser.getWindowForTarget', {});
+    await cdp.send('Browser.setWindowBounds', {
+      windowId,
+      bounds: { left: 0, top: 0, width: W, height: H, windowState: 'normal' },
+    });
+    const after = await cdp.send('Browser.getWindowBounds', { windowId });
+    console.log(`  Window bounds: ${JSON.stringify(after.bounds)}`);
+  } catch (e) {
+    console.log('  ⚠ setWindowBounds failed:', e.message);
+  }
+  await sleep(500);
+
+  await setScanTrigger(sw, 'manual');
+  await setCapturePanelPrefs(sw);
+  await setLang(sw, lang); // extension UI language — before any surface renders
+
+  // Load the first article fully before recording starts.
+  await page.goto(URL_COLORS, { waitUntil: 'load', timeout: 30_000 });
+  await _dismissOverlays(page);
+
+  // Query window position/size AND devicePixelRatio.  CDP setWindowBounds uses
+  // CSS pixels, but gdigrab captures *device* pixels.  On a Windows machine at
+  // 125 % display scaling, a 1280-CSS-pixel-wide Chrome window is actually
+  // 1280 × 1.25 = 1600 device pixels wide — so capturing 1280×800 (or even
+  // 1400×900) clips the Chrome content on the right and bottom.
+  //
+  // Fix: capture exactly `W * dpr × H * dpr` device pixels at Chrome's
+  // top-left, then scale (not crop) to 1280×800 in post.  This keeps every
+  // pixel of the rendered Chrome window inside the final video, at any DPI.
+  const win = await page.evaluate(() => ({
+    x: window.screenX, y: window.screenY,
+    outerW: window.outerWidth, outerH: window.outerHeight,
+    innerW: window.innerWidth,  innerH: window.innerHeight,
+    dpr: window.devicePixelRatio,
+  }));
+  console.log(`  JS window: outer=${win.outerW}×${win.outerH} inner=${win.innerW}×${win.innerH} pos=(${win.x},${win.y}) dpr=${win.dpr}`);
+
+  const dpr = win.dpr || 1;
+  // gdigrab requires even dimensions for libx264 (yuv420p).
+  const CAP_W = Math.round(W * dpr / 2) * 2;
+  const CAP_H = Math.round(H * dpr / 2) * 2;
+  const capX = Math.max(0, Math.round(win.x * dpr));
+  const capY = Math.max(0, Math.round(win.y * dpr));
+  console.log(`  Capture region: ${CAP_W}×${CAP_H} at (${capX},${capY}) device px — will scale to ${W}×${H}`);
+
+  await sleep(3000); // page fully painted; settle before capture begins
+
+  // Start FFmpeg now — frame 1 is a fully-loaded Chrome page, no blank/VSCode.
+  const ffproc = _startScreenCapture(rawPath, CAP_W, CAP_H, capX, capY);
+  const ffStartWall = Date.now();
+  await sleep(1000); // let gdigrab deliver its first frames
+
+  // ── Scene timeline ──────────────────────────────────────────────────────
+  // Subtitles used to come from a fixed-clock SRT, but real page loads drift
+  // by many seconds, so cues ran ahead of the picture. Instead: record the
+  // wall time of every cue and every load interval ("cut") here, anchor them
+  // to the video clock once the capture stops (t0 ≈ qWall − duration), drop
+  // the cut intervals in post, and generate the SRT from what actually
+  // happened on screen.
+  const tl = { cues: [], cuts: [], _cut: null };
+  const cue = (text) => {
+    const last = tl.cues[tl.cues.length - 1];
+    if (last && !last.endWall) last.endWall = Date.now();
+    tl.cues.push({ text, startWall: Date.now(), endWall: null });
+    console.log(`  [cue] ${text}`);
+  };
+  const cutStart = () => { tl._cut = { startWall: Date.now(), endWall: null }; tl.cuts.push(tl._cut); };
+  const cutEnd   = () => { if (tl._cut) { tl._cut.endWall = Date.now(); tl._cut = null; } };
+
+  // Camera zooms, applied in post via zoompan: each event animates from the
+  // current zoom state to (z, cx, cy) over dur seconds. cx/cy are fractions
+  // of the full frame. Scenes must return to z=1 before each cut.
+  const zooms = [];
+  const zoomTo = (z, cx, cy, dur = 0.7) => zooms.push({ wall: Date.now(), z, cx, cy, dur });
+  // Page-viewport coords → frame fractions (browser chrome sits above the page).
+  const CONTENT_TOP = win.outerH - win.innerH > 0 ? win.outerH - win.innerH : 94;
+  const frac = (box) => ({
+    cx: Math.min(0.95, Math.max(0.05, (box.x + box.width / 2) / W)),
+    cy: Math.min(0.95, Math.max(0.05, (box.y + box.height / 2 + CONTENT_TOP) / H)),
+  });
+
+  const _t0 = Date.now();
+  const _mark = (label) => console.log(`  [t=${((Date.now() - _t0) / 1000).toFixed(1)}s] ${label}`);
+  let qWall = null;
 
   try {
-    await setScanTrigger(sw, 'manual');
+    // ── Scene 1 (~4.5s): hook over the real article, slow push-in ────────────
+    _mark('Scene 1 start');
+    cue(C.hook);
+    zoomTo(1.06, 0.5, 0.45, 4.0); // subtle cinematic drift
+    await page.mouse.move(640, 320);
+    await page.evaluate(() => window.scrollBy({ top: 500, behavior: 'smooth' }));
+    await sleep(4300);
 
-    // ── Scene 1 (~7s): Real article — clean ──────────────────────────────────
-    await page.goto(URL_COLORS, { waitUntil: 'domcontentloaded', timeout: 30_000 });
-    await _dismissOverlays(page);
-    await page.evaluate(() => window.scrollTo({ top: 600, behavior: 'instant' }));
-    await sleep(5000);
+    // ── Scene 2 (~7s): popup opens, camera punches in on it ──────────────────
+    _mark('Scene 2 start (popup)');
+    cue(C.meet);
+    // Cursor glides into the toolbar extension-icon area — visual cue for click.
+    await _nativeMouse([
+      [EXT_ICON_X - 120, EXT_ICON_Y + 40],
+      [EXT_ICON_X - 40,  EXT_ICON_Y + 10],
+      [EXT_ICON_X,       EXT_ICON_Y],
+    ]);
 
-    // ── Scene 2 (~5s): Real floating popup window ─────────────────────────────
-    const popupPage = await _openPopupWindow(context, page, popupUrl);
-    await sleep(4500);
-    if (popupPage) await popupPage.close().catch(() => {});
-    await page.bringToFront();
-    await sleep(300);
+    let popupShown = false;
+    try {
+      await sw.evaluate(() => new Promise((res, rej) => {
+        if (!chrome.action?.openPopup) { rej(new Error('not available')); return; }
+        chrome.action.openPopup({}, () => {
+          if (chrome.runtime.lastError) rej(new Error(chrome.runtime.lastError.message));
+          else res();
+        });
+      }));
+      popupShown = true;
+      console.log('  ✓ chrome.action.openPopup() succeeded — popup visible on screen');
+    } catch (e) {
+      console.log('  ⚠ openPopup failed:', e.message);
+      await page.goto(popupUrl, { waitUntil: 'domcontentloaded' }); // fallback: popup as a tab
+    }
+    zoomTo(1.6, 0.75, 0.24, 0.8); // strong punch-in on the popup
+    await sleep(1500);
 
-    // ── Scene 3 (~9s): Autoscan ──────────────────────────────────────────────
+    // Really click the popup's "Scan page" button. The popup is a native
+    // window outside CDP's reach, so this is an OS-level click at the
+    // button's screen position (the primary button mirrors with UI direction:
+    // right side in RTL, left side in LTR).
+    if (popupShown) {
+      const SCAN_BTN = lang === 'ar' ? { x: 1017, y: 191 } : { x: 899, y: 191 };
+      await _nativeMouse([
+        [SCAN_BTN.x - 60, SCAN_BTN.y + 30],
+        [SCAN_BTN.x, SCAN_BTN.y],
+      ], { click: true });
+      console.log('  ✓ clicked popup scan button');
+      await sleep(2400); // scan runs; status + page highlights appear behind the popup
+    } else {
+      await sleep(2400);
+    }
+    zoomTo(1.0, 0.5, 0.5, 0.7);
+    await sleep(800);
+
+    // Dismiss the popup and rescan — the whole load interval is cut in post.
+    // The action popup is a native window outside CDP's reach: Playwright
+    // clicks/keys never dismiss it (it stayed on screen for the entire
+    // previous recording). A real OS-level Escape + a focus click do.
+    cutStart();
+    if (popupShown) {
+      await _nativeKey(0x1B);        // Escape closes the action popup…
+      await _nativeClick(640, 15);   // …and a click on the empty tab strip is the backup
+    }
     await setScanTrigger(sw, 'autoscan');
-    await setCapturePanelPrefs(sw);
-    await page.goto(URL_COLORS, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+    await page.goto(URL_COLORS, { waitUntil: 'domcontentloaded', timeout: 45_000 });
     await _dismissOverlays(page);
+    _mark('Scene 3: waiting for highlights');
     await page.waitForSelector('.quran-green, .quran-lightblue, .quran-yellow', { timeout: 40_000 });
     await waitForPanel(page);
     await page.evaluate(() => window.scrollTo({ top: 600, behavior: 'instant' }));
-    await sleep(2500);
+    await sleep(600); // settle inside the cut — also absorbs anchor error
+    cutEnd();
+    _mark('Scene 3: highlights visible');
 
-    // ── Scene 4 (~5s): Scroll colors ─────────────────────────────────────────
-    await page.evaluate(() => window.scrollBy({ top: 280, behavior: 'smooth' }));
-    await sleep(2000);
+    // ── Scene 3 (~6s): results panel spotlight, then scroll the highlights ───
+    cue(C.scan);
+    await _spotlightOn(page, '.quran-ext-panel', { pad: 6 });
+    await sleep(2700);
+    await _spotlightOff(page);
+    await page.evaluate(() => window.scrollBy({ top: 240, behavior: 'smooth' }));
+    await sleep(2300);
+
+    // ── Scene 4 (~5s): color verdicts, spotlight a non-green finding ─────────
+    _mark('Scene 4 start');
+    cue(C.colors);
     const yellowEl = await page.$('.quran-yellow');
-    if (yellowEl) await yellowEl.scrollIntoViewIfNeeded();
-    await sleep(2500);
+    if (yellowEl) {
+      await yellowEl.scrollIntoViewIfNeeded();
+      await sleep(400);
+      await _spotlightOn(page, yellowEl, { pad: 8 });
+    }
+    await sleep(2900);
+    await _spotlightOff(page);
+    await sleep(500);
 
-    // ── Scene 5 (~10s): Error article ────────────────────────────────────────
-    await page.goto(URL_ERRORS, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+    // ── Scene 5 (~14s): RED — show the error, fix it, show the result ────────
+    _mark('Scene 5 start (goto URL_ERRORS)');
+    cutStart();
+    await page.goto(URL_ERRORS, { waitUntil: 'domcontentloaded', timeout: 45_000 });
     await _dismissOverlays(page);
     await page.waitForSelector('.quran-red, .quran-orange', { timeout: 40_000 });
     await waitForPanel(page);
     const redEl = await page.$('.quran-red');
-    if (redEl) { await redEl.scrollIntoViewIfNeeded(); await sleep(600); await redEl.click(); }
-    await sleep(4500);
+    if (redEl) await redEl.scrollIntoViewIfNeeded();
+    await sleep(600);
+    cutEnd();
+    _mark('Scene 5: red visible');
 
-    // ── Scene 6 (~5s): Correct in place ──────────────────────────────────────
-    const btns = await page.$$('.quran-ext-panel button');
-    for (const btn of btns) {
-      const txt = await btn.innerText().catch(() => '');
-      if (txt.includes('تصحيح') || txt.includes('orrect')) {
-        await btn.scrollIntoViewIfNeeded();
-        await sleep(400);
-        await btn.click();
-        break;
+    cue(C.red);
+    if (redEl) await _spotlightOn(page, redEl, { pad: 8 });
+    await sleep(2500);
+    await _spotlightOff(page);
+    if (redEl) {
+      const box = await redEl.boundingBox();
+      if (box) {
+        const cx = box.x + box.width / 2, cy = box.y + box.height / 2;
+        await page.mouse.move(cx, cy);
+        await _ripple(page, cx, cy);
       }
+      await redEl.click().catch(() => {});
     }
-    await sleep(4000);
+    await sleep(600);
+    cue(C.tap);
+    zoomTo(1.28, 0.16, 0.55, 0.7); // punch in on the panel detail card
+    await sleep(2600);
 
-    // ── Scene 7 (~13s): Writer demo ───────────────────────────────────────────
+    // Accept the red suggestion while still zoomed on the panel.
+    const redFixBtn = await _findRowButton(page, '.quran-ext-panel-row-red', /اعتماد|قبول|تصحيح|accept|correct|fix/i);
+    if (redFixBtn) {
+      await redFixBtn.scrollIntoViewIfNeeded().catch(() => {});
+      const bb = await redFixBtn.boundingBox().catch(() => null);
+      if (bb) {
+        await page.mouse.move(bb.x + bb.width / 2, bb.y + bb.height / 2);
+        await sleep(350);
+        await _ripple(page, bb.x + bb.width / 2, bb.y + bb.height / 2);
+      }
+      await redFixBtn.click().catch(() => {});
+      console.log('  ✓ red: accepted suggestion');
+    } else {
+      console.warn('  ⚠ red fix button not found');
+    }
+    await sleep(900);
+    zoomTo(1.0, 0.5, 0.5, 0.6);
+    await sleep(700);
+
+    cue(C.redFixed);
+    const redFixedEl = await page.$('.quran-lightgreen');
+    if (redFixedEl) {
+      await redFixedEl.scrollIntoViewIfNeeded().catch(() => {});
+      await sleep(400);
+      await _spotlightOn(page, redFixedEl, { pad: 8 });
+      await sleep(2600);
+      await _spotlightOff(page);
+    } else {
+      await sleep(2600);
+    }
+
+    // ── Scene 6 (~11s): ORANGE — jump from the panel, see it, fix it ─────────
+    _mark('Scene 6 start (orange jump + fix)');
+    cue(C.orangeJump);
+    const orangeRow = await page.$('.quran-ext-panel-row-orange .quran-ext-panel-head');
+    if (orangeRow) {
+      await orangeRow.scrollIntoViewIfNeeded().catch(() => {});
+      await sleep(300);
+      const bb = await orangeRow.boundingBox().catch(() => null);
+      if (bb) {
+        await page.mouse.move(bb.x + bb.width / 2, bb.y + bb.height / 2);
+        await _ripple(page, bb.x + bb.width / 2, bb.y + bb.height / 2);
+      }
+      await orangeRow.click().catch(() => {}); // row click = jump to the highlight
+    }
+    await sleep(1600); // page scrolls to the orange mistake
+    // The orange mistake is the REFERENCE, not the ayah — spotlight the wrong
+    // ref marker next to the highlight (fallback: the highlight itself).
+    const orangeEl = await page.$('.quran-orange');
+    let orangeBox = null;
+    if (orangeEl) orangeBox = await orangeEl.boundingBox().catch(() => null);
+    const wrongRefHandle = await page.evaluateHandle(() => {
+      const ayah = document.querySelector('.quran-orange');
+      const id = ayah && ayah.dataset.findingId;
+      return id ? document.querySelector(`[data-quran-ref-for="${CSS.escape(id)}"]`) : null;
+    });
+    const wrongRefEl = wrongRefHandle.asElement();
+    if (wrongRefEl) await _spotlightOn(page, wrongRefEl, { pad: 8 });
+    else if (orangeEl) await _spotlightOn(page, orangeEl, { pad: 8 });
+    await sleep(2400);
+    await _spotlightOff(page);
+
+    cue(C.orangeFix);
+    const orangeFixBtn = await _findRowButton(page, '.quran-ext-panel-row-orange', /تصحيح|correct/i);
+    if (orangeFixBtn) {
+      await orangeFixBtn.scrollIntoViewIfNeeded().catch(() => {});
+      const bb = await orangeFixBtn.boundingBox().catch(() => null);
+      if (bb) {
+        await page.mouse.move(bb.x + bb.width / 2, bb.y + bb.height / 2);
+        await sleep(400);
+        await _ripple(page, bb.x + bb.width / 2, bb.y + bb.height / 2);
+      }
+      await orangeFixBtn.click().catch(() => {});
+      console.log('  ✓ orange: corrected in place');
+    } else {
+      console.warn('  ⚠ orange fix button not found');
+    }
+    await sleep(900);
+    // What changed is the reference text — spotlight the corrected ref marker
+    // (correctInPlace tags it quran-ref-corrected), not the ayah.
+    const fixedRefEl = await page.$('.quran-ref-corrected');
+    const orangeFixedEl = fixedRefEl || await _nearestLightGreen(page, orangeBox);
+    if (orangeFixedEl) {
+      await _spotlightOn(page, orangeFixedEl, { pad: 8 });
+      await sleep(2400);
+      await _spotlightOff(page);
+    } else {
+      await sleep(2400);
+    }
+
+    // ── Scene 7 (~10s): writer demo — type, zoom on dropdown, Tab-insert ─────
+    _mark('Scene 7 start (writer demo)');
+    cutStart();
     await page.goto(`${srv.base}/writer-demo`, { waitUntil: 'load' });
-    await sleep(800);
+    // Uthmani font for the dropdown candidates (same treatment as screenshots).
+    await page.evaluate((extId) => {
+      const s = document.createElement('style');
+      s.textContent = `
+        @font-face { font-family:'UthmaniHafs'; src:url('chrome-extension://${extId}/resources/fonts/uthmani-hafs.ttf') format('truetype'); }
+        .quran-ac-ayah { font-family:'UthmaniHafs','Traditional Arabic',serif !important; font-size:18px !important; }
+      `;
+      document.head.appendChild(s);
+    }, extensionId);
     await page.click('#article-body');
-    await sleep(150);
     await page.keyboard.press('Control+End');
-    await sleep(150);
+    await sleep(600);
+    cutEnd();
+
+    cue(C.writer);
     for (const ch of 'فإذا قرأت') {
       await page.keyboard.type(ch);
-      await sleep(130);
+      await sleep(140);
     }
-    await sleep(2500);
+    const dd = await page.waitForSelector('.quran-ac-menu', { timeout: 8000 }).catch(() => null);
+    if (dd) {
+      const box = await dd.boundingBox().catch(() => null);
+      if (box) { const f = frac(box); zoomTo(1.3, f.cx, f.cy, 0.8); }
+    }
+    await sleep(2300);           // dropdown clearly visible
     await page.keyboard.press('Tab');
-    await sleep(1800);
+    await sleep(1500);           // scope menu clearly visible
+    cue(C.tab);
     await page.keyboard.press('Tab');
-    await sleep(3000);
+    await sleep(2400);
+    zoomTo(1.0, 0.5, 0.5, 0.6);
+    await sleep(700);
 
-    // ── Scene 8 (~7s): Options / themes ──────────────────────────────────────
+    // ── Scene 8 (~8s): live theme switching, zoomed on the picker ────────────
+    _mark('Scene 8 start (themes)');
+    cutStart();
     await page.goto(optionsUrl, { waitUntil: 'domcontentloaded' });
-    await sleep(500);
+    await page.waitForSelector('#appearance-picker .theme-card', { timeout: 10_000 }).catch(() => null);
     const appSection = await page.$('#sec-appearance');
     if (appSection) await appSection.scrollIntoViewIfNeeded();
-    await sleep(5500);
+    await sleep(600);
+    cutEnd();
 
-    // End card (2s)
-    await sleep(2000);
+    cue(C.themes);
+    const picker = await page.$('#appearance-picker');
+    if (picker) {
+      const box = await picker.boundingBox().catch(() => null);
+      if (box) { const f = frac(box); zoomTo(1.22, f.cx, f.cy, 0.8); }
+    }
+    for (const id of ['mihrab', 'diwan', 'tahrir']) {
+      const card = await page.$(`.theme-card[data-theme-id="${id}"]`);
+      if (card) {
+        const box = await card.boundingBox();
+        if (box) {
+          const cx = box.x + box.width / 2, cy = box.y + box.height / 2;
+          await page.mouse.move(cx, cy);
+          await _ripple(page, cx, cy);
+        }
+        await card.click().catch(() => {});
+      }
+      await sleep(1900);
+    }
+    zoomTo(1.0, 0.5, 0.5, 0.7);
+    await sleep(900);
+
+    // ── Scene 9 (~7s): options tour — much more to configure ─────────────────
+    _mark('Scene 9 start (options tour)');
+    cue(C.more);
+    for (const sec of ['#sec-highlight', '#sec-autocomplete', '#sec-panel']) {
+      await page.evaluate((s) => {
+        document.querySelector(s)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, sec);
+      await sleep(2200);
+    }
+    await sleep(500);
+    _mark('All scenes done');
 
   } finally {
-    await setScanTrigger(sw, 'manual');
+    // Stop the recording BEFORE closing Chrome — the previous order left the
+    // bare desktop in the last ~6 seconds of the video.
+    qWall = await _stopScreenCapture(ffproc);
+    await setScanTrigger(sw, 'manual').catch(() => {});
     await context.close();
   }
 
-  // Stop FFmpeg gracefully; it finalises the MP4 container on shutdown.
-  await _stopScreenCapture(ffproc);
   console.log(`\n  Raw screen capture: ${rawPath}`);
-  console.log('  Converting to MP4 with subtitles…');
-  await _burnSubtitles('promo-screen-raw.mp4', 'promo-short.srt', 'promo-screen.mp4', 22);
+  const D = await _probeDurationSec(rawPath);
+  if (!D) throw new Error('could not probe raw capture duration');
+  // If gdigrab died mid-recording (e.g. "Failed to capture image (error 5)"
+  // when the desktop is locked or a secure prompt appears), the raw file is
+  // far shorter than the wall-clock recording time. Refuse to render garbage.
+  const wallSec = (qWall - ffStartWall) / 1000;
+  if (D < wallSec - 5) {
+    throw new Error(`screen capture died mid-recording (raw ${D.toFixed(1)}s vs ${wallSec.toFixed(1)}s of scenes) — ` +
+                    'keep the desktop unlocked and undisturbed, then re-run');
+  }
+  // Anchor: wall time of the video's first frame. Derived from the END of the
+  // capture (qWall − duration) so gdigrab's startup latency cancels out.
+  const t0Wall = qWall - D * 1000;
+  console.log(`  Duration ${D.toFixed(2)}s; anchor vs ffmpeg spawn: +${((t0Wall - ffStartWall) / 1000).toFixed(2)}s`);
+  const toVid = (w) => Math.min(Math.max((w - t0Wall) / 1000, 0), D);
+
+  // Load intervals to drop, and the keep-segments between them.
+  const cuts = tl.cuts
+    .filter(c => c.endWall)
+    .map(c => ({ start: toVid(c.startWall), end: toVid(c.endWall) }))
+    .filter(c => c.end - c.start > 0.05);
+  const keeps = [];
+  let pos = 0;
+  for (const c of cuts) {
+    if (c.start - pos > 0.1) keeps.push({ start: pos, end: c.start });
+    pos = Math.max(pos, c.end);
+  }
+  if (D - pos > 0.1) keeps.push({ start: pos, end: D });
+  const editedDur = keeps.reduce((a, k) => a + (k.end - k.start), 0);
+
+  // Map a raw-video time into the edited (cut) timeline.
+  const editedAt = (t) => {
+    let acc = 0;
+    for (const k of keeps) {
+      if (t >= k.end) { acc += k.end - k.start; continue; }
+      if (t > k.start) acc += t - k.start;
+      break;
+    }
+    return acc;
+  };
+
+  const lastCue = tl.cues[tl.cues.length - 1];
+  if (lastCue && !lastCue.endWall) lastCue.endWall = qWall;
+  let cues = tl.cues.map(c => ({
+    text:  c.text,
+    start: editedAt(toVid(c.startWall)),
+    end:   editedAt(toVid(c.endWall)),
+  }));
+  for (let i = 0; i < cues.length; i++) {
+    if (i + 1 < cues.length) cues[i].end = Math.min(cues[i].end, cues[i + 1].start - 0.12);
+    cues[i].end = Math.min(cues[i].end, editedDur - 0.15);
+    if (cues[i].end - cues[i].start < 0.4) cues[i] = null; // degenerate cue
+  }
+  cues = cues.filter(Boolean);
+
+  // Attach zoom events to their keep-segments as segment-local keyframes.
+  const segs = keeps.map(k => ({ ...k, events: null, kfs: null }));
+  for (const ev of zooms) {
+    const t = toVid(ev.wall);
+    const seg = segs.find(s => t >= s.start - 0.05 && t < s.end);
+    if (!seg) continue;
+    (seg.events = seg.events || []).push({ ...ev, t: Math.max(0, t - seg.start) });
+  }
+  for (const seg of segs) {
+    if (!seg.events) continue;
+    seg.events.sort((a, b) => a.t - b.t);
+    const kfs = [{ t: 0, z: 1, cx: 0.5, cy: 0.5 }];
+    let cur = kfs[0];
+    for (const e of seg.events) {
+      const t0 = Math.max(e.t, cur.t + 0.02);
+      if (t0 > cur.t + 0.03) kfs.push({ t: t0, z: cur.z, cx: cur.cx, cy: cur.cy }); // hold until the event
+      cur = { t: t0 + Math.max(e.dur, 0.1), z: e.z, cx: e.cx, cy: e.cy };
+      kfs.push(cur);
+    }
+    seg.kfs = kfs;
+  }
+
+  // Captions land on the final timeline: shifted right by the intro card.
+  const INTRO_DUR = 2.8, OUTRO_DUR = 3.6, XF = 0.5;
+  const capOff = INTRO_DUR - XF;
+  const finalCues = cues.map(c => ({
+    text:  c.text,
+    start: +(c.start + capOff).toFixed(3),
+    end:   +(c.end + capOff).toFixed(3),
+  }));
+  fs.writeFileSync(
+    path.join(VIDEO_DIR, `promo-screen-${lang}.cues.json`),
+    JSON.stringify(finalCues, null, 2));
+  const capPngs = await _makeCaptionPngs(finalCues, lang);
+  const captions = finalCues.map((c, i) => ({ png: capPngs[i], start: c.start, end: c.end }));
+  console.log(`  Captions: ${captions.length} pills rendered (${lang})`);
+  console.log(`  Cutting ${cuts.length} load interval(s): ${D.toFixed(1)}s → ${editedDur.toFixed(1)}s + cards`);
+
+  await _renderMarketingPromo({
+    rawPath,
+    outPath: path.join(VIDEO_DIR, `promo-screen-${lang}.mp4`),
+    segs, captions, introPng, outroPng,
+    introDur: INTRO_DUR, outroDur: OUTRO_DUR, xf: XF, editedDur,
+  });
+}
+
+// ── Promo post-production helpers ─────────────────────────────────────────────
+
+// Caption + card copy for the marketing promo, per language. Cue strings may
+// carry inline HTML (the caption pills are rendered by a browser, not libass —
+// ffmpeg-static's libass cannot shape Arabic).
+const PROMO_COPY = {
+  en: {
+    hook:       'Quran citations are everywhere — but are they accurate?',
+    meet:       'Meet <span class="g">QuranGuard</span> — a one-click audit for any page',
+    scan:       'Auto-scan verifies every citation against the mushaf',
+    colors:     'Color-coded verdicts — issues at a glance',
+    red:        '<span class="r">Red</span> — this text isn\'t in the Quran',
+    tap:        'Tap a highlight to see the authentic wording',
+    redFixed:   'One click — the authentic ayah, fixed in place',
+    orangeJump: 'Wrong reference? Jump straight to it',
+    orangeFix:  '…and correct it in place',
+    writer:     'It even completes the ayah as you type',
+    tab:        'Press Tab — the verified ayah is inserted',
+    themes:     'Six hand-crafted themes',
+    more:       '…and much more to fine-tune',
+    cardKicker: 'QuranGuard',
+    cardTag:    'Every ayah. Letter-perfect.',
+    outroKicker:'QuranGuard · صون القرآن',
+    outroTag:   'Guard every ayah you publish.',
+    outroPill:  'Available on the Chrome Web Store',
+  },
+  ar: {
+    hook:       'آيات القرآن تُقتبس في كل مكان — فهل هي دقيقة؟',
+    meet:       'تعرَّف على <span class="g">صَوْن القرآن</span> — فحص أي صفحة بنقرة واحدة',
+    scan:       'الفحص التلقائي يدقّق كل اقتباس على المصحف',
+    colors:     'ألوان تكشف الحالة — والمشاكل تظهر بلمحة',
+    red:        '<span class="r">الأحمر</span> — نصٌ لا وجود له في القرآن',
+    tap:        'اضغط على أي تمييز لترى النص الصحيح من المصحف',
+    redFixed:   'بنقرة واحدة — يُستبدل بالنص القرآني الصحيح',
+    orangeJump: 'مرجع خاطئ؟ انتقل إليه مباشرةً من اللوحة',
+    orangeFix:  '…وصحِّحه في مكانه',
+    writer:     'بل ويُكمل الآية أثناء الكتابة',
+    tab:        'اضغط Tab — وتُدرَج الآية الموثَّقة',
+    themes:     'ستة مظاهر مصمَّمة بعناية',
+    more:       '…والمزيد من الخيارات للتخصيص',
+    cardKicker: 'QuranGuard',
+    cardTag:    'كلُّ آية، بحرفها.',
+    outroKicker:'QuranGuard · صون القرآن',
+    outroTag:   'احرس كلَّ آية تنشرها.',
+    outroPill:  'متوفر في متجر Chrome الإلكتروني',
+  },
+};
+
+// Render the branded intro/outro cards (1600×1000 PNG) from styled HTML via a
+// separate headless browser — never visible to the screen recording.
+async function _makePromoCards(lang = 'en') {
+  const iconB64 = fs.readFileSync(path.join(PROJECT_ROOT, 'icons', 'icon-128.png')).toString('base64');
+  const star = encodeURIComponent(
+    "<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'>" +
+    "<g fill='none' stroke='#ffffff' stroke-width='1'>" +
+    "<path d='M60 6l14 40 40 14-40 14-14 40-14-40-40-14 40-14z'/><circle cx='60' cy='60' r='4'/></g></svg>");
+  const card = (body) => `<!doctype html><html><head><meta charset="utf-8"><style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{width:1600px;height:1000px;display:flex;align-items:center;justify-content:center;
+      font-family:'Segoe UI',system-ui,sans-serif;color:#f3faf5;overflow:hidden;
+      background:radial-gradient(1200px 800px at 50% 38%,#11402a 0%,#0a2719 52%,#051710 100%)}
+    .pattern{position:fixed;inset:0;opacity:.06;background-image:url("data:image/svg+xml,${star}")}
+    .wrap{position:relative;text-align:center}
+    .kicker{font-size:30px;letter-spacing:.38em;color:#7fd6a4;text-transform:uppercase;font-weight:600}
+    .ar{font-size:96px;font-weight:700;font-family:'Traditional Arabic','Amiri',serif;margin-top:6px}
+    .tag{font-size:34px;color:#cfe9da;font-weight:300;margin-top:16px}
+    .rule{width:120px;height:2px;background:linear-gradient(90deg,transparent,#34c759,transparent);margin:26px auto 0}
+    .pill{display:inline-block;margin-top:34px;padding:16px 44px;border-radius:999px;background:#f3faf5;
+      color:#0a2719;font-size:28px;font-weight:600}
+    img.logo{width:118px;height:118px;filter:drop-shadow(0 12px 32px rgba(0,0,0,.5))}
+  </style></head><body><div class="pattern"></div><div class="wrap">${body}</div></body></html>`;
+
+  const c = PROMO_COPY[lang];
+  const dir = lang === 'ar' ? 'rtl' : 'ltr';
+  const introHtml = card(`
+    <img class="logo" src="data:image/png;base64,${iconB64}">
+    <div class="kicker" style="margin-top:34px">${c.cardKicker}</div>
+    <div class="ar">صَوْنُ القُرْآن</div>
+    <div class="rule"></div>
+    <div class="tag" dir="${dir}">${c.cardTag}</div>`);
+  const outroHtml = card(`
+    <img class="logo" src="data:image/png;base64,${iconB64}">
+    <div class="kicker" style="margin-top:34px">${c.outroKicker}</div>
+    <div class="tag" dir="${dir}" style="margin-top:22px">${c.outroTag}</div>
+    <div class="pill" dir="${dir}">${c.outroPill}</div>`);
+
+  const introPng = path.join(VIDEO_DIR, `card-intro-${lang}.png`);
+  const outroPng = path.join(VIDEO_DIR, `card-outro-${lang}.png`);
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const pg = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
+    await pg.setContent(introHtml, { waitUntil: 'networkidle' });
+    await pg.screenshot({ path: introPng });
+    await pg.setContent(outroHtml, { waitUntil: 'networkidle' });
+    await pg.screenshot({ path: outroPng });
+  } finally {
+    await browser.close();
+  }
+  return { introPng, outroPng };
+}
+
+// Render each caption as a transparent PNG pill via headless Chromium.
+// Browser text shaping handles Arabic ligatures + bidi correctly — libass in
+// ffmpeg-static does not. Rendered at 2× and downscaled in FFmpeg for crisp
+// text. Returns one PNG path per cue.
+async function _makeCaptionPngs(cues, lang) {
+  const dir = lang === 'ar' ? 'rtl' : 'ltr';
+  const browser = await chromium.launch({ headless: true });
+  const out = [];
+  try {
+    const pg = await browser.newPage({ viewport: { width: 1280, height: 240 }, deviceScaleFactor: 2 });
+    for (let i = 0; i < cues.length; i++) {
+      await pg.setContent(`<!doctype html><meta charset="utf-8"><style>
+        body{margin:0;display:flex;align-items:flex-start;justify-content:center;background:transparent}
+        .pill{display:inline-block;max-width:1100px;margin-top:8px;padding:14px 30px;border-radius:14px;
+          background:rgba(7,18,11,.88);box-shadow:0 6px 22px rgba(0,0,0,.35);
+          font:600 28px 'Segoe UI',system-ui,sans-serif;color:#fff;text-align:center;
+          direction:${dir};line-height:1.45}
+        .pill .g{color:#34c759;font-weight:700}
+        .pill .r{color:#ff6b5e;font-weight:700}
+      </style><body><div class="pill">${cues[i].text}</div>`);
+      const el = await pg.$('.pill');
+      const png = path.join(VIDEO_DIR, `cap-${lang}-${String(i).padStart(2, '0')}.png`);
+      await el.screenshot({ path: png, omitBackground: true });
+      out.push(png);
+    }
+  } finally {
+    await browser.close();
+  }
+  return out;
+}
+
+// Build zoompan z/x/y expressions from keyframes [{t, z, cx, cy}] (segment-
+// local seconds; cx/cy are frame-fraction centers). Between keyframes the
+// values ease with smoothstep; after the last keyframe they hold.
+function _zoomExprs(kfs) {
+  const piece = (prop) => {
+    let expr = String(kfs[kfs.length - 1][prop]);
+    for (let i = kfs.length - 2; i >= 0; i--) {
+      const a = kfs[i], b = kfs[i + 1];
+      const T = a.t.toFixed(3), D = Math.max(b.t - a.t, 0.001).toFixed(3);
+      const interp = `${a[prop]}+(${b[prop] - a[prop]})*pow(st(0,clip((it-${T})/${D},0,1)),2)*(3-2*ld(0))`;
+      expr = `if(lt(it,${b.t.toFixed(3)}),${interp},${expr})`;
+    }
+    return expr;
+  };
+  const cx = piece('cx'), cy = piece('cy');
+  return {
+    z: piece('z'),
+    x: `clip((${cx})*iw-iw/(2*zoom),0,iw-iw/zoom)`,
+    y: `clip((${cy})*ih-ih/(2*zoom),0,ih-ih/zoom)`,
+  };
+}
+
+// Final marketing render in one FFmpeg pass:
+//   intro card ⟶ xfade ⟶ [per-segment trim + animated zoom] concat,
+//   light color grade, xfade ⟶ outro card, caption-pill overlays (timed,
+//   alpha-faded), fade to black.
+// Zoomed segments are 2× supersampled before zoompan to avoid zoom jitter.
+// captions: [{ png, start, end }] on the FINAL timeline (intro included).
+function _renderMarketingPromo({ rawPath, outPath, segs, captions, introPng, outroPng, introDur, outroDur, xf, editedDur }) {
+  const { execFile } = require('child_process');
+  const parts = [];
+
+  segs.forEach((s, i) => {
+    let chain = `[0:v]trim=start=${s.start.toFixed(3)}:end=${s.end.toFixed(3)},setpts=PTS-STARTPTS`;
+    if (s.kfs && s.kfs.length > 1) {
+      const e = _zoomExprs(s.kfs);
+      chain += `,scale=3200:2000:flags=lanczos,zoompan=z='${e.z}':x='${e.x}':y='${e.y}':d=1:fps=30:s=1280x800`;
+    } else {
+      chain += ',scale=1280:800:flags=lanczos,fps=30';
+    }
+    parts.push(`${chain}[s${i}]`);
+  });
+
+  const cardChain = (inp, dur, zExpr, label) =>
+    `[${inp}:v]scale=2560:1600:flags=lanczos,` +
+    `zoompan=z='${zExpr}':x='(iw-iw/zoom)/2':y='(ih-ih/zoom)/2':d=1:fps=30:s=1280x800,` +
+    `trim=duration=${dur},setpts=PTS-STARTPTS,format=yuv420p,settb=AVTB[${label}]`;
+
+  const total = introDur + editedDur + outroDur - 2 * xf;
+  const graphParts = [
+    ...parts,
+    segs.map((_, i) => `[s${i}]`).join('') + `concat=n=${segs.length}:v=1:a=0[cat]`,
+    `[cat]eq=contrast=1.02:saturation=1.05,format=yuv420p,settb=AVTB[main]`,
+    cardChain(1, introDur, `min(1.06,1+0.06*it/${introDur})`, 'intro'),
+    cardChain(2, outroDur, `max(1,1.05-0.05*it/${outroDur})`, 'outro'),
+    `[intro][main]xfade=transition=fade:duration=${xf}:offset=${(introDur - xf).toFixed(3)}[im]`,
+    `[im][outro]xfade=transition=fade:duration=${xf}:offset=${(introDur - xf + editedDur - xf).toFixed(3)}[imo]`,
+  ];
+
+  // Caption pills: input 3+i, halved back from the 2× render, alpha-faded in
+  // and out, overlaid bottom-center only within [start, end].
+  let cur = 'imo';
+  captions.forEach((c, i) => {
+    const s = c.start.toFixed(3), e = c.end.toFixed(3);
+    graphParts.push(
+      `[${3 + i}:v]scale=iw/2:-1,format=rgba,` +
+      `fade=t=in:st=${s}:d=0.25:alpha=1,fade=t=out:st=${(c.end - 0.25).toFixed(3)}:d=0.25:alpha=1[cp${i}]`);
+    graphParts.push(`[${cur}][cp${i}]overlay=(W-w)/2:H-h-44:enable='between(t,${s},${e})'[ov${i}]`);
+    cur = `ov${i}`;
+  });
+  graphParts.push(`[${cur}]fade=t=out:st=${Math.max(0, total - 0.7).toFixed(2)}:d=0.7,format=yuv420p[v]`);
+
+  const args = [
+    '-i', rawPath,
+    '-loop', '1', '-framerate', '30', '-t', String(introDur), '-i', introPng,
+    '-loop', '1', '-framerate', '30', '-t', String(outroDur), '-i', outroPng,
+    ...captions.flatMap(c => ['-loop', '1', '-framerate', '30', '-t', String(Math.ceil(total)), '-i', c.png]),
+    '-filter_complex', graphParts.join(';'),
+    '-map', '[v]',
+    '-c:v', 'libx264', '-preset', 'slow', '-crf', '18',
+    '-r', '30',
+    '-movflags', '+faststart',
+    outPath, '-y',
+  ];
+  return new Promise((resolve, reject) => {
+    execFile(_findFfmpeg(), args, { maxBuffer: 16 * 1024 * 1024 }, (err, _stdout, stderr) => {
+      if (err) {
+        console.error('  FFmpeg error:\n', (stderr || '').slice(-1200));
+        reject(err);
+      } else {
+        console.log(`  ✓ ${path.basename(outPath)} (${(fs.statSync(outPath).size / 1e6).toFixed(1)} MB, ${total.toFixed(1)}s)`);
+        resolve(outPath);
+      }
+    });
+  });
 }
 
 // ── Tutorial video (~5 min) ───────────────────────────────────────────────────
@@ -1126,7 +1984,7 @@ async function recordTutorialVideo(srv) {
 // ── Utils ─────────────────────────────────────────────────────────────────────
 
 // Run FFmpeg to burn subtitles and produce an MP4.  Returns the output path.
-async function _burnSubtitles(rawFile, srtFile, outFile, fontSize) {
+async function _burnSubtitles(rawFile, srtFile, outFile, fontSize, scaleTo1280 = false) {
   const { execFile } = require('child_process');
   const raw = path.join(VIDEO_DIR, rawFile);
   // Drive-letter colon must be escaped so FFmpeg's subtitles filter does not
@@ -1138,9 +1996,15 @@ async function _burnSubtitles(rawFile, srtFile, outFile, fontSize) {
   const style = `FontName=Arial,FontSize=${fontSize},PrimaryColour=&H00FFFFFF,OutlineColour=&H00000000,Outline=2,Bold=1`;
   const ffmpeg = _findFfmpeg();
 
+  // When the raw capture is at device-pixel resolution (e.g. 1600×1000 at
+  // 125 % DPI scaling), downscale to 1280×800 before burning subtitles.
+  // We scale rather than crop because the capture is sized to exactly match
+  // Chrome's device-pixel window — no margins, nothing to clip away.
+  const scaleFilter = scaleTo1280 ? 'scale=1280:800:flags=lanczos,' : '';
+
   const args = [
     '-i', raw,
-    '-vf', `subtitles='${srtEsc}':force_style='${style}'`,
+    '-vf', `${scaleFilter}subtitles='${srtEsc}':force_style='${style}'`,
     '-c:v', 'libx264', '-preset', 'slow', '-crf', '18',
     '-pix_fmt', 'yuv420p',
     out, '-y',
