@@ -35,7 +35,9 @@
       "Read(//tmp/**)",
       "PowerShell(.specify/scripts/powershell/check-prerequisites.ps1 -Json -RequireTasks -IncludeTasks)",
       "PowerShell(.specify/extensions/git/scripts/powershell/auto-commit.ps1 after_analyze)",
-      "Bash(git commit *)"
+      "Bash(git commit *)",
+      "PowerShell($ff = node -e \"console.log\\(require\\('ffmpeg-static'\\)\\)\"; & $ff -i tools\\\\capture\\\\output\\\\video\\\\promo-screen.mp4 2>&1 | Select-String \"Duration|Stream\"; & $ff -i tools\\\\capture\\\\output\\\\video\\\\promo-screen-raw.mp4 2>&1 | Select-String \"Duration|Stream\")",
+      "PowerShell(New-Item *)"
     ]
   }
 }
