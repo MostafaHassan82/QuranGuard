@@ -12,8 +12,15 @@
  *   node tools/capture/record.js [script.js] --lang <lang>   Record + render
  *   node tools/capture/record.js [script.js] --validate      Static-check only
  *
- *   script.js  path relative to tools/capture (default: promo-script.js)
- *   --lang     one of the script's `languages` (default: the first one)
+ *   script.js     path relative to tools/capture (default: promo-script.js)
+ *   --lang        one of the script's `languages` (default: the first one)
+ *   --narrate / --no-narrate   override the script's narration.enabled
+ *
+ * Narration: when the script exports `narration: { enabled, voices: {lang:
+ * voiceShortName}, rate?, volume? }`, each cue's text (HTML stripped) is
+ * synthesised with the matching Edge neural voice (msedge-tts, online) and
+ * mixed in at the cue's exact start on the final timeline. If synthesis
+ * fails (offline, package missing), the render proceeds without audio.
  *
  * Pipeline: FFmpeg gdigrab captures the Chrome window at device pixels; scene
  * events (caption cues, load-interval cuts, zoom keyframes) are recorded as
@@ -55,6 +62,16 @@ const fs   = require('fs');
 const { chromium } = require('playwright');
 const { serve } = require('./server.js');
 
+// Corporate TLS interception replaces certificates Node's bundled CA list
+// can't verify (UNABLE_TO_VERIFY_LEAF_SIGNATURE on the narration websocket) —
+// trust the OS certificate store instead (Node ≥ 24).
+try {
+  const tls = require('tls');
+  if (tls.getCACertificates && tls.setDefaultCACertificates) {
+    tls.setDefaultCACertificates(tls.getCACertificates('system'));
+  }
+} catch (_) {}
+
 // ── Paths ─────────────────────────────────────────────────────────────────────
 
 const PROJECT_ROOT = path.resolve(__dirname, '../..');
@@ -65,10 +82,12 @@ const VIDEO_DIR    = path.join(OUTPUT_DIR, 'video');
 // ── CLI args ──────────────────────────────────────────────────────────────────
 
 const args = process.argv.slice(2);
-let LANG_ARG = null, DO_VALIDATE = false, scriptPath = 'promo-script.js';
+let LANG_ARG = null, DO_VALIDATE = false, NARRATE_ARG = null, scriptPath = 'promo-script.js';
 for (let i = 0; i < args.length; i++) {
-  if (args[i] === '--lang')     { LANG_ARG = args[++i]; continue; }
-  if (args[i] === '--validate') { DO_VALIDATE = true; continue; }
+  if (args[i] === '--lang')       { LANG_ARG = args[++i]; continue; }
+  if (args[i] === '--validate')   { DO_VALIDATE = true; continue; }
+  if (args[i] === '--narrate')    { NARRATE_ARG = true; continue; }
+  if (args[i] === '--no-narrate') { NARRATE_ARG = false; continue; }
   scriptPath = args[i];
 }
 
@@ -77,6 +96,7 @@ const LANG = script.languages.includes(LANG_ARG) ? LANG_ARG : script.languages[0
 if (LANG_ARG && LANG !== LANG_ARG) {
   console.warn(`unknown --lang ${LANG_ARG} (script supports: ${script.languages.join(', ')}) — using ${LANG}`);
 }
+const NARRATE = NARRATE_ARG !== null ? NARRATE_ARG : !!(script.narration && script.narration.enabled);
 
 // ── Generic helpers ───────────────────────────────────────────────────────────
 
@@ -837,12 +857,18 @@ async function runRecording(srv, lang) {
   const capPngs = await _makeCaptionPngs(finalCues, lang);
   const captions = finalCues.map((c, i) => ({ png: capPngs[i], start: c.start, end: c.end }));
   console.log(`  Captions: ${captions.length} pills rendered (${lang})`);
+
+  let narration = null;
+  if (NARRATE) {
+    narration = await _makeNarrationClips(finalCues, lang);
+    if (narration) console.log(`  Narration: ${narration.length} clips synthesised (${script.narration.voices[lang]})`);
+  }
   console.log(`  Cutting ${cuts.length} load interval(s): ${D.toFixed(1)}s → ${editedDur.toFixed(1)}s + cards`);
 
   await _renderFinal({
     rawPath,
     outPath: path.join(VIDEO_DIR, `${script.name}-${lang}.mp4`),
-    segs, captions, introPng, outroPng,
+    segs, captions, narration, introPng, outroPng,
     introDur, outroDur, xf, editedDur,
   });
 }
@@ -890,6 +916,71 @@ async function _makeCaptionPngs(cues, lang) {
   return out;
 }
 
+// Synthesise one narration clip per cue (Edge neural TTS via msedge-tts,
+// needs network). Returns [{ mp3, start, dur }] on the FINAL timeline, or
+// null on any failure — the render then proceeds without audio.
+async function _makeNarrationClips(cues, lang) {
+  const cfg = script.narration;
+  const voice = cfg.voices && cfg.voices[lang];
+  if (!voice) { console.warn(`  ⚠ narration: no voice for "${lang}" — rendering without voice`); return null; }
+  let MsEdgeTTS, OUTPUT_FORMAT;
+  try {
+    ({ MsEdgeTTS, OUTPUT_FORMAT } = require('msedge-tts'));
+  } catch (_) {
+    console.warn('  ⚠ narration: msedge-tts not installed (npm i -D msedge-tts) — rendering without voice');
+    return null;
+  }
+  // toFile always writes "<dir>/audio.mp3" — synth into a scratch dir, then
+  // move each clip to its per-cue name.
+  const scratch = fs.mkdtempSync(path.join(require('os').tmpdir(), 'qg-tts-'));
+  const prosody = {};
+  if (cfg.rate)   prosody.rate   = cfg.rate;
+  if (cfg.pitch)  prosody.pitch  = cfg.pitch;
+  const out = [];
+  try {
+    const tts = new MsEdgeTTS();
+    await tts.setMetadata(voice, OUTPUT_FORMAT.AUDIO_24KHZ_96KBITRATE_MONO_MP3);
+    for (let i = 0; i < cues.length; i++) {
+      const text = cues[i].text.replace(/<[^>]+>/g, '');
+      const { audioFilePath } = await tts.toFile(scratch, text, prosody);
+      const mp3 = path.join(VIDEO_DIR, `${script.name}-nar-${lang}-${String(i).padStart(2, '0')}.mp3`);
+      fs.copyFileSync(audioFilePath, mp3);
+      const dur = await _probeDurationSec(mp3);
+      out.push({ mp3, start: cues[i].start, dur: dur || 0 });
+    }
+    tts.close();
+  } catch (e) {
+    console.warn(`  ⚠ narration synthesis failed (${e.message}) — rendering without voice`);
+    return null;
+  } finally {
+    fs.rmSync(scratch, { recursive: true, force: true });
+  }
+
+  // Placement pass: some languages speak longer than the cue window (Arabic
+  // runs ~15% past English pacing). Fit each overflowing clip by speeding it
+  // up — pitch-preserving atempo, capped at maxTempo so it never sounds
+  // rushed — and never start a clip while the previous one is still playing.
+  // Residual lag (voice starting after its caption) is reported; fix it for
+  // real by lengthening that scene's holds in the script.
+  const maxTempo = cfg.maxTempo || 1.15;
+  const GAP = 0.2;
+  let prevEnd = 0;
+  for (let i = 0; i < out.length; i++) {
+    const n = out[i];
+    const next = out[i + 1];
+    n.playStart = Math.max(n.start, prevEnd + (i ? GAP : 0));
+    const avail = next ? Math.max(0.5, next.start - n.playStart - GAP) : Infinity;
+    n.tempo = n.dur > avail ? Math.min(n.dur / avail, maxTempo) : 1;
+    prevEnd = n.playStart + n.dur / n.tempo;
+    const lag = n.playStart - n.start;
+    const parts = [];
+    if (n.tempo > 1.001) parts.push(`tempo ×${n.tempo.toFixed(2)}`);
+    if (lag > 0.5) parts.push(`starts ${lag.toFixed(1)}s after its caption`);
+    if (parts.length) console.warn(`  ⚠ narration ${i}: ${parts.join(', ')} — consider longer holds in that scene`);
+  }
+  return out;
+}
+
 // Build zoompan z/x/y expressions from keyframes [{t, z, cx, cy}] (segment-
 // local seconds; cx/cy are frame-fraction centers). Between keyframes the
 // values ease with smoothstep; after the last keyframe they hold.
@@ -915,10 +1006,12 @@ function _zoomExprs(kfs) {
 // Final render in one FFmpeg pass:
 //   intro card ⟶ xfade ⟶ [per-segment trim + animated zoom] concat,
 //   light color grade, xfade ⟶ outro card, caption-pill overlays (timed,
-//   alpha-faded), fade to black.
+//   alpha-faded), fade to black. Narration clips (if any) are delayed to
+//   their cue starts and mixed over a silent base track of the full length.
 // Zoomed segments are 2× supersampled before zoompan to avoid zoom jitter.
-// captions: [{ png, start, end }] on the FINAL timeline (intro included).
-function _renderFinal({ rawPath, outPath, segs, captions, introPng, outroPng, introDur, outroDur, xf, editedDur }) {
+// captions: [{ png, start, end }], narration: [{ mp3, start }] | null —
+// both on the FINAL timeline (intro included).
+function _renderFinal({ rawPath, outPath, segs, captions, narration, introPng, outroPng, introDur, outroDur, xf, editedDur }) {
   const { execFile } = require('child_process');
   const parts = [];
 
@@ -962,13 +1055,31 @@ function _renderFinal({ rawPath, outPath, segs, captions, introPng, outroPng, in
   });
   graphParts.push(`[${cur}]fade=t=out:st=${Math.max(0, total - 0.7).toFixed(2)}:d=0.7,format=yuv420p[v]`);
 
+  // Narration: silent base track of the full duration, each clip delayed to
+  // its cue start, mixed without normalization (clips rarely overlap).
+  const audioMaps = [];
+  if (narration && narration.length) {
+    const base = 3 + captions.length; // first narration input index
+    const vol = script.narration.volume ? `,volume=${script.narration.volume}` : '';
+    graphParts.push(`anullsrc=channel_layout=mono:sample_rate=24000,atrim=duration=${total.toFixed(3)}[abase]`);
+    narration.forEach((n, i) => {
+      const tempo = n.tempo > 1.001 ? `atempo=${n.tempo.toFixed(3)},` : '';
+      graphParts.push(`[${base + i}:a]${tempo}adelay=${Math.round((n.playStart ?? n.start) * 1000)}:all=1${vol}[na${i}]`);
+    });
+    graphParts.push(
+      `[abase]${narration.map((_, i) => `[na${i}]`).join('')}` +
+      `amix=inputs=${narration.length + 1}:duration=first:normalize=0[aout]`);
+    audioMaps.push('-map', '[aout]', '-c:a', 'aac', '-b:a', '128k');
+  }
+
   const ffArgs = [
     '-i', rawPath,
     '-loop', '1', '-framerate', '30', '-t', String(introDur), '-i', introPng,
     '-loop', '1', '-framerate', '30', '-t', String(outroDur), '-i', outroPng,
     ...captions.flatMap(c => ['-loop', '1', '-framerate', '30', '-t', String(Math.ceil(total)), '-i', c.png]),
+    ...(narration && narration.length ? narration.flatMap(n => ['-i', n.mp3]) : []),
     '-filter_complex', graphParts.join(';'),
-    '-map', '[v]',
+    '-map', '[v]', ...audioMaps,
     '-c:v', 'libx264', '-preset', 'slow', '-crf', '18',
     '-r', '30',
     '-movflags', '+faststart',
@@ -1009,9 +1120,15 @@ function _findFfmpeg() {
     let failed = false;
     for (const l of script.languages) {
       const { errors, steps, scenes } = validateScript(script.scenes({ lang: l }), script.copy);
+      if (script.narration && script.narration.enabled && !(script.narration.voices && script.narration.voices[l])) {
+        errors.push(`narration enabled but no voice for "${l}"`);
+      }
       console.log(`[${l}] ${scenes} scenes, ${steps} steps — ${errors.length ? errors.length + ' error(s)' : 'OK'}`);
       for (const e of errors) console.log(`  ✗ ${e}`);
       if (errors.length) failed = true;
+    }
+    if (script.narration && script.narration.enabled) {
+      console.log(`narration: enabled (${Object.entries(script.narration.voices || {}).map(([l, v]) => `${l}: ${v}`).join(', ')})`);
     }
     process.exit(failed ? 1 : 0);
   }

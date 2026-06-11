@@ -22,6 +22,12 @@
  *               before any extension surface renders
  *   cleanupPrefs  merged into prefs.v1 after recording (restore state)
  *   timing      { introDur, outroDur, xf } — card durations + crossfade (s)
+ *   narration   { enabled, voices: {lang: edgeVoice}, rate?, pitch?, volume?,
+ *               maxTempo? } — optional narrator: each cue's text (HTML
+ *               stripped) is spoken by an Edge neural voice, mixed in at the
+ *               cue's start. Clips that outlast their cue window are sped up
+ *               (≤ maxTempo, default 1.15, pitch-preserved) and never overlap
+ *               (needs network; --narrate / --no-narrate override enabled)
  *   copy        per-language strings; cue steps reference these by key
  *   scenes      ({ lang }) → [ { scene: 'name', steps: [step…] } ]
  *   cards       (lang) → { introHtml, outroHtml, viewport } rendered headless
@@ -140,6 +146,13 @@ module.exports = {
   // Final-timeline card durations and crossfade, seconds.
   timing: { introDur: 2.8, outroDur: 3.6, xf: 0.5 },
 
+  // Narrator: each cue line is spoken at its on-screen start. Edge neural
+  // voices (other options: en-US-GuyNeural, ar-SA-HamedNeural, ar-EG-SalmaNeural).
+  narration: {
+    enabled: true,
+    voices: { en: 'en-US-AndrewNeural', ar: 'ar-EG-ShakirNeural' },
+  },
+
   copy: COPY,
 
   // ── Scenes ──────────────────────────────────────────────────────────────────
@@ -147,6 +160,11 @@ module.exports = {
     // The popup's primary "Scan page" button mirrors with UI direction:
     // right side in RTL (Arabic), left side in LTR (English).
     const SCAN_BTN = lang === 'ar' ? { x: 1017, y: 191 } : { x: 899, y: 191 };
+
+    // Arabic narration speaks ~15% slower than English over the same copy —
+    // P(base, arExtra) widens specific holds so each spoken line fits its cue
+    // window (record.js warns per clip when pacing gets tight again).
+    const P = (base, arExtra) => lang === 'ar' ? base + arExtra : base;
 
     return [
 
@@ -156,7 +174,7 @@ module.exports = {
         { do: 'zoom', z: 1.06, cx: 0.5, cy: 0.45, dur: 4.0 }, // subtle cinematic drift
         { do: 'mouse', x: 640, y: 320 },
         { do: 'scrollBy', top: 500 },
-        { do: 'wait', ms: 4300 },
+        { do: 'wait', ms: P(4300, 1200) },
       ] },
 
       // ── Scene 2 (~7s): popup opens, camera punches in, real Scan click ────
@@ -206,7 +224,7 @@ module.exports = {
       // ── Scene 4 (~5s): color verdicts, spotlight a non-green finding ──────
       { scene: 'colors', steps: [
         { do: 'cue', text: 'colors' },
-        { do: 'spotlight', target: '.quran-yellow', pad: 8, scrollIntoView: true, settleMs: 400, holdMs: 2900 },
+        { do: 'spotlight', target: '.quran-yellow', pad: 8, scrollIntoView: true, settleMs: 400, holdMs: P(2900, 600) },
         { do: 'wait', ms: 500 },
       ] },
 
@@ -220,12 +238,12 @@ module.exports = {
           { do: 'wait', ms: 600 },
         ] },
         { do: 'cue', text: 'red' },
-        { do: 'spotlight', target: '.quran-red', pad: 8, holdMs: 2500 },
+        { do: 'spotlight', target: '.quran-red', pad: 8, holdMs: P(2500, 900) },
         { do: 'rippleClick', target: '.quran-red' }, // opens the panel detail card
         { do: 'wait', ms: 600 },
         { do: 'cue', text: 'tap' },
         { do: 'zoom', z: 1.28, cx: 0.16, cy: 0.55, dur: 0.7 }, // punch in on the panel detail card
-        { do: 'wait', ms: 2600 },
+        { do: 'wait', ms: P(2600, 400) },
         // Accept the red suggestion while still zoomed on the panel.
         { do: 'rippleClick', name: 'red: accepted suggestion', scrollIntoView: true, preMs: 350,
           target: { row: '.quran-ext-panel-row-red', label: /اعتماد|قبول|تصحيح|accept|correct|fix/i } },
@@ -233,7 +251,7 @@ module.exports = {
         { do: 'zoom', z: 1.0, cx: 0.5, cy: 0.5, dur: 0.6 },
         { do: 'wait', ms: 700 },
         { do: 'cue', text: 'redFixed' },
-        { do: 'spotlight', target: '.quran-lightgreen', pad: 8, scrollIntoView: true, settleMs: 400, holdMs: 2600 },
+        { do: 'spotlight', target: '.quran-lightgreen', pad: 8, scrollIntoView: true, settleMs: 400, holdMs: P(2600, 2000) },
       ] },
 
       // ── Scene 6 (~11s): ORANGE — jump from the panel, see it, fix it ──────
@@ -281,7 +299,7 @@ module.exports = {
         { do: 'wait', ms: 1500 },  // scope menu clearly visible
         { do: 'cue', text: 'tab' },
         { do: 'press', key: 'Tab' },
-        { do: 'wait', ms: 2400 },
+        { do: 'wait', ms: P(2400, 1200) },
         { do: 'zoom', z: 1.0, cx: 0.5, cy: 0.5, dur: 0.6 },
         { do: 'wait', ms: 700 },
       ] },
