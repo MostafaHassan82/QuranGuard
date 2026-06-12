@@ -35,9 +35,13 @@ const BACKGROUND_DEPS = [
 ];
 // Compose bundle is loaded only once the modules exist (forward-compatible).
 // js/render/fonts.js precedes the compose modules in the real manifest; include
-// it so render-editable.js can resolve the Quran font family (FR-018).
+// it so render-editable.js can resolve the Quran font family (FR-018). The
+// tooltip/decoration/ref-marker modules likewise precede compose in the
+// manifest and are required for US4 verdict markup (render-editable.js bails
+// to plain-text insert when QuranDecoration is undefined).
 const COMPOSE_BUNDLE = [
   'js/render/fonts.js',
+  'js/render/tooltip.js', 'js/render/decoration.js', 'js/render/ref-marker.js',
   'js/compose/editable.js', 'js/compose/detect.js', 'js/compose/match.js',
   'js/compose/dropdown.js', 'js/compose/insert.js', 'js/compose/render-editable.js',
   'js/compose/index.js',

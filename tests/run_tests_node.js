@@ -80,12 +80,17 @@ const BACKGROUND_DEPS = [
 ];
 const CONTENT_BUNDLE = [
   'js/shared/i18n.js',
+  'js/themes/registry.js',
   'js/panel/model.js',
   'js/panel/actions.js',
   'js/panel/keyboard.js',
   'js/panel/sidebar-surface.js',
   'js/render/fonts.js',
+  'js/render/tooltip.js',
+  'js/render/decoration.js',
+  'js/render/ref-marker.js',
   'js/render/swap.js',
+  'js/context-atom.js',
   'js/content.js',
 ];
 

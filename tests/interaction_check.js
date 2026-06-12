@@ -42,8 +42,10 @@ const BACKGROUND_DEPS = [
   'js/verifier/orange.js', 'js/storage/prefs.js', 'js/storage/persisted.js', 'js/badge/badge.js',
 ];
 const CONTENT_BUNDLE = [
-  'js/shared/i18n.js', 'js/panel/model.js', 'js/panel/actions.js', 'js/panel/keyboard.js',
-  'js/panel/sidebar-surface.js', 'js/render/fonts.js', 'js/render/swap.js', 'js/content.js',
+  'js/shared/i18n.js', 'js/themes/registry.js', 'js/panel/model.js', 'js/panel/actions.js',
+  'js/panel/keyboard.js', 'js/panel/sidebar-surface.js', 'js/render/fonts.js',
+  'js/render/tooltip.js', 'js/render/decoration.js', 'js/render/ref-marker.js',
+  'js/render/swap.js', 'js/context-atom.js', 'js/content.js',
 ];
 
 // MV3 chrome mock — mirrors run_tests_node.js chromeMockSource() (kept in sync
