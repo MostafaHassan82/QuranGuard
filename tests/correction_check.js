@@ -220,6 +220,38 @@ async function inPageTests() {
     }
   }
 
+  // ── P1b-omit: mid-phrase omission keeps the correct cited words ─────────────
+  // Drop TWO interior words (في آذانهم) from an 8-word authentic excerpt of
+  // البقرة:19 ("يجعلون أصابعهم في آذانهم من الصواعق حذر الموت") → red (2 diffs
+  // exceed the yellow budget). Regression for the bestAlignWindow tie-break:
+  // the old length-gap-only rule tied at d=2 between the full 8-word window
+  // (every cited word keeps + 2 missing) and a shifted 6-word window that
+  // "aligns" by substituting the correct leading words يجعلون أصابعهم → في
+  // آذانهم — so the suggested excerpt DROPPED the words the user got right.
+  // Keeps-first tie-breaking must pick the full window: the excerpt restores
+  // the omitted words and retains the correct ones.
+  {
+    const a19 = await send({ type: 'getAyahText', surahNum: 2, ayahNum: 19 });
+    T('P1b-omit getAyahText(2,19) returns text', a19 && a19.text, JSON.stringify(a19));
+    if (a19 && a19.text) {
+      const disp = a19.text.split(/\s+/).filter(w => t1(w)); // display words, waqf-glyph tokens dropped
+      const start = disp.findIndex(w => t1(w) === t1('يجعلون'));
+      T('P1b-omit found the يجعلون excerpt in البقرة:19', start >= 0 && start + 8 <= disp.length, 'start=' + start);
+      if (start >= 0) {
+        const excerpt8 = disp.slice(start, start + 8);              // يجعلون … الموت
+        const cited = excerpt8.slice(0, 2).concat(excerpt8.slice(4)); // drop في آذانهم
+        const r = await send({ type: 'verifyFragmentByRef', text: cited.join(' '), ref: 'البقرة:19', candidateConfidence: 'high' });
+        T('P1b-omit two-word omission classifies red', r && r.color === 'red', JSON.stringify({ color: r && r.color }));
+        const t1join = (s) => String(s || '').split(/\s+/).map(t1).filter(Boolean).join(' ');
+        T('P1b-omit nearMatch suggests البقرة:19',
+          r && r.nearMatch && r.nearMatch.refLabel === 'البقرة:19', JSON.stringify(r && r.nearMatch && r.nearMatch.refLabel));
+        T('P1b-omit suggested excerpt is the FULL 8-word window (retains يجعلون أصابعهم)',
+          r && r.nearMatch && t1join(r.nearMatch.authenticExcerpt) === t1join(excerpt8.join(' ')),
+          JSON.stringify({ got: r && r.nearMatch && r.nearMatch.authenticExcerpt, want: excerpt8.join(' ') }));
+      }
+    }
+  }
+
   // ── P1c: red near-match recovers a copy-paste–doubled authentic phrase ──────
   // A whole-array duplication (the authentic phrase cited twice back-to-back) is
   // ~2× too long for every alignment window, so the fuzzy probe finds nothing.
