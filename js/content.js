@@ -8,6 +8,11 @@ const STATE = {
   scanId: null,
   findings: [],
   highlightedSpans: [],
+  // finding.id → the span element of that finding's latest mount. Lets the
+  // dedup in applyHighlight tell a virtualization re-mount (prior span
+  // disconnected) from a byte-identical sibling still on the page (prior span
+  // connected) without an O(page) DOM query per candidate.
+  spanByFindingId: new Map(),
   // Monotonic counter of successful wrap operations. The no-progress breaker
   // uses this to detect re-wraps on virtualized re-mounts (same finding id,
   // new span) as progress, even when finding count/colors are unchanged.
@@ -1017,16 +1022,22 @@ function applyHighlight(candidate, result, { hidden = false } = {}) {
     // (which hashes domPath in) differs even for the same logical message.
     // Match on sessionIdentity (T151) too — it hashes nearby DOM text +
     // occurrence index within the atom, so re-mounts collapse to one entry.
-    // Composite id covers the orthogonal axis (same content in different DOM
-    // siblings — e.g. cap_hit's 505 identical <p>s — must stay distinct).
-    // Both must distinguish for the row to be treated as new: composite-id
-    // alone is too coarse (two ayahs in one <p> share computeDomPath until we
-    // include text-node position) and sid alone is too coarse (505 identical
-    // bubbles share content + context). Fall back to composite id only when
-    // sessionIdentity isn't available (context-atom module failed to load).
+    //
+    // A sessionIdentity match alone cannot distinguish a re-mount from a
+    // byte-identical SIBLING (cap_hit's 505 identical <p>s, the same ayah
+    // forwarded twice as identical chat bubbles): both produce the same text,
+    // the same atom context, and occurrence index 0 in their own atoms. The
+    // discriminator is connectivity of the prior mount's span: a virtualized
+    // row is torn out of the DOM before its replacement mounts (prior span
+    // disconnected → same logical finding, dedup), while identical siblings
+    // are all simultaneously on the page (prior span connected → distinct
+    // finding). Falls back to composite id only when sessionIdentity isn't
+    // available (context-atom module failed to load).
     const existingIdx = STATE.findings.findIndex((f) => {
-      if (sessionIdentity && f.sessionIdentity === sessionIdentity) return true;
-      return f.id === findingId;
+      if (f.id === findingId) return true;
+      if (!sessionIdentity || f.sessionIdentity !== sessionIdentity) return false;
+      const prior = STATE.spanByFindingId.get(f.id);
+      return !(prior && prior.isConnected);
     });
     if (existingIdx !== -1) {
       // Preserve the original composite id so FR-024 persisted state
@@ -1049,8 +1060,10 @@ function applyHighlight(candidate, result, { hidden = false } = {}) {
         );
         if (refMarker) refMarker.dataset.findingId = preservedId;
       } catch (_) {}
+      STATE.spanByFindingId.set(preservedId, span);
     } else {
       STATE.findings.push(finding);
+      STATE.spanByFindingId.set(finding.id, span);
     }
     // T060 — authentic-text swap is DEFERRED to emitComplete (T058z). Running
     // applySwap here mutates page text mid-scan, which causes subsequent
@@ -1086,6 +1099,7 @@ function clearHighlights({ normalize = true } = {}) {
   if (normalize) document.body.normalize();
   STATE.highlightedSpans = [];
   STATE.findings = [];
+  STATE.spanByFindingId.clear();
   STATE.capHit = false;
   STATE.capLifted = false;
   STATS = makeEmptyStats();
