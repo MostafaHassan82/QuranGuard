@@ -1244,6 +1244,29 @@ const QuranPanelSidebar = (() => {
       rootEl.dataset.theme = (typeof QuranThemes !== 'undefined' ? QuranThemes.defaultId() : 'default');
     }
 
+    // Like the theme above, resolve everything that decides the panel's first
+    // paint — docking side (lang/panelPosition/float state), width, collapsed —
+    // BEFORE inserting into the DOM. The base CSS pins the panel at right:0, so
+    // awaiting these after appendChild painted a right-docked panel for a frame
+    // or two and then jumped it left for English/left-docked users.
+    await loadUi();
+
+    let prefs = {};
+    try {
+      const resp = await QuranMsg.sendRequest('PREFS_READ', {});
+      prefs = resp?.payload?.result || {};
+      activeFilter = prefs.panelFilter || { orange: true };
+      highlightStyle = prefs.highlightStyle || {};
+      refHighlightEnabled = prefs.refHighlight !== false;
+      refLinksEnabled = prefs.refLinks !== false;
+      uiLang = prefs.lang === 'en' ? 'en' : 'ar';
+      uiFont = prefs.font || 'uthmaniHafs';
+      panelPosition = prefs.panelPosition || 'auto';
+      floatAnchor = prefs.floatAnchor || 'auto';
+    } catch (_) { activeFilter = { orange: true }; }
+
+    setLangDom(prefs.lang); // localize static markup + set dir/lang on the panel
+
     // Defensive sweep: drop any stray panel/tab nodes left over from an earlier
     // orphaned mount (e.g. if the host page tore the DOM down and back up
     // without our unmount running).
@@ -1263,30 +1286,16 @@ const QuranPanelSidebar = (() => {
     // Cheap: it only calls render() when the set of connected ids changed.
     startVisibilityTick();
 
-    await loadUi();
-
-    let prefs = {};
-    try {
-      const resp = await QuranMsg.sendRequest('PREFS_READ', {});
-      prefs = resp?.payload?.result || {};
-      activeFilter = prefs.panelFilter || { orange: true };
-      highlightStyle = prefs.highlightStyle || {};
-      refHighlightEnabled = prefs.refHighlight !== false;
-      refLinksEnabled = prefs.refLinks !== false;
-      uiLang = prefs.lang === 'en' ? 'en' : 'ar';
-      uiFont = prefs.font || 'uthmaniHafs';
-      panelPosition = prefs.panelPosition || 'auto';
-      floatAnchor = prefs.floatAnchor || 'auto';
-    } catch (_) { activeFilter = { orange: true }; }
-
-    setLangDom(prefs.lang); // localize static markup + set dir/lang on the panel
     syncChips();
     wireEvents();
     syncSwapControls(prefs);
     applySummaryCollapsed(); // restore saved summary collapsed state + chevron
     applyResultsCollapsed(); // restore saved results collapsed state + chevron
     render();
-    applyLayout(); // restore saved width / collapsed state
+    // Everything from appendChild to here is synchronous, so the browser never
+    // paints the CSS-default (right-docked) position — the first visible frame
+    // already has the resolved side, width, and collapsed state.
+    applyLayout();
 
     // Page-level shortcut: Alt+Shift+Q from anywhere on the host page toggles
     // the panel. When collapsed it expands and pulls focus into the first row
